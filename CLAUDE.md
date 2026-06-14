@@ -28,6 +28,7 @@ Planilhador/
 5. Arquivos completos, nunca diffs parciais.
 6. Uma mudança por vez. Propor → aguardar confirmação → executar.
 7. Atualizar `STATUS.md` ao fim de cada mudança aplicada.
+8. **Commit e push sempre juntos.** Após cada mudança aprovada: `git add` → `git commit` → `git push`. Deploy automático via Railway. Nunca deixar commit sem push.
 
 ---
 
@@ -83,4 +84,4 @@ Planilhador/
 ---
 
 VERSÃO: 2026
-ATUALIZADO: 2026-06-13 (sessão 7)
+ATUALIZADO: 2026-06-14 (sessão 13)
