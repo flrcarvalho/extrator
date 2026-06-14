@@ -83,6 +83,14 @@ Os 6 MASTER_*.md estão em `/global/` (reorganização concluída em 12/06/2026)
   - `.gitignore` criado na raiz do Planilhador — exclui Backups/, .env, __pycache__, .venv.
   - Git inicializado e projeto enviado para GitHub (repo privado `fdc-capital-planilhador`).
   - Backup: `Planilhador/Backups/STATUS_pre_fase1_2026-06-14.md`.
+- **Fase 2 construída em 14/06/2026 (sessão 11):** PostgreSQL no Railway + camada de persistência:
+  - `app/database.py` — pool asyncpg, schema SQL (`bilhetes` com estados duplos), `init_db()` no lifespan do FastAPI.
+  - `app/repository.py` — `parse_tsv()`, `upsert_bilhetes()` (dedup por assinatura SHA-256), `list_bilhetes()`, `marcar_copiada()`.
+  - `app/main.py` — 3 novas rotas: `POST /salvar`, `GET /bilhetes`, `POST /bilhetes/copiar`.
+  - `app/requirements.txt` — adicionado `asyncpg>=0.30.0`.
+  - `Dockerfile` + `railway.toml` corrigidos para build e startup corretos.
+  - URL pública: `https://extrator-production.up.railway.app/`
+  - Todos os 4 endpoints testados e validados em produção.
 
 ---
 
@@ -100,15 +108,18 @@ Os 6 MASTER_*.md estão em `/global/` (reorganização concluída em 12/06/2026)
 
 ## 6. Próxima sessão
 
-**Fase 1 concluída.** Para rodar localmente:
+**Fases 1 e 2 concluídas.** App em produção: `https://extrator-production.up.railway.app/`
+
+Para rodar localmente:
 ```
 cd app
 pip install -r requirements.txt
-set ANTHROPIC_API_KEY=sk-ant-...
+# .env na raiz do Planilhador com ANTHROPIC_API_KEY e DATABASE_URL
 uvicorn main:app --reload
 # Abrir http://localhost:8000
 ```
-**Próximas etapas:** Fase 2 (PostgreSQL + estados) ou pendências de bilhete real (Bet365 §6/§7, Betano §5/§6, Pinnacle §5 HW/HL).
+
+**Próximas etapas:** Fase 3 (Scanner UI — grade editável, copiar pendentes, arquivar) ou pendências de bilhete real.
 
 **Pendências que aguardam bilhete real (amostra do usuário):**
 - **Bet365:** §6 rótulo visual do boost · §7 rótulo visual do cashout encerrado
