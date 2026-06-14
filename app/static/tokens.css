@@ -58,6 +58,9 @@
   --shadow-card: 0 40px 90px -40px rgba(0, 0, 0, 0.7);
   --glow: 0 0 0 1px rgba(46, 139, 255, 0.35), 0 8px 40px -12px rgba(46, 139, 255, 0.45);
 
+  /* ---- Grid de fundo ---- */
+  --grid: rgba(255,255,255,0.05);
+
   /* ---- Motion ---- */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -91,6 +94,7 @@
   --accent:    #1E7CF0;
   --accent-2:  #2E8BFF;
   --field:     #FFFFFF;
+  --grid:      rgba(0,0,0,0.06);
   --glow: 0 0 0 1px rgba(30,124,240,0.30), 0 10px 36px -14px rgba(30,124,240,0.40);
 }
 
