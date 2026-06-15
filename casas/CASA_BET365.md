@@ -29,6 +29,8 @@
 - Jersey icon visível = esporte de equipe (Futebol, Basquete…)
 - Sem jersey icon, nomes de pessoa = esporte individual (Tênis, Dardos…)
 
+> **Nota §12:** o jersey icon é ruído para extração de dados (mercado, seleção, odd), mas **não é ruído para classificação de esporte**. Leia a presença/ausência do ícone para determinar o esporte; ignore o ícone ao montar a Descrição. São usos distintos da mesma informação visual.
+
 Anatomia de um bilhete:
 
 1. **Cabeçalho verde (sup. esq.):** `R$<stake> <Tipo>` (em sistema: `N x R$<stake-por-linha> <Tipo>`). Marca o início do bilhete **e** define a estrutura: `Simples` · `Dupla` · `Tripla` · `Triplas` · `Múltiplas` · `Criar Aposta` · `3 x Duplas` · `Trixie` · `Yankee`… O Tipo determina a categoria `Aposta` (Simples → categoria do mercado; o resto → `Múltipla`) e, em sistema, **qual fórmula de odd** usar (`MASTER_RESULTADO_2026 §7`).

@@ -376,6 +376,8 @@ Utilizar os nomes abaixo como apoio de desambiguação em mercados ML/H2H. A lis
 - Lorenzo Sonego
 - Nicolas Kicker
 - Dmitry Popko
+- Aleksandar Vukic
+- Harry Wendelken
 
 **WTA:**
 - Aryna Sabalenka
