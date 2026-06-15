@@ -756,8 +756,18 @@ document.addEventListener('paste', e => {
   if (imgs.length) { adicionarArquivos(imgs); e.preventDefault(); }
 });
 
+const IMG_MAX = 15;
 function adicionarArquivos(novos) {
-  arquivos = [...arquivos, ...novos.filter(f => f.type.startsWith('image/'))];
+  const imgs = novos.filter(f => f.type.startsWith('image/'));
+  const disponivel = IMG_MAX - arquivos.length;
+  if (disponivel <= 0) {
+    setStatus(`Limite de ${IMG_MAX} imagens atingido. Use "Limpar" para começar novo lote.`, 'warn');
+    return;
+  }
+  const aceitos = imgs.slice(0, disponivel);
+  if (imgs.length > aceitos.length)
+    setStatus(`Limite de ${IMG_MAX} imagens: ${imgs.length - aceitos.length} ignorada(s).`, 'warn');
+  arquivos = [...arquivos, ...aceitos];
   renderPreviews(); atualizarBotaoExtrair();
 }
 function renderPreviews() {
@@ -779,10 +789,12 @@ function renderPreviews() {
     wrap.appendChild(img); wrap.appendChild(btn);
     p.appendChild(wrap);
   });
-  document.getElementById('btn-limpar-imgs').style.display = arquivos.length > 1 ? '' : 'none';
+  document.getElementById('btn-limpar-imgs').style.display = arquivos.length > 0 ? '' : 'none';
   const cnt = document.getElementById('img-count');
   if (arquivos.length > 0) {
-    cnt.textContent = `${arquivos.length} imagem${arquivos.length > 1 ? 'ns' : ''}`;
+    const n = arquivos.length;
+    cnt.textContent = `${n}/${IMG_MAX} imagens`;
+    cnt.style.color = n >= IMG_MAX ? 'var(--neg,#e53935)' : n >= IMG_MAX - 3 ? 'var(--warn,#f5a623)' : '';
     cnt.style.display = '';
   } else {
     cnt.style.display = 'none';
