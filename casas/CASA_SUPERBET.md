@@ -126,6 +126,7 @@ Códigos válidos e regra de odd por código: `MASTER_RESULTADO_2026`.
 | Total de strikeouts do arremessador (MLB) | Player Props |
 | Total de Impedimentos | Impedimentos |
 | Empate ou 2 / Dupla Chance | Dupla Chance |
+| Tiros de Meta / Total de Tiros de Meta | Team Props |
 
 Notas:
 - **Padrão geral `Handicap - [Estatística]`:** a categoria registra o objeto apostado (MASTER_APOSTAS §1), não o tipo de mercado. `Handicap - Finalizações` → `Chutes`; `Handicap - Escanteios` → `Escanteios`; `Handicap - Cartões` → `Cartões`. A linha de handicap fica na Descrição (ex.: `Catar (+10.5) Chutes [Catar v Suíça]`).

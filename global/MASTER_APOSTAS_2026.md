@@ -323,6 +323,8 @@ Sinônimos:
 - Team Totals
 - Total do time
 - Especial do time
+- Tiros de Meta
+- Total de Tiros de Meta
 
 ---
 
@@ -595,6 +597,23 @@ Classificar como:
 ```text
 Impedimentos
 ```
+
+---
+
+### Tiros de Meta
+
+Classificar como:
+
+```text
+Team Props
+```
+
+Não confundir com:
+- `Chutes no Gol` (finalizações no alvo / SOT)
+- `Chutes` (total de finalizações)
+
+Tiro de Meta = bola sai pela linha de fundo após toque do atacante; o goleiro reinicia o jogo.
+É uma estatística de pressão/posse, não de finalização.
 
 ---
 
