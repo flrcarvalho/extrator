@@ -138,6 +138,11 @@ Sinônimos:
 - Cartão
 - Cartões totais
 - Mais cartões
+- Para o Jogador Receber Cartão
+- Para Receber Cartão
+- Cartão Amarelo para Jogador
+
+**Mercados para jogador específico:** mesmo que o mercado envolva um jogador individual (ex: "Nico Williams — Para o Jogador Receber Cartão"), a categoria é `Cartões`, NUNCA `Player Props`. O objeto apostado é o cartão, não uma estatística pessoal do jogador. Princípio §1: categoria = objeto apostado.
 
 ---
 
@@ -388,6 +393,11 @@ H2H não deve ser confundido com:
 Utilizar apenas quando:
 - não existir categoria mais específica
 - o mercado for estatístico individual
+
+**NÃO usar `Player Props` quando o objeto apostado tiver categoria própria**, mesmo que o mercado envolva um jogador específico:
+- Jogador receber cartão → `Cartões`
+- Jogador marcar a qualquer momento → `Anytime`
+- Jogador dar assistência → `Assistência`
 
 ---
 
