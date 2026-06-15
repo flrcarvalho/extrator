@@ -21,36 +21,70 @@ def parse_tsv(tsv: str) -> list[dict]:
             continue
         row = dict(zip(_COLS, parts[:10]))
         # Ignora linha de cabeçalho se presente
-        if row["data"].lower() in ("data", "date"):
+        if row["data"].lower() in ("data", "date", "código"):
             continue
+        # 11ª coluna: código do bilhete (opcional)
+        codigo = parts[10].strip() if len(parts) > 10 else ""
+        if codigo:
+            row["codigo_bilhete"] = codigo
         rows.append(row)
     return rows
 
 
 def _assinatura(row: dict) -> str:
-    raw = "|".join([
-        row.get("casa", ""), row.get("parceiro", ""),
-        row.get("data", ""), row.get("aposta", ""), row.get("descricao", ""),
-        row.get("odd", ""),
-    ])
+    codigo = row.get("codigo_bilhete", "").strip()
+    if codigo:
+        # ID único do bilhete disponível: usa como chave primária de dedup
+        raw = "|".join(["ID", row.get("casa", ""), row.get("parceiro", ""), codigo])
+    else:
+        # Sem ID: usa conteúdo completo (casa + parceiro + data + aposta + descricao + odd)
+        raw = "|".join([
+            row.get("casa", ""), row.get("parceiro", ""),
+            row.get("data", ""), row.get("aposta", ""), row.get("descricao", ""),
+            row.get("odd", ""),
+        ])
     return hashlib.sha256(raw.encode()).hexdigest()[:20]
 
 
-async def upsert_bilhetes(rows: list[dict], confianca: float | None = None) -> tuple[int, list[int]]:
+async def upsert_bilhetes(
+    rows: list[dict], confianca: float | None = None
+) -> tuple[int, list[int], list[str]]:
     pool = await get_pool()
     ids: list[int] = []
+    alertas: list[str] = []
+    # Rastreia hashes sem ID no lote atual para detectar sobreposição de prints
+    seen_no_id: dict[str, int] = {}  # hash → índice da primeira ocorrência
+
     async with pool.acquire() as conn:
-        for row in rows:
+        for i, row in enumerate(rows):
+            codigo = row.get("codigo_bilhete", "").strip()
             sig = _assinatura(row)
+
+            # Detecção de sobreposição de prints (apenas quando não há ID)
+            if not codigo:
+                content_key = "|".join([
+                    row.get("casa", ""), row.get("parceiro", ""),
+                    row.get("data", ""), row.get("descricao", ""), row.get("odd", ""),
+                ])
+                ck_hash = hashlib.sha256(content_key.encode()).hexdigest()[:16]
+                if ck_hash in seen_no_id:
+                    primeiro = seen_no_id[ck_hash] + 1
+                    alertas.append(
+                        f"Bilhete {i + 1} idêntico ao bilhete {primeiro} (sem ID visível) — "
+                        "possível sobreposição de prints. Verifique e delete o duplicado se necessário."
+                    )
+                else:
+                    seen_no_id[ck_hash] = i
+
             resultado = row.get("resultado", "").strip() or None
             extraction_state = "resolvida" if resultado in _RESULTADOS_VALIDOS else "aberta"
             rec = await conn.fetchrow(
                 """
                 INSERT INTO bilhetes
-                    (casa, parceiro, assinatura, data, esporte, tipster,
+                    (casa, parceiro, assinatura, codigo_bilhete, data, esporte, tipster,
                      aposta, descricao, stake, odd, resultado,
                      extraction_state, confianca)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
                 ON CONFLICT (casa, parceiro, assinatura) DO UPDATE SET
                     tipster          = EXCLUDED.tipster,
                     resultado        = EXCLUDED.resultado,
@@ -59,6 +93,7 @@ async def upsert_bilhetes(rows: list[dict], confianca: float | None = None) -> t
                 RETURNING id
                 """,
                 row.get("casa", ""), row.get("parceiro", ""), sig,
+                codigo or None,
                 row.get("data"), row.get("esporte"), row.get("tipster"),
                 row.get("aposta"), row.get("descricao"),
                 row.get("stake"), row.get("odd"), resultado,
@@ -66,7 +101,7 @@ async def upsert_bilhetes(rows: list[dict], confianca: float | None = None) -> t
             )
             if rec:
                 ids.append(rec["id"])
-    return len(ids), ids
+    return len(ids), ids, alertas
 
 
 async def deletar_bilhetes(ids: list[int]) -> int:

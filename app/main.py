@@ -49,9 +49,13 @@ _INSTRUCAO = (
     "  ou de qualquer texto da tela. Campo vazio = duas TABs consecutivas na coluna.\n\n"
     "Responda EXATAMENTE neste formato (sem variações de estrutura):\n\n"
     "```tsv\n"
-    "Data\tEsporte\tTipster\tCasa\tParceiro\tAposta\tDescrição\tStake\tOdd\tResultado\n"
+    "Data\tEsporte\tTipster\tCasa\tParceiro\tAposta\tDescrição\tStake\tOdd\tResultado\tCódigo\n"
     "[uma linha TSV por bilhete]\n"
     "```\n\n"
+    "Código (11ª coluna, SEMPRE presente): ID/código do bilhete visível no print "
+    "(ex: '891E-YJ4GFY', '8906-QKSRNC'). Se não houver ID visível, deixe a célula vazia "
+    "(TAB extra ao final da linha). NUNCA omita a coluna — mesmo que vazia, a linha deve "
+    "terminar com TAB após o Resultado.\n\n"
     "REGRAS INVIOLÁVEIS DA ODD (aplicar nesta ordem):\n"
     "1. W com PRÊMIO/retorno visível → Odd = PRÊMIO ÷ Stake. SEMPRE. "
     "   A odd exibida no bilhete (ex: ODDS TOTAIS da Superbet) é IGNORADA quando há PRÊMIO visível. "
@@ -174,8 +178,8 @@ async def salvar(body: SalvarRequest):
         if body.parceiro:
             row["parceiro"] = body.parceiro
         row["tipster"] = ""  # sempre vazio; vem da camada de app, não do bilhete
-    count, ids = await upsert_bilhetes(rows, confianca=body.confianca)
-    return {"salvos": count, "ids": ids}
+    count, ids, alertas = await upsert_bilhetes(rows, confianca=body.confianca)
+    return {"salvos": count, "ids": ids, "alertas": alertas}
 
 
 class DeletarRequest(BaseModel):

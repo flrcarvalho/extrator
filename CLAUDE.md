@@ -66,10 +66,29 @@ Planilhador/
 ## Convenções de output
 
 - Separador: **TAB real** (U+0009) — nunca espaços, ponto-e-vírgula ou pipe
-- 10 colunas exatas: `Data | Esporte | Tipster | Casa | Parceiro | Aposta | Descrição | Stake | Odd | Resultado`
+- **10 colunas para a planilha do usuário**: `Data | Esporte | Tipster | Casa | Parceiro | Aposta | Descrição | Stake | Odd | Resultado`
+- **11ª coluna interna** (`Código`): ID/código do bilhete visível no print — nunca vai para a planilha do usuário, só para o banco de dados. A AI sempre retorna essa coluna; se não houver ID visível, a célula fica vazia.
 - Decimal: **vírgula** (`2,35`) — nunca ponto
 - Resultado: apenas `W · L · V · HW · HL`
 - Odd sem limite de casas decimais (planilha usa a precisão completa)
+
+---
+
+## Regras de deduplicação (sistema)
+
+O sistema determina se dois bilhetes são iguais ou diferentes na seguinte ordem de prioridade:
+
+| Situação | Comportamento |
+|---|---|
+| **ID/código do bilhete disponível e igual** | Mesmo bilhete — UPSERT (atualiza resultado/estado) |
+| **ID/código do bilhete disponível e diferente** | Bilhetes distintos — sempre INSERT (mesmo conteúdo idêntico) |
+| **Sem ID, conteúdo diferente** (odd, descrição, etc.) | Bilhetes distintos — INSERT |
+| **Sem ID, conteúdo idêntico, mesmo lote** | Possível sobreposição de prints — salva uma vez + aviso amarelo ao usuário |
+| **Sem ID, conteúdo idêntico, lotes diferentes** | Re-processamento do mesmo bilhete — UPSERT silencioso |
+
+**Limitação:** Para casas onde o ID não é visível no print (ou a AI não consegue lê-lo), dois bilhetes 100% idênticos (mesmos jogos, odds, stake, casa) não têm como ser distinguidos. O sistema salva um e avisa. Use o botão de deletar e re-processe se necessário.
+
+**Onde está implementado:** `app/repository.py` — funções `_assinatura()` e `upsert_bilhetes()`.
 
 ---
 
@@ -84,4 +103,4 @@ Planilhador/
 ---
 
 VERSÃO: 2026
-ATUALIZADO: 2026-06-14 (sessão 13)
+ATUALIZADO: 2026-06-14 (sessão 15)

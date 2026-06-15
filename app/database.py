@@ -25,8 +25,12 @@ CREATE TABLE IF NOT EXISTS bilhetes (
     confianca        REAL,
     criado_em        TIMESTAMPTZ DEFAULT NOW(),
     atualizado_em    TIMESTAMPTZ DEFAULT NOW(),
+    codigo_bilhete   TEXT,
     UNIQUE (casa, parceiro, assinatura)
 );
+
+-- Migração segura: adiciona coluna se ainda não existir
+ALTER TABLE bilhetes ADD COLUMN IF NOT EXISTS codigo_bilhete TEXT;
 
 CREATE TABLE IF NOT EXISTS parceiros (
     id        SERIAL PRIMARY KEY,

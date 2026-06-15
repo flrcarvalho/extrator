@@ -198,8 +198,9 @@ body::before {
 .btn-danger { color: var(--neg); border-color: rgba(229,82,75,.25); }
 .btn-danger:hover { background: rgba(229,82,75,.08); border-color: var(--neg); }
 .status-msg { font-size: 12px; color: var(--ink-mute); font-family: var(--font-mono); }
-.status-msg.ok  { color: var(--pos); }
-.status-msg.err { color: var(--neg); }
+.status-msg.ok   { color: var(--pos); }
+.status-msg.err  { color: var(--neg); }
+.status-msg.warn { color: #f5a623; }
 .data-ref-label {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 11px; color: var(--ink-mute); cursor: default;
@@ -908,7 +909,22 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
       });
       const ds = await rs.json();
       ultimaAnaliseIds = ds.ids || [];
-      setStatus(`✓ ${modelLabel} · ${ds.salvos || 0} bilhete(s) salvo(s)`, 'ok');
+      let statusTxt = `✓ ${modelLabel} · ${ds.salvos || 0} bilhete(s) salvo(s)`;
+      if (ds.alertas && ds.alertas.length) {
+        statusTxt += ` · ⚠️ ${ds.alertas.length} alerta(s)`;
+        const boxNotas = document.getElementById('box-notas');
+        const notasEl = boxNotas ? boxNotas.querySelector('.analysis-body') : null;
+        if (notasEl) {
+          const aviso = document.createElement('div');
+          aviso.style.cssText = 'margin-top:8px;padding:6px 8px;background:rgba(255,180,0,.12);border-radius:4px;font-size:11px;color:var(--warn,#f5a623)';
+          aviso.innerHTML = '<strong>⚠️ Possíveis duplicatas detectadas:</strong><br>' +
+            ds.alertas.map(a => `• ${a}`).join('<br>');
+          notasEl.appendChild(aviso);
+          boxNotas.style.display = '';
+          document.getElementById('right-empty').style.display = 'none';
+        }
+      }
+      setStatus(statusTxt, ds.alertas && ds.alertas.length ? 'warn' : 'ok');
       await carregarGrade();
       atualizarBotoesGrade();
     } else {
