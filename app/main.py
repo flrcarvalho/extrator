@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -37,7 +37,7 @@ async def _unhandled(request: Request, exc: Exception):
     )
 
 
-_client = Anthropic()
+_client = AsyncAnthropic()
 
 # Nome de exibição canônico por casa (chave = uppercase do arquivo)
 _CASA_DISPLAY: dict[str, str] = {
@@ -161,7 +161,7 @@ async def extrair(
         "text": _INSTRUCAO.format(parceiro=parceiro or "(não informado)", data_referencia=ref),
     })
 
-    resp = _client.messages.create(
+    resp = await _client.messages.create(
         model=modelo,
         max_tokens=8192,
         system=build_system(casa_key),

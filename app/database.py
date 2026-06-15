@@ -59,7 +59,12 @@ async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
         url = os.environ["DATABASE_URL"].replace("postgres://", "postgresql://", 1)
-        _pool = await asyncpg.create_pool(url)
+        _pool = await asyncpg.create_pool(
+            url,
+            min_size=1,
+            max_size=5,
+            max_inactive_connection_lifetime=60,
+        )
     return _pool
 
 

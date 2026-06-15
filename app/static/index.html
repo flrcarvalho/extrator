@@ -885,7 +885,9 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
   if (!parceiroSelecionado) return;
   const btn = document.getElementById('btn-extrair');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-  setStatus('Processando…', '');
+  let _elapsed = 0;
+  const _timer = setInterval(() => { _elapsed++; setStatus(`Processando… (${_elapsed}s)`, ''); }, 1000);
+  setStatus('Processando… (0s)', '');
 
   const form = new FormData();
   form.append('casa', parceiroSelecionado.casa);
@@ -930,6 +932,7 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
         body: JSON.stringify({ tsv: parsed.tsv, casa: parceiroSelecionado.casa, parceiro: parceiroSelecionado.nome })
       });
       const ds = await rs.json();
+      if (!rs.ok) throw new Error(ds.detail || `Erro ao salvar bilhetes (HTTP ${rs.status})`);
       ultimaAnaliseIds = ds.ids || [];
       let statusTxt = `✓ ${modelLabel} · ${ds.salvos || 0} bilhete(s) salvo(s)`;
       if (ds.alertas && ds.alertas.length) {
@@ -950,12 +953,14 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
       await carregarGrade();
       atualizarBotoesGrade();
     } else {
-      setStatus(`✓ ${modelLabel}`, 'ok');
+      setStatus(`⚠️ ${modelLabel} — nenhum bilhete extraído. Veja Notas Críticas.`, 'warn');
     }
 
   } catch (e) {
-    setStatus('✗ ' + e.message, 'err');
+    clearInterval(_timer);
+    setStatus('✗ ' + (e.message || 'Erro desconhecido'), 'err');
   } finally {
+    clearInterval(_timer);
     btn.disabled = false; btn.textContent = 'Processar Bilhetes';
     atualizarBotaoExtrair();
   }
