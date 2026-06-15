@@ -56,6 +56,7 @@ def _casa_display(key: str) -> str:
 
 _INSTRUCAO = (
     "Extraia os bilhetes das imagens para TSV no padrão FDC Capital.\n"
+    "Casa analisada: {casa}\n"
     "Parceiro: {parceiro}\n"
     "Data de referência da captura: {data_referencia}\n"
     "  → Hoje = {data_referencia} · Ontem = dia anterior · Amanhã = dia seguinte\n"
@@ -63,22 +64,21 @@ _INSTRUCAO = (
     "Tipster: SEMPRE VAZIO. Campo vazio = TAB extra.\n\n"
     "LEITURA DAS IMAGENS — REGRAS OBRIGATÓRIAS:\n"
     "  1. Leia cada imagem INTEIRAMENTE, de cima até o final. Os campos financeiros\n"
-    "     (ODDS TOTAIS, APOSTA/stake, STATUS) aparecem APÓS as seleções — leia-os também.\n"
+    "     aparecem APÓS as seleções — leia-os também.\n"
     "     Não gere output de uma imagem antes de terminar de lê-la por completo.\n"
     "  2. Para cada imagem, extraia TODOS os bilhetes visíveis. Não pule nenhuma imagem.\n\n"
     "MÚLTIPLA — 1 bilhete = 1 linha no TSV:\n"
     "  • Aposta (col 6): 'Múltipla' — palavra-chave fixa, NUNCA o texto das seleções.\n"
     "  • Descrição (col 7): TODAS as N seleções concatenadas com ' // '.\n"
-    "  • Stake (col 8): valor apostado em R$ (na Superbet: rótulo 'APOSTA' do bilhete).\n"
-    "  • Odd (col 9): multiplicador (na Superbet: rótulo 'ODDS TOTAIS'). Ver regras abaixo.\n"
+    "  • Stake (col 8): valor apostado em R$ — consulte o arquivo da casa para o rótulo exato.\n"
+    "  • Odd (col 9): multiplicador — consulte o arquivo da casa para o rótulo exato.\n"
     "  • Esporte: mesmo esporte em todas → esse esporte; misto → 'Múltiplos'.\n\n"
     "ODD — REGRAS INVIOLÁVEIS (aplicar em ordem):\n"
-    "  1. W com PRÊMIO/retorno visível → Odd = PRÊMIO ÷ Stake.\n"
-    "     Boost/SUPERMÚLTIPLA: PRÊMIO já inclui boost; campo ODDS TOTAIS é ignorado.\n"
-    "     Ex: PRÊMIO 1.706,41; Stake 150 → 11,37606666666667 (não 10,88).\n"
-    "  2. L (perdido) → Odd = campo ODDS TOTAIS lido diretamente do bilhete.\n"
+    "  1. W com retorno/prêmio visível → Odd = Retorno ÷ Stake.\n"
+    "     Boost incluído no retorno: use o retorno final, ignore o campo de odd.\n"
+    "  2. L (perdido) → Odd = campo de odd lido diretamente do bilhete.\n"
     "     NUNCA calcule o produto das odds das seleções individuais.\n"
-    "  3. V (void/reembolso) → Odd = campo ODDS TOTAIS do bilhete.\n"
+    "  3. V (void/reembolso) → Odd = campo de odd do bilhete.\n"
     "  Precisão: exata, máximo 12 casas decimais, sem arredondamento.\n\n"
     "COLUNAS — NUNCA INVERTER:\n"
     "  Col 6 (Aposta)    = categoria CURTA ('Múltipla', 'ML', 'Gols'...) — NUNCA o texto das seleções\n"
@@ -95,10 +95,11 @@ _INSTRUCAO = (
     "## Confiança\n"
     "Para cada linha: `N. XX%` — motivo se < 100%\n\n"
     "## Notas Críticas\n"
-    "Alertas sobre campos ambíguos, dados faltantes ou decisões não óbvias.\n"
+    "Alertas sobre campos ambíguos, dados faltantes ou decisões não óbvias "
+    "observados NESTAS imagens de {casa}. Nunca mencione outras casas.\n"
     "Se nenhum, escreva: Nenhuma.\n\n"
     "## Recomendações\n"
-    "Sugestões para melhorar a qualidade da extração futura.\n"
+    "Sugestões específicas para {casa} com base no que foi visto nesta sessão.\n"
     "Se nenhuma, escreva: Nenhuma."
 )
 
@@ -160,7 +161,11 @@ async def extrair(
     ref = data_referencia or _date.today().strftime("%d/%m/%Y")
     content.append({
         "type": "text",
-        "text": _INSTRUCAO.format(parceiro=parceiro or "(não informado)", data_referencia=ref),
+        "text": _INSTRUCAO.format(
+            casa=_casa_display(casa_key),
+            parceiro=parceiro or "(não informado)",
+            data_referencia=ref,
+        ),
     })
 
     system = build_system(casa_key)
