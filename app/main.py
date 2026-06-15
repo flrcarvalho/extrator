@@ -1,11 +1,12 @@
 import base64
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
 from anthropic import AsyncAnthropic
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -161,26 +162,29 @@ async def extrair(
         "text": _INSTRUCAO.format(parceiro=parceiro or "(não informado)", data_referencia=ref),
     })
 
-    resp = await _client.messages.create(
-        model=modelo,
-        max_tokens=8192,
-        system=build_system(casa_key),
-        messages=[{"role": "user", "content": content}],
-    )
+    system = build_system(casa_key)
 
-    u = resp.usage
-    return {
-        "resultado": resp.content[0].text,
-        "modelo": modelo,
-        "casa": casa_key,
-        "parceiro": parceiro,
-        "tokens": {
-            "input": u.input_tokens,
-            "output": u.output_tokens,
-            "cache_read": getattr(u, "cache_read_input_tokens", 0),
-            "cache_write": getattr(u, "cache_creation_input_tokens", 0),
-        },
-    }
+    async def _stream():
+        try:
+            async with _client.messages.stream(
+                model=modelo,
+                max_tokens=16000,
+                system=system,
+                messages=[{"role": "user", "content": content}],
+            ) as stream:
+                async for chunk in stream.text_stream:
+                    yield f"data: {json.dumps({'t': chunk})}\n\n"
+                msg = await stream.get_final_message()
+                u = msg.usage
+                yield f"data: {json.dumps({'done': True, 'resultado': msg.content[0].text, 'modelo': modelo, 'tokens': {'input': u.input_tokens, 'output': u.output_tokens, 'cache_read': getattr(u, 'cache_read_input_tokens', 0), 'cache_write': getattr(u, 'cache_creation_input_tokens', 0)}})}\n\n"
+        except Exception as exc:
+            yield f"data: {json.dumps({'error': f'{type(exc).__name__}: {exc}'})}\n\n"
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ── Fase 2: banco de dados ────────────────────────────────────────────────────
