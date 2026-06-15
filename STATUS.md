@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-14 (sessão 13 — Redesign parceiro-cêntrico)_
+_Atualizado: 2026-06-14 (sessão 13 — Layout two-column + grade editável)_
 
 ---
 
@@ -108,6 +108,16 @@ Os 6 MASTER_*.md estão em `/global/` (reorganização concluída em 12/06/2026)
   - `app/static/index.html` — redesign completo: sidebar com casas colapsáveis + lista de parceiros persistida por casa + botão "+ Novo parceiro" + botão arquivar no hover; área principal com empty state → mini-página do parceiro com tabs Extrair/Exportar internas e filtradas; clipboard paste (Ctrl+V) para imagens; botão "+ Arquivo" explícito.
   - Backup em `Planilhador/Backups/pre_parceiro_centric_2026-06-14/`.
 
+- **Layout two-column + grade editável em 14/06/2026 (sessão 13):**
+  - Layout sem tabs: esquerda = inputs + grade sempre visível; direita = painel Análise IA.
+  - Painel direito com 3 seções: Confiança, Notas Críticas, Recomendações (TSV removido do painel).
+  - Grade preenchida automaticamente após extração (auto-save + reload).
+  - Células da grade editáveis via `contenteditable` (exceto Casa e Parceiro); save automático ao sair da célula via `PATCH /bilhetes/{id}`; Enter confirma edição.
+  - Resultado colorido inline (W/L/V/HW/HL) sem badge; atualiza `extraction_state` no banco.
+  - `_INSTRUCAO` atualizada: Claude retorna 4 seções com `##` headers (TSV + Confiança + Notas Críticas + Recomendações).
+  - `CLAUDE.md` invariante 8 adicionada: commit e push sempre juntos.
+  - Backups em `Planilhador/Backups/pre_layout_twocol_2026-06-14_*` e `pre_editable_grade_2026-06-14_*`.
+
 ---
 
 ## 5. Pendências (ordem)
@@ -138,11 +148,10 @@ uvicorn main:app --reload
 **Fases 1, 2 e 3 concluídas.** App em produção: `https://extrator-production.up.railway.app/`
 
 **Próximas etapas — Sessão 14:**
-1. Testar fluxo completo local: criar parceiro, extrair, salvar, exportar filtrado.
-2. Fazer push + aguardar deploy automático Railway.
-3. Testar em produção: `https://extrator-production.up.railway.app/`
-4. Pendências de amostra das casas (ver seção 5).
-5. Avaliar edição inline de células na grade (tipster, resultado).
+1. Testar em produção o fluxo completo: criar parceiro, extrair, verificar grade preenchida, editar célula, copiar pendentes.
+2. Avaliar se o tamanho do painel direito (400px) está adequado em diferentes resoluções.
+3. Pendências de amostra das casas (ver seção 5).
+4. Avaliar arquivamento/reativação de parceiro via UI (botão reativar não exposto ainda).
 
 **Pendências que aguardam bilhete real (amostra do usuário):**
 - **Bet365:** §6 rótulo visual do boost · §7 rótulo visual do cashout encerrado
