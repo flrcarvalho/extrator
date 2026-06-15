@@ -35,15 +35,15 @@ def _assinatura(row: dict) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:20]
 
 
-async def upsert_bilhetes(rows: list[dict], confianca: float | None = None) -> int:
+async def upsert_bilhetes(rows: list[dict], confianca: float | None = None) -> tuple[int, list[int]]:
     pool = await get_pool()
-    count = 0
+    ids: list[int] = []
     async with pool.acquire() as conn:
         for row in rows:
             sig = _assinatura(row)
             resultado = row.get("resultado", "").strip() or None
             extraction_state = "resolvida" if resultado in _RESULTADOS_VALIDOS else "aberta"
-            await conn.execute(
+            rec = await conn.fetchrow(
                 """
                 INSERT INTO bilhetes
                     (casa, parceiro, assinatura, data, esporte, tipster,
@@ -54,6 +54,7 @@ async def upsert_bilhetes(rows: list[dict], confianca: float | None = None) -> i
                     resultado        = EXCLUDED.resultado,
                     extraction_state = EXCLUDED.extraction_state,
                     atualizado_em    = NOW()
+                RETURNING id
                 """,
                 row.get("casa", ""), row.get("parceiro", ""), sig,
                 row.get("data"), row.get("esporte"), row.get("tipster"),
@@ -61,8 +62,18 @@ async def upsert_bilhetes(rows: list[dict], confianca: float | None = None) -> i
                 row.get("stake"), row.get("odd"), resultado,
                 extraction_state, confianca,
             )
-            count += 1
-    return count
+            if rec:
+                ids.append(rec["id"])
+    return len(ids), ids
+
+
+async def deletar_bilhetes(ids: list[int]) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM bilhetes WHERE id = ANY($1)", ids
+        )
+    return int(result.split()[-1])
 
 
 async def list_bilhetes(

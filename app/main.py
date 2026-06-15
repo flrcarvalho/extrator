@@ -13,8 +13,9 @@ from config import ALLOWED_MODELS, CASAS_DIR, DEFAULT_MODEL
 from database import init_db
 from prompts import build_system
 from repository import (
-    arquivar_parceiro, atualizar_bilhete, criar_parceiro, list_bilhetes, list_parceiros,
-    marcar_copiada, marcar_pendente, parse_tsv, reativar_parceiro, upsert_bilhetes,
+    arquivar_parceiro, atualizar_bilhete, criar_parceiro, deletar_bilhetes,
+    list_bilhetes, list_parceiros, marcar_copiada, marcar_pendente,
+    parse_tsv, reativar_parceiro, upsert_bilhetes,
 )
 
 
@@ -46,6 +47,9 @@ _INSTRUCAO = (
     "Data\tEsporte\tTipster\tCasa\tParceiro\tAposta\tDescrição\tStake\tOdd\tResultado\n"
     "[uma linha TSV por bilhete]\n"
     "```\n\n"
+    "REGRA INVIOLÁVEL — Odd: use o valor EXATO calculado. NUNCA arredonde, ajuste ou modifique "
+    "casas decimais. Exemplo: 473,46 ÷ 50 = 9,4692 → odd = 9,4692, jamais 9,47 ou 9,4728. "
+    "Precisão máxima: 12 casas decimais. Esta regra anula qualquer outra sobre arredondamento.\n\n"
     "## Confiança\n"
     "Para cada linha: `N. XX%` — motivo se < 100%\n\n"
     "## Notas Críticas\n"
@@ -140,6 +144,8 @@ async def extrair(
 class SalvarRequest(BaseModel):
     tsv: str
     confianca: Optional[float] = None
+    casa: Optional[str] = None
+    parceiro: Optional[str] = None
 
 
 @app.post("/salvar")
@@ -148,8 +154,34 @@ async def salvar(body: SalvarRequest):
     rows = parse_tsv(body.tsv)
     if not rows:
         raise HTTPException(400, "Nenhuma linha válida encontrada no TSV.")
-    count = await upsert_bilhetes(rows, confianca=body.confianca)
-    return {"salvos": count}
+    casa_key = (body.casa or "").upper() or None
+    for row in rows:
+        if casa_key:
+            row["casa"] = casa_key
+        if body.parceiro:
+            row["parceiro"] = body.parceiro
+    count, ids = await upsert_bilhetes(rows, confianca=body.confianca)
+    return {"salvos": count, "ids": ids}
+
+
+class DeletarRequest(BaseModel):
+    ids: list[int]
+
+
+@app.delete("/bilhetes")
+async def deletar_bilhetes_route(body: DeletarRequest):
+    if not body.ids:
+        raise HTTPException(400, "Lista de IDs vazia.")
+    deletados = await deletar_bilhetes(body.ids)
+    return {"deletados": deletados}
+
+
+@app.delete("/bilhetes/{bilhete_id}")
+async def deletar_bilhete_route(bilhete_id: int):
+    deletados = await deletar_bilhetes([bilhete_id])
+    if not deletados:
+        raise HTTPException(404, "Bilhete não encontrado.")
+    return {"deletado": True}
 
 
 @app.get("/bilhetes")
