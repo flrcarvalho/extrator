@@ -134,6 +134,8 @@ async def extrair(
     if modelo not in ALLOWED_MODELS:
         raise HTTPException(400, f"Modelo não permitido. Opções: {ALLOWED_MODELS}")
 
+    _HAIKU = "claude-haiku-4-5-20251001"
+
     casa_key = casa.upper()
     if not (CASAS_DIR / f"CASA_{casa_key}.md").exists():
         raise HTTPException(400, f"Casa desconhecida: {casa}")
@@ -156,6 +158,10 @@ async def extrair(
 
     if not content:
         raise HTTPException(400, "Envie pelo menos uma imagem ou texto.")
+
+    tem_imagens = any(item.get("type") == "image" for item in content)
+    if tem_imagens and modelo == _HAIKU:
+        raise HTTPException(400, "Haiku não processa imagens. Selecione Sonnet ou Opus.")
 
     from datetime import date as _date
     ref = data_referencia or _date.today().strftime("%d/%m/%Y")

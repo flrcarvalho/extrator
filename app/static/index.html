@@ -768,8 +768,26 @@ function adicionarArquivos(novos) {
   if (imgs.length > aceitos.length)
     setStatus(`Limite de ${IMG_MAX} imagens: ${imgs.length - aceitos.length} ignorada(s).`, 'warn');
   arquivos = [...arquivos, ...aceitos];
+  if (arquivos.length > 0) _bloquearHaikuSeImagens();
   renderPreviews(); atualizarBotaoExtrair();
 }
+
+const _HAIKU_VAL = 'claude-haiku-4-5-20251001';
+function _bloquearHaikuSeImagens() {
+  const sel = document.getElementById('modelo');
+  if (sel.value === _HAIKU_VAL) {
+    sel.value = 'claude-sonnet-4-6';
+    setStatus('Haiku não processa imagens — modelo trocado automaticamente para Sonnet.', 'warn');
+  }
+}
+document.getElementById('modelo').addEventListener('change', () => {
+  const sel = document.getElementById('modelo');
+  if (sel.value === _HAIKU_VAL && arquivos.length > 0) {
+    sel.value = 'claude-sonnet-4-6';
+    setStatus('Haiku não pode ser usado com imagens. Selecione Sonnet ou Opus.', 'warn');
+  }
+});
+
 function renderPreviews() {
   const p = document.getElementById('preview');
   p.innerHTML = '';
