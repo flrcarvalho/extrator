@@ -262,8 +262,9 @@ Retorno: 235,00
 Odd:     2,35
 ```
 
-Precisão: preservar o resultado completo da divisão.
+Precisão: preservar o resultado completo da divisão — até 12 casas decimais se necessário.
 Nunca arredondar nem truncar para forçar 2 casas decimais.
+**NUNCA** usar reticências (`...` ou `…`) ao final de uma odd. Escreva todos os dígitos significativos e pare no último dígito real (ex: `1,90917218543046`, não `1,909106...`).
 
 ---
 
@@ -444,7 +445,7 @@ Cashout: 40,00
 Odd: 0,40  →  planilha: 100 × 0,40 = 40,00 ✓
 ```
 
-Precisão: mesma regra de §5.2.1 — preservar divisão completa, sem arredondar nem truncar.
+Precisão: mesma regra de §5.2.1 — preservar divisão completa, sem arredondar nem truncar, sem reticências.
 
 ---
 
