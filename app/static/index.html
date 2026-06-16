@@ -32,9 +32,9 @@ body::before {
 
 /* ── Sidebar ── */
 .sidebar {
-  width: 216px; height: 100vh; flex-shrink: 0;
+  width: 292px; height: 100vh; flex-shrink: 0;
   background: var(--surface); border-right: 1px solid var(--line);
-  padding: 20px 10px; display: flex; flex-direction: column;
+  padding: 20px 14px; display: flex; flex-direction: column;
   overflow-y: auto;
 }
 .brand {
@@ -588,7 +588,7 @@ function buildCasaGroup(casa) {
   group.dataset.casa = casa;
 
   const header = document.createElement('div');
-  header.className = 'casa-header';
+  header.className = 'casa-header expanded';
   header.innerHTML = `
     <div class="casa-chip"><img src="${faviconUrl(casa)}" alt="${NOMES[casa]||casa}" loading="lazy"></div>
     <span class="casa-name">${NOMES[casa] || casa}</span>
@@ -598,7 +598,7 @@ function buildCasaGroup(casa) {
   group.appendChild(header);
 
   const listEl = document.createElement('div');
-  listEl.className = 'parceiros-list';
+  listEl.className = 'parceiros-list open';
   listEl.id = `parceiros-${casa}`;
   renderParceirosEmLista(casa, listEl);
   group.appendChild(listEl);
@@ -621,7 +621,7 @@ function buildCasaGroup(casa) {
   const btnNovoWrap = document.createElement('div');
   btnNovoWrap.className = 'novo-parceiro-wrap';
   btnNovoWrap.id = `btn-novo-wrap-${casa}`;
-  btnNovoWrap.style.display = 'none';
+  btnNovoWrap.style.display = 'block';
   btnNovoWrap.innerHTML = `<button class="btn-novo-parceiro">+ Novo parceiro</button>`;
   btnNovoWrap.querySelector('button').addEventListener('click', () => {
     inputWrap.classList.add('open'); inp.value = ''; inp.focus();
