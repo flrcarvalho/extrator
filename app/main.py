@@ -305,7 +305,7 @@ async def extrair(
         try:
             async with _client.messages.stream(
                 model=modelo,
-                max_tokens=16000,
+                max_tokens=64000,
                 system=system,
                 messages=[{"role": "user", "content": content}],
             ) as stream:
@@ -313,7 +313,7 @@ async def extrair(
                     yield f"data: {json.dumps({'t': chunk})}\n\n"
                 msg = await stream.get_final_message()
                 u = msg.usage
-                yield f"data: {json.dumps({'done': True, 'resultado': msg.content[0].text, 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': {'input': u.input_tokens, 'output': u.output_tokens, 'cache_read': getattr(u, 'cache_read_input_tokens', 0), 'cache_write': getattr(u, 'cache_creation_input_tokens', 0)}})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'resultado': msg.content[0].text, 'stop_reason': msg.stop_reason, 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': {'input': u.input_tokens, 'output': u.output_tokens, 'cache_read': getattr(u, 'cache_read_input_tokens', 0), 'cache_write': getattr(u, 'cache_creation_input_tokens', 0)}})}\n\n"
         except Exception as exc:
             yield f"data: {json.dumps({'error': f'{type(exc).__name__}: {exc}'})}\n\n"
 

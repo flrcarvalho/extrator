@@ -1020,6 +1020,11 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
     // Auto-salvar no banco
     const modelLabel = data.modelo.split('-').slice(1, 3).join(' ');
     const skipInfo = (data.xls_skipped > 0) ? ` · ${data.xls_skipped} já salva(s) ignorada(s)` : '';
+    if (data.stop_reason === 'max_tokens') {
+      setStatus(`✗ Resposta truncada (limite de tokens atingido) — reduza o número de imagens por lote.`, 'err');
+      return;
+    }
+
     if (parsed.tsv) {
       const rs = await fetch('/salvar', {
         method: 'POST',
