@@ -179,7 +179,15 @@ Precisão da odd calculada: preservar (global).
 
 ## 12. Ruído a ignorar
 
-Barras de progresso com número (stat ao vivo) · placares e scoreboards ao vivo · ícones de camisa/play · `Reutilizar Seleções` · `Líder por X` · prefixos de placar `(1-0)` · `Ao-Vivo` · badge `SUBSTITUIÇÃO+` (o badge em si é ruído — mas quando presente: o nome em **strikethrough/tachado** = jogador original → usar na Descrição; o nome acima em destaque = substituto → ignorar).
+Barras de progresso com número (stat ao vivo) · placares e scoreboards ao vivo · ícones de camisa/play · `Reutilizar Seleções` · `Líder por X` · prefixos de placar `(1-0)` · `Ao-Vivo` · badge `SUBSTITUIÇÃO+` — layout visual obrigatório (leia com atenção):
+  ```
+  ▲ Danilo dos Santos   ← SUBSTITUTO (entrou em campo) → IGNORAR
+  ▼ Bruno Guimarães     ← ORIGINAL apostado (tachado/strikethrough) → USAR NA DESCRIÇÃO
+  ```
+  - Linha **superior** (nome em negrito, ícone ▲, pode ter ✕ vermelho): substituto → **IGNORAR**
+  - Linha **inferior** (nome em **tachado/strikethrough**, ícone ▼): jogador original → **USAR**
+  - ⚠️ O tachado/strikethrough **NÃO significa "ignorar"** — é o oposto: é o nome que deve ser preservado na Descrição.
+  - ⚠️ O nome em negrito no topo é visualmente mais chamativo mas é o **substituto** — não usar.
 (As tags `Anulado` / `½ Ganho` / `½ Perdido` / `½ Anulado` **não** são ruído — são sinais de resultado, ver §5.)
 
 ---
@@ -251,6 +259,12 @@ Colunas: `Data \t Esporte \t Tipster \t Casa \t Parceiro \t Aposta \t Descriçã
 ```
 12/06/2026	E-Sports		Bet365		E-Sports Props	Under 11.5 Torres [Team Secret Whales v Deep Cross Gaming]	303,00	1,80	W
 ```
+
+**#9 — L, Simples Anytime com SUBSTITUIÇÃO+ (usar nome tachado = original):**
+```
+13/06/2026	Futebol		Bet365		Anytime	Bruno Guimarães [Brasil v Marrocos]	300,00	7,00	L
+```
+> Layout do bilhete: `▲ Danilo dos Santos 7.00` (substituto, negrito, topo) / `▼ Bruno Guimarães` (original, tachado, abaixo). Usar "Bruno Guimarães" — o tachado é o original apostado.
 
 ---
 
