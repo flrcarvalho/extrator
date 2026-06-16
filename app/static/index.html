@@ -442,6 +442,7 @@ td.c-res.res-HL { color: var(--warn); }
 
           <div class="actions">
             <button class="btn btn-primary" id="btn-extrair" disabled>Processar Bilhetes</button>
+            <button class="btn btn-ghost btn-sm" id="btn-cancelar" style="display:none">✕ Cancelar</button>
             <button class="btn btn-ghost" id="btn-limpar">Limpar</button>
             <button class="btn btn-ghost btn-sm" id="btn-limpar-imgs" style="display:none">Limpar imagens</button>
             <button class="btn btn-ghost btn-sm" id="btn-add-arquivo">+ Arquivo</button>
@@ -553,6 +554,7 @@ let csvFiles = [];
 let xlsFiles = [];
 let bilhetes = [];
 let ultimaAnaliseIds = [];
+let _abortCtrl = null;
 
 // Inicializar campo de data de referência com hoje
 (function () {
@@ -894,6 +896,7 @@ function limparExtrator() {
 }
 document.getElementById('btn-limpar').addEventListener('click', limparExtrator);
 document.getElementById('btn-limpar-imgs').addEventListener('click', () => { arquivos = []; csvFiles = []; xlsFiles = []; renderPreviews(); atualizarBotaoExtrair(); });
+document.getElementById('btn-cancelar').addEventListener('click', () => { if (_abortCtrl) _abortCtrl.abort(); });
 
 function setStatus(msg, tipo) {
   const el = document.getElementById('status-msg');
@@ -949,6 +952,8 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
   if (!parceiroSelecionado) return;
   const btn = document.getElementById('btn-extrair');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  _abortCtrl = new AbortController();
+  document.getElementById('btn-cancelar').style.display = '';
   let _elapsed = 0;
   const _timer = setInterval(() => { _elapsed++; setStatus(`Processando… (${_elapsed}s)`, ''); }, 1000);
   setStatus('Processando… (0s)', '');
@@ -976,7 +981,7 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
 
   try {
     // ── Streaming SSE — mantém conexão viva durante chamadas longas ───────────
-    const r = await fetch('/extrair', { method: 'POST', body: form });
+    const r = await fetch('/extrair', { method: 'POST', body: form, signal: _abortCtrl.signal });
     if (!r.ok) throw new Error(await r.text());
 
     const reader = r.body.getReader();
@@ -995,6 +1000,7 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
         if (!ev.startsWith('data: ')) continue;
         const obj = JSON.parse(ev.slice(6));
         if (obj.error) throw new Error(obj.error);
+        if (obj.continuation) { setStatus(`Continuando… parte ${obj.continuation} (${_elapsed}s)`, ''); }
         if (obj.t) { streamTokens += obj.t.length; setStatus(`Processando… (${_elapsed}s · ${streamTokens} chars)`, ''); }
         if (obj.done) data = obj;
       }
@@ -1060,9 +1066,15 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
 
   } catch (e) {
     clearInterval(_timer);
-    setStatus('✗ ' + (e.message || 'Erro desconhecido'), 'err');
+    if (e.name === 'AbortError') {
+      setStatus('Análise cancelada.', 'warn');
+    } else {
+      setStatus('✗ ' + (e.message || 'Erro desconhecido'), 'err');
+    }
   } finally {
     clearInterval(_timer);
+    document.getElementById('btn-cancelar').style.display = 'none';
+    _abortCtrl = null;
     btn.disabled = false; btn.textContent = 'Processar Bilhetes';
     atualizarBotaoExtrair();
   }

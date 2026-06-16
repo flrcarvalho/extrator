@@ -303,17 +303,41 @@ async def extrair(
 
     async def _stream():
         try:
-            async with _client.messages.stream(
-                model=modelo,
-                max_tokens=64000,
-                system=system,
-                messages=[{"role": "user", "content": content}],
-            ) as stream:
-                async for chunk in stream.text_stream:
-                    yield f"data: {json.dumps({'t': chunk})}\n\n"
-                msg = await stream.get_final_message()
+            accumulated = ""
+            total_tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
+            part = 0
+            messages = [{"role": "user", "content": content}]
+
+            while True:
+                part += 1
+                if part > 1:
+                    yield f"data: {json.dumps({'continuation': part})}\n\n"
+                    messages = [
+                        {"role": "user", "content": content},
+                        {"role": "assistant", "content": accumulated},
+                    ]
+
+                async with _client.messages.stream(
+                    model=modelo,
+                    max_tokens=64000,
+                    system=system,
+                    messages=messages,
+                ) as stream:
+                    async for chunk in stream.text_stream:
+                        accumulated += chunk
+                        yield f"data: {json.dumps({'t': chunk})}\n\n"
+                    msg = await stream.get_final_message()
+
                 u = msg.usage
-                yield f"data: {json.dumps({'done': True, 'resultado': msg.content[0].text, 'stop_reason': msg.stop_reason, 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': {'input': u.input_tokens, 'output': u.output_tokens, 'cache_read': getattr(u, 'cache_read_input_tokens', 0), 'cache_write': getattr(u, 'cache_creation_input_tokens', 0)}})}\n\n"
+                total_tokens["input"]       += u.input_tokens
+                total_tokens["output"]      += u.output_tokens
+                total_tokens["cache_read"]  += getattr(u, "cache_read_input_tokens", 0)
+                total_tokens["cache_write"] += getattr(u, "cache_creation_input_tokens", 0)
+
+                if msg.stop_reason != "max_tokens":
+                    break
+
+            yield f"data: {json.dumps({'done': True, 'resultado': accumulated, 'stop_reason': msg.stop_reason, 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens})}\n\n"
         except Exception as exc:
             yield f"data: {json.dumps({'error': f'{type(exc).__name__}: {exc}'})}\n\n"
 
