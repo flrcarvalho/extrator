@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-15 (sessão 24 — H2H 180's Dardos + continuation automática + botão Cancelar)_
+_Atualizado: 2026-06-16 (sessão 25 — keepalive SSE + remoção Haiku + output enxuto + sidebar)_
 
 ---
 
@@ -254,10 +254,16 @@ uvicorn main:app --reload
 # Abrir http://localhost:8000
 ```
 
-**Estado após sessão 24:** App estável. Continuation automática ativa (sem truncamento). Botão Cancelar disponível. Regra SUBSTITUIÇÃO+ reforçada (BET365 §12 + golden #9). H2H 180's mapeado em BET365, BETFAIR, MASTER_APOSTAS, MASTER_DESCRICAO.
+**Estado após sessão 25:** App estável em produção. Extrações Betano funcionando. Output do modelo reduzido a TSV + Notas Críticas. Haiku removido do sistema.
 
 **Próximo passo imediato:**
 - Adicionar `Steve Johnstone` e `Oliver Mitchell` à lista de jogadores de Dardos em `MASTER_ESPORTES_2026.md` (bug de classificação Betfair confirmado, fix proposto, não executado).
+
+**Sessão 25 (16/06/2026):**
+- **Fix keepalive SSE:** chamada Anthropic migrada para `asyncio.Task` paralela. Loop aguarda itens da fila com timeout de 20s; ao expirar emite comentário SSE `": keepalive"` para manter conexão viva no Railway enquanto o modelo processa. Elimina erro "Resposta incompleta — sem evento 'done'". Commit `5eda00f`.
+- **Remoção do Haiku:** removido de `ALLOWED_MODELS` em `config.py`, do dropdown em `index.html` e da validação de imagem em `main.py`. Dropdown agora só tem Sonnet 4.6 (padrão) e Opus 4.8. Commit `d08ec96`.
+- **Output enxuto:** `_INSTRUCAO` reescrita — removidas seções `## Confiança` (por linha) e `## Recomendações`. Mantida apenas `## Notas Críticas` (máx 5 itens, "Nenhuma" se não houver). Frontend: boxes de confiança e recomendações removidas; painel direito mostra só Notas Críticas. Redução estimada de 50-60% nos tokens de saída. Commit `0a07baa`.
+- **Sidebar expandida:** largura `216px → 292px` (+35%), padding `10 → 14px`. Logo escala junto (usa `width:100%`). Todas as casas carregam abertas por padrão (toggle ainda funciona). Commit `8ef221e`.
 
 **Sessão 24 (15/06/2026):**
 - **Continuation automática:** `max_tokens=64000`; quando `stop_reason == "max_tokens"` o backend reinicia com o texto acumulado como turno do assistente — o modelo continua sem regeração. Frontend exibe "Continuando… parte N".
