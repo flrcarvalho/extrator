@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-16 (sessão 25 — keepalive SSE + remoção Haiku + output enxuto + sidebar)_
+_Atualizado: 2026-06-17 (sessão 26 — notas críticas full-height + dardos O'Connor/Plovier)_
 
 ---
 
@@ -254,10 +254,14 @@ uvicorn main:app --reload
 # Abrir http://localhost:8000
 ```
 
-**Estado após sessão 25:** App estável em produção. Extrações Betano funcionando. Output do modelo reduzido a TSV + Notas Críticas. Haiku removido do sistema.
+**Estado após sessão 26:** App estável em produção. Painel de análise full-height. Lista de dardos com O'Connor e Plovier.
 
 **Próximo passo imediato:**
-- Adicionar `Steve Johnstone` e `Oliver Mitchell` à lista de jogadores de Dardos em `MASTER_ESPORTES_2026.md` (bug de classificação Betfair confirmado, fix proposto, não executado).
+- Adicionar `Steve Johnstone` e `Oliver Mitchell` à lista de jogadores de Dardos em `MASTER_ESPORTES_2026.md` (bug de classificação Betfair ML, pendente desde sessão 23).
+
+**Sessão 26 (17/06/2026):**
+- **Notas Críticas full-height:** `app/static/index.html` — `.analysis-box` `flex-shrink:0` → `flex:1`; `.box-body` `max-height:220px` removido, `flex:1` adicionado. Painel de análise agora é totalmente ocupado pelas notas. Commits `801c9e0`.
+- **Fix esporte Dardos:** `global/MASTER_ESPORTES_2026.md` — `Bradley O'Connor` e `Nico Plovier` adicionados à lista de referência de jogadores de Dardos. Sem esses nomes, o modelo inferia Golf pelo sobrenome irlandês. Commit `f253a5e`.
 
 **Sessão 25 (16/06/2026):**
 - **Fix keepalive SSE:** chamada Anthropic migrada para `asyncio.Task` paralela. Loop aguarda itens da fila com timeout de 20s; ao expirar emite comentário SSE `": keepalive"` para manter conexão viva no Railway enquanto o modelo processa. Elimina erro "Resposta incompleta — sem evento 'done'". Commit `5eda00f`.
