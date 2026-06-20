@@ -76,6 +76,21 @@ Criador de apostas           ← rótulo do tipo — aparece APÓS todas as sele
 
 **⚠️ Duas datas por bilhete:** a **data do evento** (`[DD/MM • HH:MM]` antes de "Total de Odds") = usar; a **data de colocação** (após "Compartilhar") = ignorar para output.
 
+**REGRA DEFINITIVA DE ORDEM DO OUTPUT:**
+O grid e o texto colado exibem bilhetes em ordem de leitura: esquerda→direita, cima→baixo (coluna 1 linha 1, coluna 2 linha 1, coluna 3 linha 1, coluna 1 linha 2…). O TSV deve sair na ordem **estritamente inversa**:
+
+| Posição | Texto / grid | TSV output |
+|---|---|---|
+| 1ª | Primeiro bilhete (topo-esquerdo) | Última linha |
+| … | … | … |
+| Última | Último bilhete (baixo-direito) | Primeira linha |
+
+Exemplo com o batch de 8 bilhetes desta sessão:
+- Texto posição 1 → **Florian Wirtz** [Alemanha v Costa do Marfim] → **última linha** do TSV
+- Texto posição 8 → **Países Baixos** [Resultado 1ºT] [Países Baixos v Suécia] → **primeira linha** do TSV
+
+> O ID do **último bilhete** no texto colado pode estar ausente (texto cortado antes do rodapé) — completar com a imagem se disponível.
+
 ---
 
 ## 3. ID do bilhete
@@ -244,6 +259,8 @@ Apostas abertas → `extraction_state = aberta`.
 - **"Criador de apostas" vem APÓS as seleções:** não confundir com o confronto; o rótulo aparece depois dos blocos de seleção.
 - **Ano ausente:** DD/MM sem ano → inferir de `data_referencia`.
 - **Locale numérico:** interface pt-BR mas valores e odds em en-US (ponto decimal) → converter sempre para vírgula no output.
+- **Ordem de output = inversa do texto/grid:** primeiro no texto (topo-esquerdo) = última linha do TSV; último no texto (baixo-direito) = primeira linha do TSV.
+- **ID ausente no final do texto:** normal quando o texto foi cortado antes do rodapé do último bilhete — usar ID da imagem.
 
 ---
 
@@ -259,61 +276,71 @@ Apostas abertas → `extraction_state = aberta`.
 **Específicas KingPanda:**
 - Cross-check de W: `Ganho Potencial ÷ Total Apostado` deve igualar `Total de Odds` — discrepância indica leitura errada.
 - "Criador de apostas": número de seleções na descrição deve bater com os blocos no texto.
-- ID presente em todos os bilhetes: se ausente no texto colado, o texto foi copiado de forma incompleta.
+- ID: pode estar ausente no **último bilhete** do texto colado (texto cortado antes do rodapé) — normal; completar com a imagem. ID ausente em bilhete do meio = texto incompleto.
+- Ordem de output: último bilhete do texto = primeira linha do TSV; conferir via IDs — o ID com menor timestamp (geralmente o menor numericamente) deve aparecer primeiro no TSV do batch.
 
 ---
 
-## 15. Exemplos golden (bilhetes reais — Países Baixos vs Suécia, 20/06/2026)
+## 15. Exemplos golden — batch completo (8 bilhetes, 20/06/2026)
 
+Jogos: Alemanha vs Costa do Marfim (17:00) · Países Baixos vs Suécia (14:00)
 Colunas: `Data \t Esporte \t Tipster \t Casa \t Parceiro \t Aposta \t Descrição \t Stake \t Odd \t Resultado`
 
-**Golden 1 — L simples · Player Props · boost 2.27→3.20**
-```
-20/06/2026	Futebol		KingPanda	[parceiro]	Player Props	Viktor Gyokeres a Marcar um Gol ou dar uma Assistência [Países Baixos v Suécia]	25,00	3,20	L
-```
-ID: 856196311719649280 · Ganho Potencial BRL 0.00
+**Numeração = ordem do TSV output (inversa do texto/grid).**
+Grid: col 1 linha 1 → col 2 linha 1 → col 3 linha 1 → col 1 linha 2 → … → col 2 linha 3
+TSV: linha 1 = último do grid · linha 8 = primeiro do grid
 
-**Golden 2 — W simples · Player Props · boost 1.81→2.40**
-```
-20/06/2026	Futebol		KingPanda	[parceiro]	Player Props	Cody Gakpo a Marcar um Gol ou dar uma Assistência [Países Baixos v Suécia]	25,00	2,40	W
-```
-ID: 856196804571353088 · Ganho Potencial BRL 60.00 · 60÷25=2,40 ✓
+---
 
-**Golden 3 — W Múltipla · Criador de apostas · 2 seleções · boost 3.60→4.90**
-```
-20/06/2026	Futebol		KingPanda	[parceiro]	Múltipla	Mais de 2,5 [Total de Gols Mais/Menos] [Países Baixos v Suécia] // Suécia [Equipe com Mais Cartões] [Países Baixos v Suécia]	30,00	4,90	W
-```
-ID: 856170588514590720 · Ganho Potencial BRL 147.00 · 147÷30=4,90 ✓
-
-**Golden 4 — L simples · Resultado Correto (→ Outras) · boost 3.71→5.06**
-```
-20/06/2026	Futebol		KingPanda	[parceiro]	Outras	1:0 [Resultado Correto 1º Tempo] [Países Baixos v Suécia]	20,00	5,06	L
-```
-ID: 856170471199985664 · Ganho Potencial BRL 0.00
-
-**Golden 5 — W simples · ML (Resultado 1º Tempo) · boost 2.26→2.76**
+**G1 (TSV linha 1) — W · ML · Países Baixos vs Suécia · posição 8 no texto**
 ```
 20/06/2026	Futebol		KingPanda	[parceiro]	ML	Países Baixos [Resultado 1º Tempo] [Países Baixos v Suécia]	100,00	2,76	W
 ```
-ID: 856187092232609792 · Ganho Potencial BRL 276.00 · 276÷100=2,76 ✓
+ID: 856187092232609792 · GP BRL 276.00 · 276÷100=2,76 ✓ · boost 2.26→2.76
+⚠️ ID ausente no texto colado (texto cortado) — ler da imagem.
 
-**Golden 6 — L simples · Player Props · boost 1.81→2.30**
+**G2 (TSV linha 2) — L · Outras · Países Baixos vs Suécia · posição 7 no texto**
 ```
-20/06/2026	Futebol		KingPanda	[parceiro]	Player Props	Florian Wirtz a Marcar um Gol ou dar uma Assistência [Alemanha v Costa do Marfim]	25,00	2,30	L
+20/06/2026	Futebol		KingPanda	[parceiro]	Outras	1:0 [Resultado Correto 1º Tempo] [Países Baixos v Suécia]	20,00	5,06	L
 ```
-ID: 856196861957820416 · Ganho Potencial BRL 0.00 · data evento 20/06 • 17:00 (≠ colocação 20/06 • 12:40)
+ID: 856170471199985664 · GP BRL 0.00 · boost 3.71→5.06
 
-**Golden 7 — L Múltipla · Criador de apostas · 2 seleções (Dupla Chance + Escanteios) · boost 4.74→6.61**
+**G3 (TSV linha 3) — W · Múltipla (2 sel.) · Países Baixos vs Suécia · posição 6 no texto**
 ```
-20/06/2026	Futebol		KingPanda	[parceiro]	Múltipla	Empate ou Costa do Marfim [Dupla Chance] [Alemanha v Costa do Marfim] // Mais de 9,5 [Escanteios] [Alemanha v Costa do Marfim]	50,00	6,61	L
+20/06/2026	Futebol		KingPanda	[parceiro]	Múltipla	Mais de 2,5 [Total de Gols Mais/Menos] [Países Baixos v Suécia] // Suécia [Equipe com Mais Cartões] [Países Baixos v Suécia]	30,00	4,90	W
 ```
-ID: 856170236574720000 · Ganho Potencial BRL 0.00
+ID: 856170588514590720 · GP BRL 147.00 · 147÷30=4,90 ✓ · boost 3.60→4.90
 
-**Golden 8 — L Múltipla · Criador de apostas · 3 seleções (Ambas Marcam + ML + Team Props) · boost 5.47→7.00**
+**G4 (TSV linha 4) — W · Player Props · Países Baixos vs Suécia · posição 5 no texto**
+```
+20/06/2026	Futebol		KingPanda	[parceiro]	Player Props	Cody Gakpo a Marcar um Gol ou dar uma Assistência [Países Baixos v Suécia]	25,00	2,40	W
+```
+ID: 856196804571353088 · GP BRL 60.00 · 60÷25=2,40 ✓ · boost 1.81→2.40
+
+**G5 (TSV linha 5) — L · Player Props · Países Baixos vs Suécia · posição 4 no texto**
+```
+20/06/2026	Futebol		KingPanda	[parceiro]	Player Props	Viktor Gyokeres a Marcar um Gol ou dar uma Assistência [Países Baixos v Suécia]	25,00	3,20	L
+```
+ID: 856196311719649280 · GP BRL 0.00 · boost 2.27→3.20
+
+**G6 (TSV linha 6) — L · Múltipla (3 sel.) · Alemanha vs Costa do Marfim · posição 3 no texto**
 ```
 20/06/2026	Futebol		KingPanda	[parceiro]	Múltipla	Sim [Ambas Marcam] [Alemanha v Costa do Marfim] // Alemanha [Resultado 2º Tempo] [Alemanha v Costa do Marfim] // Sim [Alemanha: Equipe Marca nos Dois Tempos] [Alemanha v Costa do Marfim]	25,00	7,00	L
 ```
-ID: 856170034874834944 · Ganho Potencial BRL 0.00
+ID: 856170034874834944 · GP BRL 0.00 · boost 5.47→7.00
+
+**G7 (TSV linha 7) — L · Múltipla (2 sel.) · Alemanha vs Costa do Marfim · posição 2 no texto**
+```
+20/06/2026	Futebol		KingPanda	[parceiro]	Múltipla	Empate ou Costa do Marfim [Dupla Chance] [Alemanha v Costa do Marfim] // Mais de 9,5 [Escanteios] [Alemanha v Costa do Marfim]	50,00	6,61	L
+```
+ID: 856170236574720000 · GP BRL 0.00 · boost 4.74→6.61
+
+**G8 (TSV linha 8 — última) — L · Player Props · Alemanha vs Costa do Marfim · posição 1 no texto**
+```
+20/06/2026	Futebol		KingPanda	[parceiro]	Player Props	Florian Wirtz a Marcar um Gol ou dar uma Assistência [Alemanha v Costa do Marfim]	25,00	2,30	L
+```
+ID: 856196861957820416 · GP BRL 0.00 · boost 1.81→2.30
+⚠️ Evento 20/06 • 17:00 (usar) ≠ colocação 20/06 • 12:40 (ignorar).
 
 ---
 
@@ -326,4 +353,4 @@ ID: 856170034874834944 · Ganho Potencial BRL 0.00
 VERSÃO: 2026
 STATUS: ATIVO
 CASA: KingPanda
-PENDÊNCIAS: §5 rótulos V/HW/HL; §7 cashout; §8 bônus; §15 Golden 5 ID confirmar no print.
+PENDÊNCIAS: §5 rótulos V/HW/HL; §7 cashout; §8 bônus.
