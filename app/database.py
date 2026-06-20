@@ -26,11 +26,13 @@ CREATE TABLE IF NOT EXISTS bilhetes (
     criado_em        TIMESTAMPTZ DEFAULT NOW(),
     atualizado_em    TIMESTAMPTZ DEFAULT NOW(),
     codigo_bilhete   TEXT,
+    archived         BOOLEAN NOT NULL DEFAULT FALSE,
     UNIQUE (casa, parceiro, assinatura)
 );
 
--- Migração segura: adiciona coluna se ainda não existir
+-- Migrações seguras: adicionam colunas se ainda não existirem
 ALTER TABLE bilhetes ADD COLUMN IF NOT EXISTS codigo_bilhete TEXT;
+ALTER TABLE bilhetes ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Normalizar nomes de casas: UPPERCASE → display name
 UPDATE bilhetes  SET casa = 'Bet365'   WHERE casa = 'BET365';

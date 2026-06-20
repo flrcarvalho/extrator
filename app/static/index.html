@@ -263,6 +263,16 @@ body::before {
 .grade tbody tr { border-bottom: 1px solid var(--line-2); }
 .grade tbody tr:hover { background: var(--surface-2); }
 .grade tbody tr.row-cop { opacity: .5; }
+.grade tbody tr.row-arc { opacity: .35; background: repeating-linear-gradient(90deg, transparent, transparent 6px, rgba(255,255,255,.018) 6px, rgba(255,255,255,.018) 7px); }
+.arc-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-family: var(--font-mono); font-weight: 600;
+  padding: 2px 8px; border-radius: 8px; cursor: pointer; user-select: none;
+  background: rgba(255,255,255,.06); color: var(--ink-mute);
+  border: 1px solid var(--line); transition: all .12s;
+}
+.arc-chip:hover { border-color: rgba(255,255,255,.2); color: var(--ink-soft); }
+.arc-chip.active { background: rgba(245,166,35,.12); color: var(--warn,#f5a623); border-color: rgba(245,166,35,.3); }
 .grade td { padding: 7px 10px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .c-data { width: 88px; }
 .c-esp  { width: 84px; }
@@ -508,6 +518,10 @@ td.c-res.res-HL { color: var(--warn); }
                 <span id="s-cop" class="s-cop">— copiadas</span>
                 <span class="s-sep">·</span>
                 <span id="s-pend" class="s-pend">— pendentes</span>
+                <span id="s-arc-wrap" style="display:none">
+                  <span class="s-sep">·</span>
+                  <span id="s-arc" class="arc-chip" title="Alternar visibilidade dos bilhetes arquivados">⊟ — arquivados</span>
+                </span>
                 <span id="exp-status" class="exp-status"></span>
               </div>
             </div>
@@ -590,6 +604,8 @@ let xlsFiles = [];
 let bilhetes = [];
 let ultimaAnaliseIds = [];
 let ultimaDuplicatas = {};  // {str(db_id): [occurrence, total]}
+let mostrarArquivados = false;
+let totalArquivados = 0;
 const _activeStreams = new Map(); // cardId → AbortController
 let _cardCounter = 0;
 
@@ -771,6 +787,8 @@ function selecionarParceiro(p) {
 
   ultimaAnaliseIds = [];
   ultimaDuplicatas = {};
+  mostrarArquivados = false;
+  totalArquivados = 0;
   limparExtrator();
   limparPainelDireito();
   carregarGrade();
@@ -1154,16 +1172,33 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
 async function carregarGrade() {
   if (!parceiroSelecionado) return;
   try {
-    const qs = `order=asc&casa=${parceiroSelecionado.casa}&parceiro=${encodeURIComponent(parceiroSelecionado.nome)}`;
+    const arcParam = mostrarArquivados ? 'all' : 'false';
+    const qs = `order=asc&archived=${arcParam}&casa=${encodeURIComponent(parceiroSelecionado.casa)}&parceiro=${encodeURIComponent(parceiroSelecionado.nome)}`;
     const r = await fetch(`/bilhetes?${qs}`);
     const data = await r.json();
     bilhetes = data.bilhetes;
+    totalArquivados = data.arquivados || 0;
     renderGrade();
     atualizarStats();
     atualizarBotoesGrade();
+    atualizarChipArquivados();
   } catch (e) {
     document.getElementById('grade-body').innerHTML =
       `<tr><td colspan="13" class="grade-empty" style="color:var(--neg)">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+function atualizarChipArquivados() {
+  const wrap = document.getElementById('s-arc-wrap');
+  const chip = document.getElementById('s-arc');
+  if (totalArquivados > 0) {
+    wrap.style.display = '';
+    chip.textContent = mostrarArquivados
+      ? `⊟ ${totalArquivados} arquivados`
+      : `⊞ ${totalArquivados} arquivados`;
+    chip.classList.toggle('active', mostrarArquivados);
+  } else {
+    wrap.style.display = 'none';
   }
 }
 
@@ -1188,12 +1223,14 @@ function renderGrade() {
   }
   tbody.innerHTML = bilhetes.map(b => {
     const cop = b.copy_state === 'copiada';
+    const arc = b.archived === true;
     const resClass = RES_COLOR[b.resultado] || '';
     const dupInfo = ultimaDuplicatas[String(b.id)];
     const dupTd = dupInfo
       ? `<td class="c-dup"><span class="dup-badge" title="Suspeita de duplicidade — verifique se é aposta distinta ou erro de scroll">${dupInfo[0]}/${dupInfo[1]}</span></td>`
       : '<td class="c-dup"></td>';
-    return `<tr class="${cop ? 'row-cop' : ''}" data-id="${b.id}">
+    const rowClass = arc ? 'row-arc' : cop ? 'row-cop' : '';
+    return `<tr class="${rowClass}" data-id="${b.id}" title="${arc ? 'Arquivado automaticamente' : ''}">
       <td class="c-sel"><input type="checkbox" class="row-chk" data-id="${b.id}" onchange="onRowChkChange()"></td>
       ${ed('data',      b.data,      'c-data')}
       ${ed('esporte',   b.esporte,   'c-esp')}
@@ -1249,8 +1286,9 @@ document.getElementById('grade-body').addEventListener('keydown', e => {
 });
 
 function atualizarStats() {
-  const total = bilhetes.length;
-  const copiadas = bilhetes.filter(b => b.copy_state === 'copiada').length;
+  const ativos = bilhetes.filter(b => !b.archived);
+  const total = ativos.length;
+  const copiadas = ativos.filter(b => b.copy_state === 'copiada').length;
   document.getElementById('s-total').textContent = `${total} total`;
   document.getElementById('s-cop').textContent   = `${copiadas} copiadas`;
   document.getElementById('s-pend').textContent  = `${total - copiadas} pendentes`;
@@ -1293,7 +1331,7 @@ function _limparOdd(v) { return (v ?? '').replace(/\.{2,}$|…$/, ''); }
 
 // ── Copiar pendentes ──────────────────────────────────────────────────────────
 document.getElementById('btn-copiar-pend').addEventListener('click', async () => {
-  const pend = bilhetes.filter(b => b.copy_state === 'pendente');
+  const pend = bilhetes.filter(b => b.copy_state === 'pendente' && !b.archived);
   if (!pend.length) { setExpStatus('Nenhum pendente', 'err'); return; }
   const tsv = pend.map(b =>
     [b.data, b.esporte, b.tipster, b.casa, b.parceiro,
@@ -1313,7 +1351,7 @@ document.getElementById('btn-copiar-pend').addEventListener('click', async () =>
 
 // ── Baixar .tsv ───────────────────────────────────────────────────────────────
 document.getElementById('btn-baixar-tsv').addEventListener('click', () => {
-  const pend = bilhetes.filter(b => b.copy_state === 'pendente');
+  const pend = bilhetes.filter(b => b.copy_state === 'pendente' && !b.archived);
   if (!pend.length) { setExpStatus('Nenhum pendente', 'err'); return; }
   const tsv = pend.map(b =>
     [b.data, b.esporte, b.tipster, b.casa, b.parceiro,
@@ -1429,6 +1467,12 @@ document.getElementById('btn-desfazer').addEventListener('click', async () => {
   } catch {
     setExpStatus('Erro ao desfazer', 'err');
   }
+});
+
+// ── Toggle arquivados ─────────────────────────────────────────────────────────
+document.getElementById('s-arc').addEventListener('click', async () => {
+  mostrarArquivados = !mostrarArquivados;
+  await carregarGrade();
 });
 
 // ── Resizer (divisor entre painéis) ──────────────────────────────────────────

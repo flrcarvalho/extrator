@@ -21,9 +21,10 @@ from config import ALLOWED_MODELS, CASAS_DIR, DEFAULT_MODEL
 from database import init_db
 from prompts import build_system
 from repository import (
-    arquivar_parceiro, atualizar_bilhete, criar_parceiro, deletar_bilhetes,
-    get_codigos_existentes, list_bilhetes, list_parceiros, marcar_copiada,
-    marcar_pendente, parse_tsv, reativar_parceiro, upsert_bilhetes,
+    arquivar_parceiro, atualizar_bilhete, auto_arquivar, contar_arquivados,
+    criar_parceiro, deletar_bilhetes, get_codigos_existentes, list_bilhetes,
+    list_parceiros, marcar_copiada, marcar_pendente, parse_tsv,
+    reativar_parceiro, upsert_bilhetes,
 )
 
 logger = logging.getLogger("scanner")
@@ -555,8 +556,15 @@ async def salvar(body: SalvarRequest):
             row["parceiro"] = body.parceiro
         row["tipster"] = ""
     inseridos, atualizados, ids, alertas, duplicatas = await upsert_bilhetes(rows, confianca=body.confianca)
+
+    arquivados = 0
+    if ids and (body.casa or rows):
+        casa_display = _casa_display((body.casa or rows[0].get("casa", "")).upper())
+        parceiro_nome = body.parceiro or (rows[0].get("parceiro", "") if rows else "")
+        arquivados = await auto_arquivar(casa_display, parceiro_nome, len(ids))
+
     return {"salvos": inseridos + atualizados, "inseridos": inseridos, "atualizados": atualizados,
-            "ids": ids, "alertas": alertas, "duplicatas": duplicatas}
+            "ids": ids, "alertas": alertas, "duplicatas": duplicatas, "arquivados": arquivados}
 
 
 class DeletarRequest(BaseModel):
@@ -585,6 +593,7 @@ async def listar_bilhetes(
     parceiro: Optional[str] = None,
     copy_state: Optional[str] = None,
     extraction_state: Optional[str] = None,
+    archived: str = "false",
     order: str = "asc",
 ):
     rows = await list_bilhetes(
@@ -592,9 +601,13 @@ async def listar_bilhetes(
         parceiro=parceiro or None,
         copy_state=copy_state or None,
         extraction_state=extraction_state or None,
+        archived=archived,
         order=order,
     )
-    return {"bilhetes": rows, "total": len(rows)}
+    arquivados_count = 0
+    if archived != "true" and (casa or parceiro):
+        arquivados_count = await contar_arquivados(casa or "", parceiro or "")
+    return {"bilhetes": rows, "total": len(rows), "arquivados": arquivados_count}
 
 
 class CopiarRequest(BaseModel):

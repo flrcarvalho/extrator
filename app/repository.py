@@ -179,11 +179,50 @@ async def deletar_bilhetes(ids: list[int]) -> int:
     return int(result.split()[-1])
 
 
+async def auto_arquivar(casa: str, parceiro: str, batch_size: int) -> int:
+    """Arquiva apostas antigas, mantendo max(batch_size, 40) mais recentes visíveis.
+
+    Retorna o número de apostas arquivadas nesta chamada.
+    """
+    keep = max(batch_size, 40)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            """
+            WITH ranked AS (
+                SELECT id,
+                       ROW_NUMBER() OVER (ORDER BY criado_em DESC) AS rn
+                FROM bilhetes
+                WHERE casa = $1 AND parceiro = $2
+            )
+            UPDATE bilhetes
+            SET archived = CASE WHEN ranked.rn > $3 THEN TRUE ELSE FALSE END
+            FROM ranked
+            WHERE bilhetes.id = ranked.id
+              AND bilhetes.archived != (ranked.rn > $3)
+            """,
+            casa, parceiro, keep,
+        )
+    updated = int(result.split()[-1])
+    return updated
+
+
+async def contar_arquivados(casa: str, parceiro: str) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT COUNT(*) FROM bilhetes WHERE casa = $1 AND parceiro = $2 AND archived = TRUE",
+            casa, parceiro,
+        )
+    return row[0]
+
+
 async def list_bilhetes(
     casa: str | None = None,
     parceiro: str | None = None,
     copy_state: str | None = None,
     extraction_state: str | None = None,
+    archived: str = "false",   # "false" | "true" | "all"
     limit: int = 500,
     order: str = "asc",
 ) -> list[dict]:
@@ -195,6 +234,12 @@ async def list_bilhetes(
         if val is not None:
             params.append(val)
             filters.append(f"{col} = ${len(params)}")
+
+    if archived == "false":
+        filters.append("archived = FALSE")
+    elif archived == "true":
+        filters.append("archived = TRUE")
+    # "all" → sem filtro
 
     where = ("WHERE " + " AND ".join(filters)) if filters else ""
     order_sql = "ASC" if order == "asc" else "DESC"
