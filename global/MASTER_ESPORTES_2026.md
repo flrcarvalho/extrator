@@ -494,6 +494,8 @@ Utilizar os nomes abaixo como apoio de desambiguação em mercados ML/H2H. A lis
 **MODUS Super Series (exemplos de sessões recentes):**
 - Dylan Slevin
 - Sam Spivey
+- Steve Johnstone
+- Oliver Mitchell
 
 ---
 
