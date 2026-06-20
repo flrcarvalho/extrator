@@ -1051,6 +1051,7 @@ async function runExtractionCard(form, card, parceiro) {
         if (obj.error) throw new Error(obj.error);
         if (obj.t) { streamChars += obj.t.length; setProgress(`Processando… (${_elapsed}s · ${streamChars} chars)`); }
         if (obj.continuation) setProgress(`Continuando… parte ${obj.continuation} (${_elapsed}s)`);
+        if (obj.chunk_progress) setProgress(`Processando… chunk ${obj.chunk_progress}/${obj.of} (${_elapsed}s)`);
         if (obj.done) data = obj;
       }
     }

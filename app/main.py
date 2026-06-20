@@ -2,13 +2,12 @@ import asyncio
 import base64
 import json
 import logging
+import math
+import re
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
-
-logger = logging.getLogger("scanner")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 import xlrd
 
@@ -27,10 +26,33 @@ from repository import (
     marcar_pendente, parse_tsv, reativar_parceiro, upsert_bilhetes,
 )
 
+logger = logging.getLogger("scanner")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+_client = AsyncAnthropic()
+
+_MAX_CHUNKS = 4
+_MAX_CONCURRENT = 4
+_TSV_HEADER = "Data\tEsporte\tTipster\tCasa\tParceiro\tAposta\tDescrição\tStake\tOdd\tResultado\tCódigo"
+
+_CASA_DISPLAY: dict[str, str] = {
+    "BET365":   "Bet365",
+    "BETANO":   "Betano",
+    "BETFAIR":  "Betfair",
+    "PINNACLE": "Pinnacle",
+    "SUPERBET": "Superbet",
+}
+
+
+def _casa_display(key: str) -> str:
+    return _CASA_DISPLAY.get(key.upper(), key.title())
+
+
+# ── Cache warmer ──────────────────────────────────────────────────────────────
 
 async def _cache_warmer():
-    """Mantém o cache ephemeral dos masters vivo enviando um ping a cada 4 min (TTL = 5 min)."""
-    await asyncio.sleep(30)  # aguarda startup completo
+    """Mantém o cache ephemeral dos masters vivo com ping a cada 4 min (TTL Anthropic = 5 min)."""
+    await asyncio.sleep(30)
     while True:
         try:
             await _client.messages.create(
@@ -41,7 +63,7 @@ async def _cache_warmer():
             )
         except Exception:
             pass
-        await asyncio.sleep(240)  # 4 minutos
+        await asyncio.sleep(240)
 
 
 @asynccontextmanager
@@ -63,29 +85,9 @@ async def _unhandled(request: Request, exc: Exception):
     )
 
 
-_client = AsyncAnthropic()
-
-# Nome de exibição canônico por casa (chave = uppercase do arquivo)
-_CASA_DISPLAY: dict[str, str] = {
-    "BET365":   "Bet365",
-    "BETANO":   "Betano",
-    "BETFAIR":  "Betfair",
-    "PINNACLE": "Pinnacle",
-    "SUPERBET": "Superbet",
-}
-
-
-def _casa_display(key: str) -> str:
-    return _CASA_DISPLAY.get(key.upper(), key.title())
-
+# ── Helpers XLS ──────────────────────────────────────────────────────────────
 
 def _xls_sel_labels(sel: list[str]) -> list[str]:
-    """Detecta estrutura da aposta e retorna labels corretos para as linhas de Seleção.
-
-    Padrão:    linha[1] tem '-vs-' → Seleção / Confronto / Mercado / Competição
-    Props:     linha[2] tem '-vs-' → labels específicos por tipo de prop
-    Fallback:  labels genéricos
-    """
     l1 = sel[1].strip() if len(sel) > 1 else ""
     l2 = sel[2].strip() if len(sel) > 2 else ""
     l3 = sel[3].strip() if len(sel) > 3 else ""
@@ -99,7 +101,6 @@ def _xls_sel_labels(sel: list[str]) -> list[str]:
 
 
 def _xls_parse_rows(raw: bytes) -> list[dict]:
-    """Extrai linhas do XLS como lista de dicts (ordem original do arquivo)."""
     wb = xlrd.open_workbook(file_contents=raw)
     ws = wb.sheet_by_index(0)
     rows = []
@@ -113,23 +114,16 @@ def _xls_parse_rows(raw: bytes) -> list[dict]:
         status_raw = str(ws.cell_value(r, 6)).strip().replace("\n", " | ")
         bet_id = det[0].strip() if det else ""
         rows.append({
-            "id": bet_id,
-            "det": det,
-            "sel": sel,
-            "odd": odd_raw,
-            "stake": stake_raw,
-            "pl": pl,
-            "status": status_raw,
+            "id": bet_id, "det": det, "sel": sel,
+            "odd": odd_raw, "stake": stake_raw, "pl": pl, "status": status_raw,
         })
     return rows
 
 
 def _format_xls_rows(rows: list[dict]) -> str:
-    """Formata lista de dicts em texto estruturado para o Claude."""
     parts = ["ARQUIVO XLS PINNACLE:\n"]
     for row in rows:
-        det = row["det"]
-        sel = row["sel"]
+        det, sel = row["det"], row["sel"]
         labels = _xls_sel_labels(sel)
         block = [f"=== Aposta ID {row['id']} ==="]
         if len(det) > 1: block.append(f"Esporte: {det[1].strip()}")
@@ -140,37 +134,27 @@ def _format_xls_rows(rows: list[dict]) -> str:
             if line:
                 label = labels[i] if i < len(labels) else f"Info {i+1}"
                 block.append(f"{label}: {line}")
-        block.append(f"Odd: {row['odd']}")
-        block.append(f"Stake: {row['stake']}")
-        block.append(f"P&L: {row['pl']}")
-        block.append(f"Status: {row['status']}")
+        block += [f"Odd: {row['odd']}", f"Stake: {row['stake']}",
+                  f"P&L: {row['pl']}", f"Status: {row['status']}"]
         parts.append("\n".join(block))
     return "\n\n".join(parts)
 
 
 async def _parse_xls(raw: bytes) -> tuple[str, int]:
-    """Parse XLS, filtra IDs já salvos, retorna (texto_para_claude, n_ignorados).
-
-    Ordem de saída: mais antiga primeiro (inversão do arquivo original).
-    """
     rows = _xls_parse_rows(raw)
     if not rows:
         return "", 0
-
     all_ids = [r["id"] for r in rows if r["id"]]
     known_ids = await get_codigos_existentes(all_ids)
-
     new_rows = [r for r in rows if r["id"] not in known_ids]
     skipped = len(rows) - len(new_rows)
-
-    # Inverte: XLS vem mais novo primeiro; saída deve ser mais antiga primeiro
     new_rows_oldest_first = list(reversed(new_rows))
-
     if not new_rows_oldest_first:
         return "", skipped
-
     return _format_xls_rows(new_rows_oldest_first), skipped
 
+
+# ── Instrução ─────────────────────────────────────────────────────────────────
 
 _INSTRUCAO = (
     "Extraia os bilhetes das imagens para TSV no padrão FDC Capital.\n"
@@ -226,7 +210,224 @@ _INSTRUCAO = (
 )
 
 
-# ── Rotas existentes ──────────────────────────────────────────────────────────
+# ── Helpers de paralelismo ────────────────────────────────────────────────────
+
+def _build_chunks(base_content: list[dict], instrucao_block: dict) -> list[list[dict]]:
+    """
+    Divide base_content em chunks para processamento paralelo.
+    Cada chunk recebe instrucao_block no final.
+    Retorna lista com 1 elemento quando não vale paralelizar.
+    """
+    images = [b for b in base_content if b.get("type") == "image"]
+    texts  = [b for b in base_content if b.get("type") == "text"]
+
+    # Caso 1: múltiplas imagens → divide por imagem
+    if len(images) >= 2:
+        n = min(_MAX_CHUNKS, len(images))
+        size = math.ceil(len(images) / n)
+        return [images[i:i+size] + [instrucao_block] for i in range(0, len(images), size)]
+
+    # Caso 2: só texto → divide por blocos de apostas
+    if not images and texts:
+        full_text = "\n\n".join(b["text"] for b in texts)
+        if "=== Aposta ID" in full_text:
+            blocks = re.split(r'(?=^=== Aposta ID)', full_text, flags=re.MULTILINE)
+        else:
+            blocks = full_text.split("\n\n")
+        blocks = [b.strip() for b in blocks if b.strip()]
+        if len(blocks) >= 2:
+            n = min(_MAX_CHUNKS, len(blocks))
+            size = math.ceil(len(blocks) / n)
+            return [
+                [{"type": "text", "text": "\n\n".join(blocks[i:i+size])}, instrucao_block]
+                for i in range(0, len(blocks), size)
+            ]
+
+    return [base_content + [instrucao_block]]
+
+
+def _extract_tsv_rows(text: str) -> list[str]:
+    m = re.search(r'```tsv\n(.*?)\n```', text, re.DOTALL)
+    if not m:
+        return []
+    lines = [l for l in m.group(1).split('\n') if l.strip()]
+    if lines and lines[0].startswith("Data\t"):
+        lines = lines[1:]
+    return lines
+
+
+def _combine_parallel_results(results: list[tuple[int, str, dict]]) -> tuple[str, dict]:
+    all_rows: list[str] = []
+    total_tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
+    notes: list[str] = []
+
+    for idx, text, tokens in results:
+        for k in total_tokens:
+            total_tokens[k] += tokens.get(k, 0)
+        all_rows.extend(_extract_tsv_rows(text))
+        m = re.search(r'## Notas Críticas\n(.*?)(?=\n##|\Z)', text, re.DOTALL)
+        if m:
+            nota = m.group(1).strip()
+            if nota and nota.lower() != "nenhuma":
+                notes.append(f"[Chunk {idx + 1}] {nota}")
+
+    tsv_block = f"```tsv\n{_TSV_HEADER}\n" + "\n".join(all_rows) + "\n```"
+    notes_section = "\n\n## Notas Críticas\n" + ("\n".join(notes) if notes else "Nenhuma")
+    return tsv_block + notes_section, total_tokens
+
+
+# ── Stream functions ──────────────────────────────────────────────────────────
+
+async def _stream_sequential(system: list[dict], content: list[dict], modelo: str, xls_skipped: int):
+    t_start = time.perf_counter()
+    try:
+        accumulated = ""
+        total_tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
+        part = 0
+        messages = [{"role": "user", "content": content}]
+
+        while True:
+            part += 1
+            t_chunk = time.perf_counter()
+            if part > 1:
+                yield f"data: {json.dumps({'continuation': part})}\n\n"
+                messages = [
+                    {"role": "user", "content": content},
+                    {"role": "assistant", "content": accumulated},
+                ]
+
+            q: asyncio.Queue = asyncio.Queue()
+            _msgs = messages
+
+            async def _call(_m=_msgs):
+                try:
+                    async with _client.messages.stream(
+                        model=modelo, max_tokens=64000,
+                        system=system, messages=_m,
+                    ) as stream:
+                        async for chunk in stream.text_stream:
+                            await q.put(("t", chunk))
+                        fin = await stream.get_final_message()
+                    await q.put(("done", fin))
+                except Exception as e:
+                    await q.put(("err", e))
+
+            task = asyncio.create_task(_call())
+            msg = None
+            try:
+                while True:
+                    try:
+                        kind, val = await asyncio.wait_for(q.get(), timeout=20)
+                    except asyncio.TimeoutError:
+                        yield ": keepalive\n\n"
+                        continue
+                    if kind == "t":
+                        accumulated += val
+                        yield f"data: {json.dumps({'t': val})}\n\n"
+                    elif kind == "done":
+                        msg = val
+                        break
+                    else:
+                        raise val
+            finally:
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                else:
+                    await task
+
+            u = msg.usage
+            total_tokens["input"]       += u.input_tokens
+            total_tokens["output"]      += u.output_tokens
+            total_tokens["cache_read"]  += getattr(u, "cache_read_input_tokens", 0)
+            total_tokens["cache_write"] += getattr(u, "cache_creation_input_tokens", 0)
+            logger.info("seq chunk %d: %.1fs | in=%d out=%d cache_read=%d stop=%s",
+                        part, time.perf_counter() - t_chunk,
+                        u.input_tokens, u.output_tokens,
+                        getattr(u, "cache_read_input_tokens", 0), msg.stop_reason)
+
+            if msg.stop_reason != "max_tokens":
+                break
+
+        logger.info("seq total: %.1fs | parts=%d | out=%d",
+                    time.perf_counter() - t_start, part, total_tokens["output"])
+        yield f"data: {json.dumps({'done': True, 'resultado': accumulated, 'stop_reason': msg.stop_reason, 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens})}\n\n"
+    except Exception as exc:
+        yield f"data: {json.dumps({'error': f'{type(exc).__name__}: {exc}'})}\n\n"
+
+
+async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo: str, xls_skipped: int):
+    n_chunks = len(chunks)
+    t_start = time.perf_counter()
+    sem = asyncio.Semaphore(_MAX_CONCURRENT)
+    result_queue: asyncio.Queue = asyncio.Queue()
+
+    async def _call_chunk(idx: int, chunk_content: list[dict]):
+        async with sem:
+            t0 = time.perf_counter()
+            accumulated = ""
+            tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
+            try:
+                messages = [{"role": "user", "content": chunk_content}]
+                while True:
+                    async with _client.messages.stream(
+                        model=modelo, max_tokens=64000,
+                        system=system, messages=messages,
+                    ) as stream:
+                        async for chunk in stream.text_stream:
+                            accumulated += chunk
+                        fin = await stream.get_final_message()
+
+                    u = fin.usage
+                    tokens["input"]       += u.input_tokens
+                    tokens["output"]      += u.output_tokens
+                    tokens["cache_read"]  += getattr(u, "cache_read_input_tokens", 0)
+                    tokens["cache_write"] += getattr(u, "cache_creation_input_tokens", 0)
+
+                    if fin.stop_reason != "max_tokens":
+                        break
+                    messages = [
+                        {"role": "user", "content": chunk_content},
+                        {"role": "assistant", "content": accumulated},
+                    ]
+
+                logger.info("par chunk %d/%d: %.1fs | out=%d",
+                            idx + 1, n_chunks, time.perf_counter() - t0, tokens["output"])
+                await result_queue.put((idx, accumulated, tokens, None))
+            except Exception as e:
+                logger.error("par chunk %d/%d erro: %s", idx + 1, n_chunks, e)
+                await result_queue.put((idx, "", tokens, e))
+
+    tasks = [asyncio.create_task(_call_chunk(i, chunks[i])) for i in range(n_chunks)]
+    completed = []
+
+    try:
+        for _ in range(n_chunks):
+            idx, text, tokens, err = await result_queue.get()
+            if err:
+                logger.error("par chunk %d falhou (continuando): %s", idx + 1, err)
+                completed.append((idx, "", tokens))
+            else:
+                completed.append((idx, text, tokens))
+            yield f"data: {json.dumps({'chunk_progress': idx + 1, 'of': n_chunks})}\n\n"
+    except Exception as exc:
+        await asyncio.gather(*tasks, return_exceptions=True)
+        yield f"data: {json.dumps({'error': f'{type(exc).__name__}: {exc}'})}\n\n"
+        return
+
+    await asyncio.gather(*tasks, return_exceptions=True)
+    completed.sort(key=lambda x: x[0])
+    resultado, total_tokens = _combine_parallel_results(completed)
+
+    logger.info("par total: %.1fs | chunks=%d | out=%d",
+                time.perf_counter() - t_start, n_chunks, total_tokens["output"])
+    yield f"data: {json.dumps({'done': True, 'resultado': resultado, 'stop_reason': 'end_turn', 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens})}\n\n"
+
+
+# ── Rotas ─────────────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def root():
@@ -262,11 +463,11 @@ async def extrair(
     if not (CASAS_DIR / f"CASA_{casa_key}.md").exists():
         raise HTTPException(400, f"Casa desconhecida: {casa}")
 
-    content: list[dict] = []
+    base_content: list[dict] = []
 
     for img in imagens:
         raw = await img.read()
-        content.append({
+        base_content.append({
             "type": "image",
             "source": {
                 "type": "base64",
@@ -276,20 +477,19 @@ async def extrair(
         })
 
     if texto:
-        content.append({"type": "text", "text": texto})
+        base_content.append({"type": "text", "text": texto})
 
     if csv_content:
-        content.append({"type": "text", "text": f"DADOS CSV:\n{csv_content}"})
+        base_content.append({"type": "text", "text": f"DADOS CSV:\n{csv_content}"})
 
     xls_skipped = 0
     if xls_file:
         raw = await xls_file.read()
         xls_text, xls_skipped = await _parse_xls(raw)
         if xls_text:
-            content.append({"type": "text", "text": xls_text})
+            base_content.append({"type": "text", "text": xls_text})
 
-    if not content:
-        # XLS enviado mas todas as apostas já estavam no banco
+    if not base_content:
         if xls_skipped > 0:
             _payload = json.dumps({"done": True, "resultado": "", "modelo": modelo,
                                    "xls_skipped": xls_skipped,
@@ -302,111 +502,32 @@ async def extrair(
 
     from datetime import date as _date
     ref = data_referencia or _date.today().strftime("%d/%m/%Y")
-    content.append({
+    instrucao_block = {
         "type": "text",
         "text": _INSTRUCAO.format(
             casa=_casa_display(casa_key),
             parceiro=parceiro or "(não informado)",
             data_referencia=ref,
         ),
-    })
+    }
 
     system = build_system(casa_key)
-    t_extrair_start = time.perf_counter()
-    n_imagens = len(imagens)
-    logger.info("extrair inicio: casa=%s modelo=%s imagens=%d texto=%s xls=%s",
-                casa_key, modelo, n_imagens, bool(texto or csv_content), bool(xls_file))
+    chunks = _build_chunks(base_content, instrucao_block)
+    use_parallel = len(chunks) > 1
 
-    async def _stream():
-        try:
-            accumulated = ""
-            total_tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
-            part = 0
-            messages = [{"role": "user", "content": content}]
+    logger.info("extrair: casa=%s modelo=%s imgs=%d texts=%d chunks=%d parallel=%s",
+                casa_key, modelo,
+                sum(1 for b in base_content if b.get("type") == "image"),
+                sum(1 for b in base_content if b.get("type") == "text"),
+                len(chunks), use_parallel)
 
-            while True:
-                part += 1
-                t_chunk_start = time.perf_counter()
-                if part > 1:
-                    yield f"data: {json.dumps({'continuation': part})}\n\n"
-                    messages = [
-                        {"role": "user", "content": content},
-                        {"role": "assistant", "content": accumulated},
-                    ]
-
-                # Roda a chamada Anthropic em task paralela; envia keepalive a cada 20s
-                # enquanto aguarda para evitar que o Railway mate a conexão por inatividade.
-                _msgs = messages
-                q: asyncio.Queue = asyncio.Queue()
-
-                async def _call(_m=_msgs):
-                    try:
-                        async with _client.messages.stream(
-                            model=modelo,
-                            max_tokens=64000,
-                            system=system,
-                            messages=_m,
-                        ) as stream:
-                            async for chunk in stream.text_stream:
-                                await q.put(("t", chunk))
-                            fin = await stream.get_final_message()
-                        await q.put(("done", fin))
-                    except Exception as e:
-                        await q.put(("err", e))
-
-                task = asyncio.create_task(_call())
-                msg = None
-                try:
-                    while True:
-                        try:
-                            kind, val = await asyncio.wait_for(q.get(), timeout=20)
-                        except asyncio.TimeoutError:
-                            yield ": keepalive\n\n"
-                            continue
-                        if kind == "t":
-                            accumulated += val
-                            yield f"data: {json.dumps({'t': val})}\n\n"
-                        elif kind == "done":
-                            msg = val
-                            break
-                        else:
-                            raise val
-                finally:
-                    if not task.done():
-                        task.cancel()
-                        try:
-                            await task
-                        except (asyncio.CancelledError, Exception):
-                            pass
-                    else:
-                        await task
-
-                u = msg.usage
-                total_tokens["input"]       += u.input_tokens
-                total_tokens["output"]      += u.output_tokens
-                total_tokens["cache_read"]  += getattr(u, "cache_read_input_tokens", 0)
-                total_tokens["cache_write"] += getattr(u, "cache_creation_input_tokens", 0)
-
-                logger.info(
-                    "chunk %d: %.1fs | in=%d out=%d cache_read=%d cache_write=%d stop=%s",
-                    part, time.perf_counter() - t_chunk_start,
-                    u.input_tokens, u.output_tokens,
-                    getattr(u, "cache_read_input_tokens", 0),
-                    getattr(u, "cache_creation_input_tokens", 0),
-                    msg.stop_reason,
-                )
-
-                if msg.stop_reason != "max_tokens":
-                    break
-
-            logger.info("extrair total: %.1fs | %d chunks | out_total=%d",
-                        time.perf_counter() - t_extrair_start, part, total_tokens["output"])
-            yield f"data: {json.dumps({'done': True, 'resultado': accumulated, 'stop_reason': msg.stop_reason, 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens})}\n\n"
-        except Exception as exc:
-            yield f"data: {json.dumps({'error': f'{type(exc).__name__}: {exc}'})}\n\n"
+    if use_parallel:
+        generator = _stream_parallel(system, chunks, modelo, xls_skipped)
+    else:
+        generator = _stream_sequential(system, base_content + [instrucao_block], modelo, xls_skipped)
 
     return StreamingResponse(
-        _stream(),
+        generator,
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -423,7 +544,6 @@ class SalvarRequest(BaseModel):
 
 @app.post("/salvar")
 async def salvar(body: SalvarRequest):
-    """Recebe TSV extraído, faz parse e upsert no banco."""
     rows = parse_tsv(body.tsv)
     if not rows:
         raise HTTPException(400, "Nenhuma linha válida encontrada no TSV.")
@@ -433,7 +553,7 @@ async def salvar(body: SalvarRequest):
             row["casa"] = _casa_display(casa_key)
         if body.parceiro:
             row["parceiro"] = body.parceiro
-        row["tipster"] = ""  # sempre vazio; vem da camada de app, não do bilhete
+        row["tipster"] = ""
     inseridos, atualizados, ids, alertas, duplicatas = await upsert_bilhetes(rows, confianca=body.confianca)
     return {"salvos": inseridos + atualizados, "inseridos": inseridos, "atualizados": atualizados,
             "ids": ids, "alertas": alertas, "duplicatas": duplicatas}
@@ -467,7 +587,6 @@ async def listar_bilhetes(
     extraction_state: Optional[str] = None,
     order: str = "asc",
 ):
-    """Lista bilhetes. Por padrão retorna todos, ordenados do mais antigo."""
     rows = await list_bilhetes(
         casa=casa or None,
         parceiro=parceiro or None,
@@ -484,7 +603,6 @@ class CopiarRequest(BaseModel):
 
 @app.post("/bilhetes/copiar")
 async def marcar_bilhetes_copiados(body: CopiarRequest):
-    """Marca bilhetes como copiados para a planilha."""
     if not body.ids:
         raise HTTPException(400, "Lista de IDs vazia.")
     atualizados = await marcar_copiada(body.ids)
@@ -493,7 +611,6 @@ async def marcar_bilhetes_copiados(body: CopiarRequest):
 
 @app.post("/bilhetes/desmarcar")
 async def desmarcar_bilhetes(body: CopiarRequest):
-    """Volta bilhetes para estado pendente."""
     if not body.ids:
         raise HTTPException(400, "Lista de IDs vazia.")
     atualizados = await marcar_pendente(body.ids)
