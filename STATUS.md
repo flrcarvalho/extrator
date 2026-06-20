@@ -254,6 +254,23 @@ uvicorn main:app --reload
 # Abrir http://localhost:8000
 ```
 
+**Sessão 30 (20/06/2026) — Auditoria de performance (Opus) + paralelismo de chunks:**
+
+- **Auditoria com agente Opus:** identificou 7 oportunidades de performance. Ranking executado: UptimeRobot descartado (Railway Serverless OFF; o evento de 12 min foi tempo de processamento, nao cold start — registrado em `PLANO_CONSTRUCAO.md §10`).
+- **Cache warming (commit `36d185a`):** `main.py` — background task `_cache_warmer()` pinga a cada 4 min para manter TTL de 5 min do cache Anthropic vivo.
+- **In-memory cache com mtime (commit `b48701b`):** `prompts.py` — `_file_cache` armazena `(conteudo, mtime)`; relê o arquivo só se o mtime mudar. `reload_masters()` para invalidacao forcada.
+- **Logs de tempo (commit `b48701b`):** `main.py` — `logging.basicConfig` + logs `extrair inicio`, `seq chunk N`, `seq total`, `par chunk N/M`, `par total` com duracao e tokens. Confirma causa real no proximo evento.
+- **Sonnet 4.5 no dropdown (commit `36d185a`):** `config.py` + `index.html` — opcao "Sonnet 4.5 · mais rapido" disponivel para teste. Padrao continua Sonnet 4.6.
+- **Paralelismo de chunks (commit `9f630a4`):** `main.py` — `_build_chunks()` divide imagens em grupos de `ceil(N/4)` ou texto por paragrafos/blocos XLS. `_stream_parallel()` roda N chamadas async com `asyncio.Semaphore(4)`, reassembla por indice, combina TSV, trata erro por chunk sem derrubar a request. Frontend: evento `chunk_progress` mostra "chunk N/M" no card.
+  - Ganho esperado: 12 imgs → ~4 chunks paralelos → tempo cai ~4x. 40 bets Betano texto → 4 chunks → ~1,5 min vs ~6 min sequencial.
+- **Auditoria de consistencia 10 vs 11 colunas (commit `801e983`):** pipeline confirmado consistente. `MASTER_OUTPUT_2026.md §2, §17, §18` — excecao documentada para coluna `Codigo` (11a coluna interna de dedup, nao vai para planilha do usuario).
+
+**Proximos passos imediatos:**
+- **Testar paralelismo em producao:** submeter lote de 8+ imagens e confirmar que chunks coexistem, grade sai em ordem correta, dedup funciona.
+- **Avaliar Sonnet 4.5:** testar mesmo lote com Sonnet 4.5 e Sonnet 4.6 e comparar qualidade linha a linha.
+- Adicionar `Steve Johnstone` e `Oliver Mitchell` a lista de Dardos em `MASTER_ESPORTES_2026.md` (bug Betfair ML, pendente desde sessao 23).
+- Limpar duplicatas no banco (bets copiadas duas vezes — ver sessao 28).
+
 **Sessão 29 (20/06/2026) — Bugs CASA_BETANO + UI multi-cards:**
 
 - **Auditoria de performance (investigado, sem fix estrutural possivel):**
@@ -279,11 +296,7 @@ uvicorn main:app --reload
 
 **Convencao de terminal (registrada em 20/06/2026):** PowerShell 5.1 ConstrainedLanguage. Proibido heredoc bash, New-Object .NET, Out-File -Encoding utf8 (gera BOM). Commits multilinha: multiplos `-m`. Regra documentada em `FDC Capital/CLAUDE.md` (fora do repo, sem versionamento git).
 
-**Próximo passo imediato:**
-- Adicionar `Steve Johnstone` e `Oliver Mitchell` à lista de jogadores de Dardos em `MASTER_ESPORTES_2026.md` (bug de classificação Betfair ML, pendente desde sessão 23).
-- Limpar duplicatas que já existem no banco (bets copiadas duas vezes — ver sessão 28).
-- Testar UI multi-cards em produção: submeter 2–3 lotes da mesma casa em sequência rápida e confirmar que cards coexistem e salvam independentemente.
-- Avaliar Sonnet 4.5 como alternativa mais rapida ao Sonnet 4.6 para extracao de bets (adicionar a `ALLOWED_MODELS` e testar qualidade em lote real antes de tornar padrao).
+**Próximo passo imediato (ver sessão 30 acima).**
 
 **Sessão 27 (17/06/2026):**
 - **Contexto:** extração Betfair com bets já processadas gerava confusão — contador dizia "25 salvos" sem distinguir updates de inserts; regra de ordenação §2 usava "texto colado" como referência, ambígua quando havia imagens + CSV.
