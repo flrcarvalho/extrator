@@ -52,6 +52,8 @@ Evento
 
 Se qualquer coluna extra aparecer, o TSV deve ser considerado inválido.
 
+**Exceção — Código (11ª coluna interna):** o app de extração pode solicitar explicitamente uma 11ª coluna chamada `Código` com o ID/código do bilhete visível no print. Quando essa coluna aparecer na instrução da chamada, emiti-la **não viola esta regra** — ela é interna ao sistema, usada só para deduplicação no banco de dados, e nunca vai para a planilha do usuário.
+
 ---
 
 # 3. Separador de Colunas
@@ -400,7 +402,7 @@ Sempre gerar:
 
 Antes da serialização final validar obrigatoriamente:
 
-- todas as linhas possuem exatamente 10 colunas
+- todas as linhas possuem exatamente 10 colunas de saída (Data…Resultado); se a instrução solicitar `Código` como 11ª coluna interna, ela pode estar presente — não é erro
 - nenhum campo deslocou posição
 - Esporte nunca pode ocupar coluna Aposta
 - Aposta nunca pode ocupar coluna Descrição
@@ -418,14 +420,14 @@ Se qualquer deslocamento estrutural ocorrer:
 Antes de retornar o TSV, o GPT deve validar:
 
 1. número de linhas = número de apostas detectadas
-2. nenhuma coluna extra foi criada
+2. nenhuma coluna extra foi criada (exceto `Código` se solicitada pela instrução — ver §2)
 3. ordem cronológica correta
 4. separador TAB (U+0009)
 5. decimal com `,`
 6. categorias válidas de aposta
 7. esporte válido
 8. resultado válido
-9. exatamente 10 colunas por linha
+9. exatamente 10 colunas por linha (Data…Resultado); `Código` como 11ª coluna interna é permitida quando solicitada
 
 Se qualquer validação falhar, o TSV deve ser considerado inválido.
 
