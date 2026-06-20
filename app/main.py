@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config import ALLOWED_MODELS, CASAS_DIR, DEFAULT_MODEL
-from database import init_db
+from database import init_db, get_pool
 from prompts import build_system
 from repository import (
     arquivar_parceiro, atualizar_bilhete, criar_parceiro, deletar_bilhetes,
@@ -678,3 +678,62 @@ async def reativar_parceiro_route(parceiro_id: int):
     if not ok:
         raise HTTPException(404, "Parceiro não encontrado.")
     return {"arquivado": False}
+
+
+# ── Admin temporário — remover após uso ───────────────────────────────────────
+
+class DeupRequest(BaseModel):
+    confirm: bool = False
+
+
+@app.post("/admin/dedup")
+async def admin_dedup(body: DeupRequest):
+    """Diagnóstico e limpeza de duplicatas. confirm=false → dry-run."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        dups = await conn.fetch("""
+            SELECT
+                casa, parceiro, data, aposta, stake, odd,
+                COUNT(*)                               AS cnt,
+                ARRAY_AGG(id           ORDER BY id)    AS ids,
+                ARRAY_AGG(codigo_bilhete ORDER BY id)  AS codigos,
+                ARRAY_AGG(copy_state   ORDER BY id)    AS estados
+            FROM bilhetes
+            GROUP BY casa, parceiro, data, aposta, stake, odd
+            HAVING COUNT(*) > 1
+            ORDER BY casa, parceiro, data
+        """)
+
+        if not dups:
+            return {"grupos": 0, "deletados": 0, "detail": "Nenhuma duplicata encontrada."}
+
+        grupos = []
+        ids_to_delete = []
+        for row in dups:
+            ids     = list(row["ids"])
+            codigos = list(row["codigos"])
+            estados = list(row["estados"])
+            grupos.append({
+                "casa": row["casa"], "parceiro": row["parceiro"],
+                "data": row["data"], "aposta": row["aposta"],
+                "stake": row["stake"], "odd": row["odd"],
+                "manter": {"id": ids[0], "codigo": codigos[0], "copy_state": estados[0]},
+                "deletar": [{"id": i, "codigo": c, "copy_state": e}
+                            for i, c, e in zip(ids[1:], codigos[1:], estados[1:])],
+            })
+            ids_to_delete.extend(ids[1:])
+
+        deletados = 0
+        if body.confirm and ids_to_delete:
+            result = await conn.execute(
+                "DELETE FROM bilhetes WHERE id = ANY($1::int[])", ids_to_delete
+            )
+            deletados = int(result.split()[-1])
+
+        return {
+            "grupos": len(grupos),
+            "linhas_a_deletar": len(ids_to_delete),
+            "deletados": deletados,
+            "dry_run": not body.confirm,
+            "detalhe": grupos,
+        }
