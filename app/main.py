@@ -457,7 +457,10 @@ async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo:
         return
 
     await asyncio.gather(*tasks, return_exceptions=True)
-    completed.sort(key=lambda x: x[0], reverse=True)  # oldest chunk last in index = first chronologically
+    # Texto (XLS/apostas): entrada já está oldest-first → chunk 0 = mais antigo → manter ordem (reverse=False)
+    # Imagens: regra das casas "última imagem primeiro" → chunk N = últimas imagens → vir antes (reverse=True)
+    is_image_mode = any(b.get("type") == "image" for b in chunks[0] if isinstance(b, dict))
+    completed.sort(key=lambda x: x[0], reverse=is_image_mode)
     try:
         resultado, total_tokens, scroll_overlap_indices = _combine_parallel_results(completed)
     except Exception as exc:
