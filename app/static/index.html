@@ -639,10 +639,15 @@ function restaurarEstadoExtrator(id) {
   document.getElementById('texto').value = e.texto;
 }
 
-// Inicializar campo de data de referência com hoje
+// Inicializar campo de data de referência com hoje (fuso local do usuário)
 (function () {
   const inp = document.getElementById('data-ref');
-  if (inp) inp.value = new Date().toISOString().slice(0, 10);
+  if (!inp) return;
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  inp.value = `${y}-${m}-${d}`;
 })();
 
 const NOMES = {
