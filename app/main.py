@@ -258,7 +258,7 @@ def _extract_tsv_rows(text: str) -> list[str]:
     return lines
 
 
-def _combine_parallel_results(results: list[tuple[int, str, dict]]) -> tuple[str, dict]:
+def _combine_parallel_results(results: list[tuple[int, str, dict]]) -> tuple[str, dict, list[int]]:
     all_rows: list[str] = []
     total_tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
     notes: list[str] = []
@@ -273,34 +273,31 @@ def _combine_parallel_results(results: list[tuple[int, str, dict]]) -> tuple[str
             if nota and nota.lower() != "nenhuma":
                 notes.append(f"[Chunk {idx + 1}] {nota}")
 
-    # Remove duplicatas de sobreposição de scroll (ficam adjacentes após sort reverso dos chunks)
-    # Chave: (data, casa, parceiro, stake, odd) — invariante mesmo se a IA descreve o texto diferente
+    # Detecta suspeitos de sobreposição de scroll (linhas adjacentes, mesma chave invariante)
+    # NÃO remove — apenas sinaliza os índices para o frontend mostrar badge azul
     def _scroll_key(row_str: str):
         parts = row_str.split('\t')
         if len(parts) < 9:
             return None
-        return (parts[0], parts[3], parts[4], parts[7], parts[8])
+        return (parts[0], parts[3], parts[4], parts[7], parts[8])  # data, casa, parceiro, stake, odd
 
-    deduped: list[str] = []
+    scroll_overlap_indices: list[int] = []
     prev_key = None
-    overlap_removed = 0
-    for row in all_rows:
+    for i, row in enumerate(all_rows):
         k = _scroll_key(row)
         if k is not None and k == prev_key:
-            overlap_removed += 1
-        else:
-            deduped.append(row)
-            prev_key = k
-    if overlap_removed:
+            scroll_overlap_indices.append(i)
+        prev_key = k
+
+    if scroll_overlap_indices:
         notes.insert(0,
-            f"⚠️ {overlap_removed} aposta(s) de sobreposição de scroll detectada(s) e removida(s) "
-            "(mesma data/casa/parceiro/stake/odd em imagens consecutivas — verifique se não é aposta distinta)."
+            f"⚠️ {len(scroll_overlap_indices)} aposta(s) com suspeita de sobreposição de scroll "
+            "sinalizadas com badge azul na grade — verifique e delete se necessário."
         )
-    all_rows = deduped
 
     tsv_block = f"```tsv\n{_TSV_HEADER}\n" + "\n".join(all_rows) + "\n```"
     notes_section = "\n\n## Notas Críticas\n" + ("\n".join(notes) if notes else "Nenhuma")
-    return tsv_block + notes_section, total_tokens
+    return tsv_block + notes_section, total_tokens, scroll_overlap_indices
 
 
 # ── Stream functions ──────────────────────────────────────────────────────────
@@ -447,11 +444,11 @@ async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo:
 
     await asyncio.gather(*tasks, return_exceptions=True)
     completed.sort(key=lambda x: x[0], reverse=True)  # oldest chunk last in index = first chronologically
-    resultado, total_tokens = _combine_parallel_results(completed)
+    resultado, total_tokens, scroll_overlap_indices = _combine_parallel_results(completed)
 
     logger.info("par total: %.1fs | chunks=%d | out=%d",
                 time.perf_counter() - t_start, n_chunks, total_tokens["output"])
-    yield f"data: {json.dumps({'done': True, 'resultado': resultado, 'stop_reason': 'end_turn', 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens})}\n\n"
+    yield f"data: {json.dumps({'done': True, 'resultado': resultado, 'stop_reason': 'end_turn', 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens, 'scroll_overlap_indices': scroll_overlap_indices})}\n\n"
 
 
 # ── Rotas ─────────────────────────────────────────────────────────────────────

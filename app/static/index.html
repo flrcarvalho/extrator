@@ -293,6 +293,12 @@ body::before {
   background: rgba(46,139,255,.18); color: var(--accent-2);
   white-space: nowrap; cursor: default; letter-spacing: .02em; line-height: 1.5;
 }
+.so-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+  background: var(--fdc-blue, #2E8BFF); color: #fff;
+  white-space: nowrap; cursor: help; letter-spacing: .02em; line-height: 1.5;
+}
 .del-btn {
   width: 20px; height: 20px; padding: 0; border: none;
   background: transparent; cursor: pointer; color: var(--ink-mute);
@@ -607,7 +613,8 @@ let csvFiles = [];
 let xlsFiles = [];
 let bilhetes = [];
 let ultimaAnaliseIds = [];
-let ultimaDuplicatas = {};  // {str(db_id): [occurrence, total]}
+let ultimaDuplicatas = {};    // {str(db_id): [occurrence, total]}
+let ultimaScrollOverlaps = new Set(); // db_ids com suspeita de sobreposição de scroll
 let mostrarArquivados = false;
 let totalArquivados = 0;
 const _activeStreams = new Map(); // cardId → AbortController
@@ -816,6 +823,7 @@ function selecionarParceiro(p) {
 
   ultimaAnaliseIds = [];
   ultimaDuplicatas = {};
+  ultimaScrollOverlaps = new Set();
   mostrarArquivados = false;
   totalArquivados = 0;
 
@@ -1161,6 +1169,11 @@ async function runExtractionCard(form, card, parceiro) {
 
       ultimaAnaliseIds = ds.ids || [];
       if (ds.duplicatas) ultimaDuplicatas = ds.duplicatas;
+      // Marca db_ids com suspeita de sobreposição de scroll para badge azul na grade
+      const overlapIndices = data.scroll_overlap_indices || [];
+      if (overlapIndices.length && ds.ids) {
+        overlapIndices.forEach(i => { if (ds.ids[i] != null) ultimaScrollOverlaps.add(ds.ids[i]); });
+      }
 
       const ins = ds.inseridos ?? ds.salvos ?? 0;
       const upd = ds.atualizados ?? 0;
@@ -1294,9 +1307,11 @@ function renderGrade() {
     const arc = b.archived === true;
     const resClass = RES_COLOR[b.resultado] || '';
     const dupInfo = ultimaDuplicatas[String(b.id)];
-    const dupTd = dupInfo
-      ? `<td class="c-dup"><span class="dup-badge" title="Suspeita de duplicidade — verifique se é aposta distinta ou erro de scroll">${dupInfo[0]}/${dupInfo[1]}</span></td>`
-      : '<td class="c-dup"></td>';
+    const soSuspect = ultimaScrollOverlaps.has(b.id);
+    const dupBadges = [];
+    if (dupInfo) dupBadges.push(`<span class="dup-badge" title="Suspeita de duplicidade — verifique se é aposta distinta ou erro de scroll">${dupInfo[0]}/${dupInfo[1]}</span>`);
+    if (soSuspect) dupBadges.push(`<span class="so-badge" title="Suspeita de sobreposição de scroll — esta aposta apareceu em imagens consecutivas. Verifique e delete se for duplicata.">scroll</span>`);
+    const dupTd = `<td class="c-dup">${dupBadges.join(' ')}</td>`;
     const rowClass = arc ? 'row-arc' : cop ? 'row-cop' : '';
     return `<tr class="${rowClass}" data-id="${b.id}" title="${arc ? 'Arquivado automaticamente' : ''}">
       <td class="c-sel"><input type="checkbox" class="row-chk" data-id="${b.id}" onchange="onRowChkChange()"></td>
