@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-20 (sessão 34 — fix scroll overlap + normalização de odd)_
+_Atualizado: 2026-06-21 (sessão 35 — fixes de streaming, estado do extrator e ordem Pinnacle)_
 
 ---
 
@@ -377,10 +377,22 @@ uvicorn main:app --reload
 - **Fix SUBSTITUIÇÃO+:** `CASA_BET365 §12` reforçado com bloco visual explícito (▲=substituto IGNORAR / ▼=original USAR) e dois avisos ⚠️. Golden #9 adicionado (Bruno Guimarães vs Danilo dos Santos).
 - **H2H 180's Dardos:** novo mercado documentado em: `MASTER_APOSTAS §4` (sinônimos), `§5` (regra H2H), `§6 Dardos` (distinção Player Props individual vs H2H comparativo), `§7` (prioridade), `§9` (validação #17). `MASTER_DESCRICAO §13.2` (template + nota de reconstrução de confronto). `CASA_BET365 §9` (mapeamento + nota de layout). `CASA_BETFAIR §9` (nota de layout adicionada ao mapeamento existente).
 
+- **Sessão 35 (21/06/2026) — Fixes de streaming, estado do extrator e ordem Pinnacle:**
+  - `app/main.py` — `_stream_parallel`: `asyncio.wait_for(timeout=20)` + keepalive a cada 20s para evitar timeout do proxy Railway durante espera de chunks. Adicionado try/except em torno de `_combine_parallel_results`.
+  - `app/main.py` — `_build_chunks`: se "DADOS CSV:" estiver no texto, retorna modo sequencial (CSV+texto Betfair precisam ficar juntos para o join).
+  - `app/main.py` — `_stream_parallel`: sort dos chunks agora é `reverse=False` para modo texto/XLS (Pinnacle oldest-first) e `reverse=True` para imagens. Corrige ordem aleatória no export XLS da Pinnacle.
+  - `app/static/index.html` — `salvarEstadoExtrator`: auto-save do texto em tempo real (listener `input`). `limparExtrator(explicit)`: quando chamada pela submissao, salva estado antes de limpar (permite retry via navegacao). `salvarEstadoExtrator`: nao sobrescreve estado existente com formulario vazio (impede navegacao apagar o estado salvo antes da submissao).
+  - Commits: `8ef765d`, `d22b73a`, `5fb8b6d`, `06f1455`.
+
 **Pendências que aguardam bilhete real:**
 - **Bet365:** §6 rótulo visual do boost · §7 rótulo visual do cashout encerrado
 - **Betano:** §5 rótulo de void/anulada · §6 boost (existe?)
 - **Pinnacle:** §5 rótulo exato de HW/HL no export (precisa de Asian Handicap de quarto liquidado)
+
+**Próximo passo:**
+- Testar extração Betfair com texto+CSV após os fixes de streaming e estado do extrator.
+- Testar extração Pinnacle XLS e validar que a ordem (oldest first) está correta após o fix de chunks.
+- Se ordem Pinnacle estiver certa, marcar pendência de HW/HL como próxima prioridade.
 
 Quando chegar um bilhete novo: abrir o arquivo da casa correspondente, preencher a pendência, rodar o checklist do `CLAUDE.md` se envolver categoria nova.
 
