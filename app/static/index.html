@@ -424,6 +424,10 @@ td.c-res.res-HL { color: var(--warn); }
 .ec-prog.warn { color: var(--warn,#f5a623); }
 .ec-prog.err { color: var(--neg); }
 .ec-notas { margin-top: 5px; font-size: 11px; color: var(--ink-soft); line-height: 1.6; }
+.ec-thumbs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.ec-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; cursor: zoom-in; opacity: 0.85; border: 1px solid var(--border,#333); }
+.ec-thumb:hover { opacity: 1; }
+.ec-thumb-badge { font-size: 10px; background: var(--surface2,#2a2a2a); border: 1px solid var(--border,#333); border-radius: 4px; padding: 2px 6px; color: var(--ink-soft); align-self: center; }
 .extract-card--ok .ec-header { background: rgba(70,211,105,.07); }
 .extract-card--err .ec-header { background: rgba(229,82,75,.07); }
 .extract-card--warn .ec-header { background: rgba(245,166,35,.07); }
@@ -608,6 +612,25 @@ let mostrarArquivados = false;
 let totalArquivados = 0;
 const _activeStreams = new Map(); // cardId → AbortController
 let _cardCounter = 0;
+const estadoExtrator = {}; // parceiroId → { arquivos, csvFiles, xlsFiles, texto }
+
+function salvarEstadoExtrator() {
+  if (!parceiroSelecionado) return;
+  estadoExtrator[parceiroSelecionado.id] = {
+    arquivos: [...arquivos],
+    csvFiles: [...csvFiles],
+    xlsFiles: [...xlsFiles],
+    texto: document.getElementById('texto').value,
+  };
+}
+
+function restaurarEstadoExtrator(id) {
+  const e = estadoExtrator[id] || { arquivos: [], csvFiles: [], xlsFiles: [], texto: '' };
+  arquivos = [...e.arquivos];
+  csvFiles = [...e.csvFiles];
+  xlsFiles = [...e.xlsFiles];
+  document.getElementById('texto').value = e.texto;
+}
 
 // Inicializar campo de data de referência com hoje
 (function () {
@@ -773,6 +796,8 @@ async function arquivarParceiro(id, casa) {
 function selecionarParceiro(p) {
   if (parceiroSelecionado && parceiroSelecionado.id === p.id) return;
 
+  salvarEstadoExtrator();
+
   parceiroSelecionado = p;
   casaSelecionada = p.casa;
 
@@ -793,8 +818,25 @@ function selecionarParceiro(p) {
   ultimaDuplicatas = {};
   mostrarArquivados = false;
   totalArquivados = 0;
-  limparExtrator();
-  limparPainelDireito();
+
+  restaurarEstadoExtrator(p.id);
+  renderPreviews();
+  atualizarBotaoExtrair();
+  setStatus('', '');
+
+  // Mostra os cards desse parceiro, esconde os dos outros
+  const container = document.getElementById('analysis-boxes');
+  let hasCards = false;
+  container.querySelectorAll('.extract-card').forEach(c => {
+    const meu = c.dataset.parceiroId === String(p.id);
+    c.style.display = meu ? '' : 'none';
+    if (meu) hasCards = true;
+  });
+  document.getElementById('right-empty').style.display = hasCards ? 'none' : '';
+  document.getElementById('token-bar').innerHTML = '';
+  const boxNotas = document.getElementById('box-notas');
+  if (boxNotas) boxNotas.style.display = 'none';
+
   carregarGrade();
 }
 
@@ -930,6 +972,7 @@ document.getElementById('texto').addEventListener('input', atualizarBotaoExtrair
 function limparExtrator() {
   arquivos = []; csvFiles = []; xlsFiles = []; renderPreviews();
   document.getElementById('texto').value = '';
+  if (parceiroSelecionado) delete estadoExtrator[parceiroSelecionado.id];
   setStatus('', ''); atualizarBotaoExtrair();
 }
 
@@ -982,7 +1025,7 @@ function renderAnalysis(parsed) {
 
 // ── Extraction cards (multi-paralelo) ─────────────────────────────────────────
 
-function createExtractionCard(parceiro, modelo) {
+function createExtractionCard(parceiro, modelo, thumbUrls = [], fileNames = []) {
   const id = ++_cardCounter;
   const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const modelLabel = modelo.includes('opus') ? 'Opus 4.8' : modelo.includes('4-5') ? 'Sonnet 4.5' : 'Sonnet 4.6';
@@ -990,6 +1033,7 @@ function createExtractionCard(parceiro, modelo) {
 
   const card = document.createElement('div');
   card.className = 'extract-card extract-card--running';
+  card.dataset.parceiroId = String(parceiro.id);
   card.innerHTML =
     `<div class="ec-header">` +
       `<div class="ec-left">` +
@@ -1005,11 +1049,28 @@ function createExtractionCard(parceiro, modelo) {
     `<div class="ec-body">` +
       `<div class="ec-prog">Processando… (0s)</div>` +
       `<div class="ec-notas" style="display:none"></div>` +
+      `<div class="ec-thumbs"></div>` +
     `</div>`;
 
   const container = document.getElementById('analysis-boxes');
   document.getElementById('right-empty').style.display = 'none';
   container.insertBefore(card, container.firstChild);
+
+  // Popula faixa de thumbnails das imagens submetidas
+  const thumbsEl = card.querySelector('.ec-thumbs');
+  thumbUrls.forEach(url => {
+    const img = document.createElement('img');
+    img.src = url; img.className = 'ec-thumb';
+    img.title = 'Clique para ampliar';
+    img.addEventListener('click', () => abrirLightbox(url));
+    thumbsEl.appendChild(img);
+  });
+  fileNames.forEach(name => {
+    const badge = document.createElement('span');
+    badge.className = 'ec-thumb-badge';
+    badge.textContent = name.length > 18 ? name.slice(0, 16) + '…' : name;
+    thumbsEl.appendChild(badge);
+  });
 
   const ctrl = new AbortController();
   _activeStreams.set(id, ctrl);
@@ -1163,8 +1224,12 @@ document.getElementById('btn-extrair').addEventListener('click', async () => {
   // Snapshot do parceiro atual (pode mudar enquanto o card processa)
   const parceiroSnapshot = { ...parceiroSelecionado };
 
+  // Snapshot dos nomes de arquivo (CSV/XLS) para exibir no card
+  const thumbUrls = arquivos.map(f => URL.createObjectURL(f));
+  const fileNames = [...csvFiles.map(f => f.name), ...xlsFiles.map(f => f.name)];
+
   // Cria card → limpa formulário → re-habilita botão imediatamente
-  const card = createExtractionCard(parceiroSnapshot, modelo);
+  const card = createExtractionCard(parceiroSnapshot, modelo, thumbUrls, fileNames);
   limparExtrator();
 
   // Roda extração em background (não bloqueia o formulário)
