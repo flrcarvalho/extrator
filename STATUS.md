@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-21 (sessão 39 — nova casa: Betnacional)_
+_Atualizado: 2026-06-21 (sessão 39 — Dardos ML: nome de jogador = ML documentado na Superbet)_
 
 ---
 
