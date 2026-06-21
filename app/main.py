@@ -232,6 +232,9 @@ def _build_chunks(base_content: list[dict], instrucao_block: dict) -> list[list[
     # Caso 2: só texto → divide por blocos de apostas
     if not images and texts:
         full_text = "\n\n".join(b["text"] for b in texts)
+        # CSV+texto precisam ficar juntos (a IA faz o join bilhete↔extrato)
+        if "DADOS CSV:" in full_text:
+            return [base_content + [instrucao_block]]
         if "=== Aposta ID" in full_text:
             blocks = re.split(r'(?=^=== Aposta ID)', full_text, flags=re.MULTILINE)
         else:
@@ -436,7 +439,12 @@ async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo:
 
     try:
         for _ in range(n_chunks):
-            idx, text, tokens, err = await result_queue.get()
+            while True:
+                try:
+                    idx, text, tokens, err = await asyncio.wait_for(result_queue.get(), timeout=20)
+                    break
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
             if err:
                 logger.error("par chunk %d falhou (continuando): %s", idx + 1, err)
                 completed.append((idx, "", tokens))
@@ -450,7 +458,11 @@ async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo:
 
     await asyncio.gather(*tasks, return_exceptions=True)
     completed.sort(key=lambda x: x[0], reverse=True)  # oldest chunk last in index = first chronologically
-    resultado, total_tokens, scroll_overlap_indices = _combine_parallel_results(completed)
+    try:
+        resultado, total_tokens, scroll_overlap_indices = _combine_parallel_results(completed)
+    except Exception as exc:
+        yield f"data: {json.dumps({'error': f'{type(exc).__name__}: {exc}'})}\n\n"
+        return
 
     logger.info("par total: %.1fs | chunks=%d | out=%d",
                 time.perf_counter() - t_start, n_chunks, total_tokens["output"])
