@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-21 (sessão 35 — fixes de streaming, estado do extrator e ordem Pinnacle)_
+_Atualizado: 2026-06-21 (sessão 37 — auditoria de ordem de extração + fix definitivo de chunks paralelos)_
 
 ---
 
@@ -400,6 +400,26 @@ uvicorn main:app --reload
 - **`app/static/index.html`:** `BOLSADEAPOSTA` adicionado a `NOMES`; `'Bolsa de Aposta'` adicionado a `DOMINIOS` com domínio `bolsadeaposta.bet.br`.
 - Backup: `Backups/pre_bolsadeaposta_2026-06-21/`. Commit: `2217206`.
 
+**Sessão 37 (21/06/2026) — Auditoria de ordem de extração + fix definitivo de chunks paralelos:**
+
+- **Auditoria com agente Opus:** comparação histórica git entre ~16/06 e 21/06 em todos os `casas/CASA_*.md`. Conclusão: as regras de planilhamento (§9) **não foram alteradas** no período. O único problema era no backend (`app/main.py`), não nos docs das casas.
+- **Root cause identificado:** `_stream_parallel` usava `is_image_mode` (bool) para decidir `reverse`. Isso não distinguia os 4 casos reais:
+  - Betano **texto**: `is_image_mode=False` → `reverse=False` → TSV invertido (apostas recentes primeiro) — **ERRADO**
+  - Superbet **imagens**: `is_image_mode=True` → `reverse=True` → TSV invertido (última imagem colada saía primeiro) — **ERRADO**
+  - Pinnacle XLS: `is_image_mode=False` → `reverse=False` — correto (parser já inverte)
+  - BET365/Betano imgs/KingPanda/Betfair: `is_image_mode=True` → `reverse=True` — correto
+- **Regressão rastreada:** commit `06f1455` (fix Pinnacle de hoje cedo) introduziu a regressão no Betano texto; o bug da Superbet existia desde o commit `9f630a4` (paralelismo, 20/06).
+- **Fix (`app/main.py`, commit `cb5573c`):** substituiu `is_image_mode` por duas verificações independentes:
+  - `is_xls_mode`: detecta texto com `"=== Aposta ID"` (marcador exclusivo do parser XLS Pinnacle)
+  - `casa_key.upper() == "SUPERBET"`: Superbet sempre `reverse=False`
+  - Todos os outros casos: `reverse=True`
+  - `casa_key` passado como parâmetro para `_stream_parallel`
+- **Regra consolidada (confirmada pelo usuário):**
+  - `reverse=False`: Pinnacle XLS (pré-invertido pelo parser) · Superbet (colagem na ordem certa)
+  - `reverse=True`: Betano texto · Betfair texto · BET365 imgs · Betano imgs · KingPanda imgs
+- **Validado em produção:** Betano texto ✅ · KingPanda ✅ · Betfair ✅ · Superbet (lógica confirmada pelo usuário).
+- Backup: `Backups/main_pre_fix_sort_order_21jun.py`. Commit: `cb5573c`.
+
 **Pendências que aguardam bilhete real:**
 - **Bet365:** §6 rótulo visual do boost · §7 rótulo visual do cashout encerrado
 - **Betano:** §5 rótulo de void/anulada · §6 boost (existe?)
@@ -407,9 +427,8 @@ uvicorn main:app --reload
 - **Bolsa de Aposta:** §5 V/HW/HL · §6 boost · §7 cashout · §8 bônus · apostas Lay
 
 **Próximo passo:**
-- Testar extração Bolsa de Aposta com os 4 bilhetes do texto colado.
-- Testar extração Betfair com texto+CSV após os fixes de streaming e estado do extrator.
-- Testar extração Pinnacle XLS e validar que a ordem (oldest first) está correta após o fix de chunks.
+- Cadastrar novas casas usando `GUIA_NOVA_CASA.md` quando houver bilhetes reais.
+- Preencher pendências das casas existentes assim que amostras reais chegarem (ver lista acima).
 
 Quando chegar um bilhete novo: abrir o arquivo da casa correspondente, preencher a pendência, rodar o checklist do `CLAUDE.md` se envolver categoria nova.
 
