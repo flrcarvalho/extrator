@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-21 (sessão 39 — Dardos ML: nome de jogador = ML documentado na Superbet)_
+_Atualizado: 2026-06-21 (sessão 39 — fixes UI + docs Dardos ML)_
 
 ---
 
@@ -435,6 +435,15 @@ uvicorn main:app --reload
 - **`app/main.py`:** `"BETNACIONAL": "Betnacional"` adicionado a `_CASA_DISPLAY` (ordem alfabética, entre BETFAIR e BOLSADEAPOSTA).
 - **`app/static/index.html`:** `BETNACIONAL: 'Betnacional'` adicionado a `NOMES`; `Betnacional: 'betnacional.bet.br'` adicionado a `DOMINIOS`.
 - Backup: `Backups/pre_betnacional_2026-06-21/`. Commit: `c05ef80`.
+
+**Sessão 38 (21/06/2026) — Fix UI: copiar/baixar pendentes arquivados:**
+
+- **`app/static/index.html`:** botoes "Copiar pendentes" e "Baixar .tsv" removeram filtro `!b.archived`. Agora incluem apostas arquivadas pendentes quando a visao de arquivados esta ativa. Aviso amarelo exibido quando ha arquivados mas a visao esta desligada. Commits: `0d22f0e`, `fb71076`.
+
+**Sessão 39 (21/06/2026, continuacao) — Docs Dardos ML:**
+
+- **`casas/CASA_SUPERBET.md`:** §9 nota explicita — nome de jogador em esporte individual (Dardos, Tenis) = `ML`, nunca `Outras`. §13 pegadinha equivalente. §15 golden #8 `Alec Small [Joe Croft v Alec Small]` (Dardos ML L). Commit: `8433259`.
+- **`global/MASTER_ESPORTES_2026.md`:** `Joe Croft` e `Alec Small` adicionados a lista de referências auxiliares de Dardos (secao MODUS/outros circuitos). Commit: `2291149`.
 
 **Pendências que aguardam bilhete real:**
 - **Bet365:** §6 rótulo visual do boost · §7 rótulo visual do cashout encerrado
