@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-20 (sessão 33 — KingPanda consolidado + GUIA_NOVA_CASA)_
+_Atualizado: 2026-06-20 (sessão 34 — fix scroll overlap + normalização de odd)_
 
 ---
 
@@ -282,6 +282,16 @@ uvicorn main:app --reload
 - Backups: `Backups/pre_kingpanda_v2_2026-06-20/`. Commits: `051ae9b`, `2535a2f`, `b4e8a0f`, `9360882`.
 
 **Proximo passo: cadastrar novas casas usando `GUIA_NOVA_CASA.md`.**
+
+**Sessão 34 (20/06/2026) — Fix scroll overlap + normalização de odd:**
+
+- **Contexto herdado:** sessão anterior aplicou detecção de sobreposição de scroll (badge azul) e correção de ordem cronológica (chunks paralelos). O badge não aparecia.
+- **Root cause:** `_scroll_key` em `_combine_parallel_results` (`main.py`) comparava a odd como string bruta. Chunks paralelos podem calcular a mesma odd de formas diferentes: um lê `"1,83"` do cabeçalho do bilhete; outro calcula `RO ÷ Stake = "1,8331168..."`. Strings diferentes = chave diferente = overlap não detectado.
+- **Fix 1 — `main.py` `_scroll_key`:** odd normalizada para 2 casas decimais antes da comparação de chave. `"1,83"` e `"1,8331..."` viram `1.83` e batem. Commit `b3afde3`.
+- **Fix 2 — `CASA_BET365.md`, `CASA_BETANO.md`, `CASA_SUPERBET.md` §11:** aviso explícito adicionado logo abaixo da regra W: "a odd exibida no cabeçalho é decorativa para W — ignorar; calcular sempre com RO real." Commit `7e1321c`.
+- **Fix 3 — `repository.py` `_assinatura`:** odd normalizada para 2dp antes de gerar o hash (`_norm_odd`). Previne duplicatas silenciosas no banco quando o AI produz precisões diferentes em sessões distintas (ex.: re-upload da mesma aposta). Commit `7e1321c`.
+- **Fix 4 — `index.html`:** coluna de badge (duplicata/scroll) movida do final da grade para ao lado da coluna Esporte. Commit `ca7e5fb`.
+- Casas afetadas pelos fixes de odd: Bet365, Betano, Superbet (têm boost; odd exibida pode diferir do calculado). Pinnacle, Betfair e KingPanda não afetadas (odd exibida = autoritativa ou = calculado).
 
 **Sessão 32 (20/06/2026) — Nova casa: KingPanda:**
 
