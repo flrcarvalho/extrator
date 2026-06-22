@@ -52,6 +52,17 @@ def _casa_display(key: str) -> str:
     return _CASA_DISPLAY.get(key.upper(), key.title())
 
 
+def _display_to_key(name: str) -> str:
+    """Converte display name ou chave para a chave canônica (ex: 'Bolsa de Aposta' → 'BOLSADEAPOSTA')."""
+    upper = name.upper()
+    if upper in _CASA_DISPLAY:
+        return upper
+    for key, display in _CASA_DISPLAY.items():
+        if display.upper() == upper:
+            return key
+    return upper.replace(" ", "")
+
+
 # ── Cache warmer ──────────────────────────────────────────────────────────────
 
 async def _cache_warmer():
@@ -513,7 +524,7 @@ async def extrair(
     if modelo not in ALLOWED_MODELS:
         raise HTTPException(400, f"Modelo não permitido. Opções: {ALLOWED_MODELS}")
 
-    casa_key = casa.upper()
+    casa_key = _display_to_key(casa)
     if not (CASAS_DIR / f"CASA_{casa_key}.md").exists():
         raise HTTPException(400, f"Casa desconhecida: {casa}")
 
@@ -601,7 +612,7 @@ async def salvar(body: SalvarRequest):
     rows = parse_tsv(body.tsv)
     if not rows:
         raise HTTPException(400, "Nenhuma linha válida encontrada no TSV.")
-    casa_key = (body.casa or "").upper() or None
+    casa_key = _display_to_key(body.casa) if body.casa else None
     for row in rows:
         if casa_key:
             row["casa"] = _casa_display(casa_key)
@@ -698,7 +709,7 @@ async def listar_parceiros(casa: Optional[str] = None, arquivados: bool = False)
 
 @app.post("/parceiros")
 async def criar_parceiro_route(body: ParceiroCriarRequest):
-    casa_key = body.casa.upper()
+    casa_key = _display_to_key(body.casa)
     nome = body.nome.strip()
     if not nome:
         raise HTTPException(400, "Nome do parceiro não pode ser vazio.")
