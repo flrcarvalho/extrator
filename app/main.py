@@ -43,6 +43,7 @@ _CASA_DISPLAY: dict[str, str] = {
     "BETNACIONAL":    "Betnacional",
     "BOLSADEAPOSTA":  "Bolsa de Aposta",
     "KINGPANDA":      "KingPanda",
+    "LOTTU":          "Lottu",
     "PINNACLE":       "Pinnacle",
     "SUPERBET":       "Superbet",
 }
