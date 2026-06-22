@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-21 (sessão 39 — fixes UI + docs Dardos ML)_
+_Atualizado: 2026-06-21 (sessão 40 — fix cadastro Bolsa de Aposta)_
 
 ---
 
@@ -444,6 +444,13 @@ uvicorn main:app --reload
 
 - **`casas/CASA_SUPERBET.md`:** §9 nota explicita — nome de jogador em esporte individual (Dardos, Tenis) = `ML`, nunca `Outras`. §13 pegadinha equivalente. §15 golden #8 `Alec Small [Joe Croft v Alec Small]` (Dardos ML L). Commit: `8433259`.
 - **`global/MASTER_ESPORTES_2026.md`:** `Joe Croft` e `Alec Small` adicionados a lista de referências auxiliares de Dardos (secao MODUS/outros circuitos). Commit: `2291149`.
+
+**Sessão 40 (21/06/2026) — Fix: cadastro de parceiro Bolsa de Aposta:**
+
+- **Bug:** ao criar parceiro com casa "Bolsa de Aposta", o app retornava "Casa desconhecida: Bolsa de Aposta".
+- **Causa raiz:** `body.casa.upper()` convertia `"Bolsa de Aposta"` → `"BOLSA DE APOSTA"`, e o sistema buscava `CASA_BOLSA DE APOSTA.md` (inexistente). O arquivo correto e `CASA_BOLSADEAPOSTA.md`.
+- **Fix:** `app/main.py` — funcao `_display_to_key()` adicionada. Faz reverse lookup no `_CASA_DISPLAY` antes de usar fallback `upper().replace(' ','')`. Corrigidos os 3 pontos: `/extrair`, `/salvar` e `/parceiros` (POST).
+- Backup: `Backups/pre_bolsadeaposta_fix_2026-06-21/`. Commit: `6636106`.
 
 **Pendências que aguardam bilhete real:**
 - **Bet365:** §6 rótulo visual do boost · §7 rótulo visual do cashout encerrado
