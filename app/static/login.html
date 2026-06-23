@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entrar — Scanner de Bets · FDC Capital</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  opacity: 0.55; pointer-events: none;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+.card {
+  position: relative; z-index: 1;
+  width: 360px; max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg, 16px);
+  padding: 32px 28px 28px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+}
+.logo { display: block; width: 170px; margin: 0 auto 22px; }
+.logo img { width: 100%; height: auto; display: block; }
+h1 {
+  font-size: 16px; font-weight: 700; letter-spacing: -0.02em;
+  text-align: center; margin-bottom: 4px;
+}
+.sub {
+  font-size: 12px; color: var(--ink-mute);
+  text-align: center; margin-bottom: 24px;
+}
+label {
+  display: block; font-size: 11px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--ink-mute); margin: 14px 2px 6px;
+}
+input {
+  width: 100%; padding: 11px 13px;
+  background: var(--elevated, var(--surface-2));
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 10px);
+  color: var(--ink); font-size: 14px; font-family: inherit;
+  transition: border-color .12s;
+}
+input:focus { outline: none; border-color: var(--accent, #6ea8fe); }
+button {
+  width: 100%; margin-top: 22px; padding: 12px;
+  background: var(--accent, #6ea8fe);
+  color: var(--accent-ink, #0b1220);
+  border: none; border-radius: var(--r-sm, 10px);
+  font-size: 14px; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: filter .12s, box-shadow .12s;
+}
+button:hover { filter: brightness(1.06); box-shadow: var(--glow, 0 0 0 3px rgba(110,168,254,.25)); }
+button:disabled { opacity: .6; cursor: default; box-shadow: none; }
+.erro {
+  margin-top: 14px; min-height: 16px;
+  font-size: 12.5px; color: var(--d-l, #ff6b6b); text-align: center;
+}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><img src="/static/fdc-logo-horizontal-dark.svg" alt="FDC Capital"></div>
+    <h1>Scanner de Bets</h1>
+    <div class="sub">Entre para acessar seu espaço</div>
+    <form id="form">
+      <label for="usuario">Usuário</label>
+      <input id="usuario" name="usuario" autocomplete="username" autofocus required>
+      <label for="senha">Senha</label>
+      <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+      <button type="submit" id="btn">Entrar</button>
+      <div class="erro" id="erro"></div>
+    </form>
+  </div>
+<script>
+const form = document.getElementById('form');
+const btn = document.getElementById('btn');
+const erro = document.getElementById('erro');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  erro.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Entrando…';
+  try {
+    const r = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        usuario: document.getElementById('usuario').value,
+        senha: document.getElementById('senha').value,
+      }),
+    });
+    if (r.ok) {
+      window.location.href = '/';
+      return;
+    }
+    const data = await r.json().catch(() => ({}));
+    erro.textContent = data.detail || 'Usuário ou senha inválidos.';
+  } catch (_) {
+    erro.textContent = 'Erro de conexão. Tente novamente.';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Entrar';
+});
+</script>
+</body>
+</html>

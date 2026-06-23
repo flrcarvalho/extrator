@@ -1,0 +1,94 @@
+"""Autenticação multiusuário — login por cookie assinado (HMAC, stdlib).
+
+Isolamento lógico: cada rota recupera o `dono` (username) do cookie de sessão
+e o repassa ao repositório, que filtra TODA query por dono. Sem cookie válido,
+nenhuma rota de dados responde.
+
+Sem dependências novas — apenas stdlib. As senhas ficam em hash SHA-256;
+podem ser sobrescritas por variável de ambiente em produção.
+"""
+import base64
+import hashlib
+import hmac
+import json
+import os
+import time
+
+from fastapi import HTTPException, Request
+
+COOKIE_NAME = "fdc_sessao"
+SESSION_MAX_AGE = 60 * 60 * 24 * 30  # 30 dias
+
+# Segredo de assinatura do cookie. Em produção, defina SESSION_SECRET no Railway.
+SESSION_SECRET = os.environ.get(
+    "SESSION_SECRET",
+    "fdc-capital-planilhador-segredo-padrao-troque-em-producao",
+)
+
+
+def _hash(senha: str) -> str:
+    return hashlib.sha256(senha.encode()).hexdigest()
+
+
+# usuário → hash da senha. Sobrescrevível por env (SENHA_<USER>_HASH) sem expor texto.
+USUARIOS: dict[str, str] = {
+    "Feca": os.environ.get(
+        "SENHA_FECA_HASH",
+        "21a9201f1f1554b9647d573514007b0dd03870abf0c8e014d12dc961213dec31",
+    ),
+    "Diogo": os.environ.get(
+        "SENHA_DIOGO_HASH",
+        "4b7c2caf9b963b6530e3ff5245c84122fde9bb017a04e925b0516ed4c3e26266",
+    ),
+}
+
+
+def verificar_credenciais(usuario: str, senha: str) -> bool:
+    esperado = USUARIOS.get(usuario)
+    if not esperado:
+        return False
+    return hmac.compare_digest(esperado, _hash(senha))
+
+
+def criar_token(usuario: str) -> str:
+    exp = int(time.time()) + SESSION_MAX_AGE
+    payload = base64.urlsafe_b64encode(
+        json.dumps({"u": usuario, "exp": exp}).encode()
+    ).decode()
+    assinatura = hmac.new(
+        SESSION_SECRET.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
+    return f"{payload}.{assinatura}"
+
+
+def ler_token(token: str | None) -> str | None:
+    """Retorna o usuário se o token for válido e não expirado; senão None."""
+    if not token:
+        return None
+    try:
+        payload, assinatura = token.rsplit(".", 1)
+        esperado = hmac.new(
+            SESSION_SECRET.encode(), payload.encode(), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(assinatura, esperado):
+            return None
+        dados = json.loads(base64.urlsafe_b64decode(payload.encode()))
+        if int(dados.get("exp", 0)) < int(time.time()):
+            return None
+        usuario = dados.get("u")
+        return usuario if usuario in USUARIOS else None
+    except Exception:
+        return None
+
+
+def usuario_do_request(request: Request) -> str | None:
+    """Lê o cookie e retorna o usuário (ou None). Não levanta exceção."""
+    return ler_token(request.cookies.get(COOKIE_NAME))
+
+
+def usuario_atual(request: Request) -> str:
+    """Dependency FastAPI: exige sessão válida; senão 401."""
+    usuario = usuario_do_request(request)
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Não autenticado")
+    return usuario

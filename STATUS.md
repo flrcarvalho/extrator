@@ -4,7 +4,7 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-22 (sessão 43 — nova casa Jogo de Ouro)_
+_Atualizado: 2026-06-23 (sessão 44 — login multiusuário com isolamento por dono)_
 
 ---
 
@@ -50,6 +50,17 @@ Os 6 MASTER_*.md estão em `/global/` (reorganização concluída em 12/06/2026)
 ---
 
 ## 4. Estado atual
+
+- **Sessão 44 (23/06/2026) — Login multiusuário + isolamento por dono:** o app ganhou autenticação para um amigo (Diogo) testar sem misturar dados com os do dono do projeto (Feca).
+  - **`app/auth.py` (novo):** login por cookie assinado (HMAC, stdlib — zero dependência nova). `USUARIOS` = dict usuário→hash SHA-256 (`Feca`, `Diogo`), sobrescrevível por env `SENHA_<USER>_HASH` e `SESSION_SECRET`. Cookie `httponly`, `samesite=lax`, `secure=True` (válido sob HTTPS do Railway). Dependency `usuario_atual` exige sessão; senão 401.
+  - **`app/database.py`:** coluna `dono TEXT NOT NULL DEFAULT 'Feca'` em `bilhetes` e `parceiros` (migração idempotente; registros antigos viram do Feca). Constraints `UNIQUE` trocadas para `(dono, casa, parceiro, assinatura)` e `(dono, casa, nome)` via bloco `DO` idempotente — cada usuário tem seu próprio espaço.
+  - **`app/repository.py`:** `dono` propagado a TODAS as funções. Operações por `id` (deletar/editar/marcar/arquivar) filtram também por `dono` — um usuário nunca toca bilhete/parceiro de outro nem por ID forjado. Dedup por código (`get_codigos_*`) é por dono.
+  - **`app/main.py`:** rotas `/login` (GET tela + POST autentica), `/logout`, `/me`; `/` redireciona p/ `/login` sem sessão; **todas** as rotas de dados protegidas com `Depends(usuario_atual)` e `dono` injetado nas chamadas do repositório.
+  - **`app/static/login.html` (novo):** tela de login on-brand (tokens.css + logo FDC).
+  - **`app/static/index.html`:** cabeçalho na sidebar com nome do usuário logado + botão "Sair"; interceptor global de `fetch` redireciona p/ `/login` em 401 (sessão expirada).
+  - **Credenciais:** Feca (dono, dados existentes) e Diogo (teste). Senhas em hash no código; recomendado mover p/ env no Railway depois.
+  - **Caveat local:** cookie `secure=True` só trafega em HTTPS — login local em `http://localhost` não persiste; testar na URL Railway (HTTPS).
+  - Backup: `Backups/pre_multiusuario_2026-06-23/`.
 
 - 6 masters globais existem e foram auditados. Separação por coluna de saída está boa; **não** subdividir mais (exceto candidatos opcionais: listas de jogadores fora do ESPORTES; math de sistemas fora do RESULTADO).
 - `CASA_SUPERBET.md` formalizado e preenchido com 8 bilhetes reais (mapa de mercados, status, localizadores, 4 golden). Pendências internas: HW/HL (§5) e cashout parcial real (§7).

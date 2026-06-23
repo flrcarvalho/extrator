@@ -34,6 +34,23 @@ CREATE TABLE IF NOT EXISTS bilhetes (
 ALTER TABLE bilhetes ADD COLUMN IF NOT EXISTS codigo_bilhete TEXT;
 ALTER TABLE bilhetes ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Multiusuário: coluna dono. Registros pré-existentes pertencem ao dono do projeto ('Feca').
+ALTER TABLE bilhetes ADD COLUMN IF NOT EXISTS dono TEXT NOT NULL DEFAULT 'Feca';
+
+-- Troca a unicidade para incluir o dono: cada usuário tem seu próprio espaço.
+-- (sem isto, dois usuários não poderiam ter o mesmo casa+parceiro+assinatura)
+DO $$
+BEGIN
+    ALTER TABLE bilhetes DROP CONSTRAINT IF EXISTS bilhetes_casa_parceiro_assinatura_key;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'bilhetes_dono_casa_parceiro_assinatura_key'
+    ) THEN
+        ALTER TABLE bilhetes
+            ADD CONSTRAINT bilhetes_dono_casa_parceiro_assinatura_key
+            UNIQUE (dono, casa, parceiro, assinatura);
+    END IF;
+END$$;
+
 -- Normalizar nomes de casas: UPPERCASE → display name
 UPDATE bilhetes  SET casa = 'Bet365'   WHERE casa = 'BET365';
 UPDATE bilhetes  SET casa = 'Betano'   WHERE casa = 'BETANO';
@@ -54,6 +71,21 @@ CREATE TABLE IF NOT EXISTS parceiros (
     criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (casa, nome)
 );
+
+-- Multiusuário: dono dos parceiros (mesma lógica de bilhetes).
+ALTER TABLE parceiros ADD COLUMN IF NOT EXISTS dono TEXT NOT NULL DEFAULT 'Feca';
+
+DO $$
+BEGIN
+    ALTER TABLE parceiros DROP CONSTRAINT IF EXISTS parceiros_casa_nome_key;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'parceiros_dono_casa_nome_key'
+    ) THEN
+        ALTER TABLE parceiros
+            ADD CONSTRAINT parceiros_dono_casa_nome_key
+            UNIQUE (dono, casa, nome);
+    END IF;
+END$$;
 """
 
 

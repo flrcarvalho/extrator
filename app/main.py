@@ -12,11 +12,15 @@ from typing import Optional
 import xlrd
 
 from anthropic import AsyncAnthropic
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from auth import (
+    COOKIE_NAME, SESSION_MAX_AGE, criar_token, usuario_atual,
+    usuario_do_request, verificar_credenciais,
+)
 from config import ALLOWED_MODELS, CASAS_DIR, DEFAULT_MODEL
 from database import init_db
 from prompts import build_system
@@ -158,12 +162,12 @@ def _format_xls_rows(rows: list[dict]) -> str:
     return "\n\n".join(parts)
 
 
-async def _parse_xls(raw: bytes) -> tuple[str, int]:
+async def _parse_xls(raw: bytes, dono: str) -> tuple[str, int]:
     rows = _xls_parse_rows(raw)
     if not rows:
         return "", 0
     all_ids = [r["id"] for r in rows if r["id"]]
-    known_ids = await get_codigos_existentes(all_ids)
+    known_ids = await get_codigos_existentes(all_ids, dono)
     new_rows = [r for r in rows if r["id"] not in known_ids]
     skipped = len(rows) - len(new_rows)
     new_rows_oldest_first = list(reversed(new_rows))
@@ -186,7 +190,7 @@ def _split_betano_bilhetes(text: str) -> list[str]:
     return [b.strip() for b in _BETANO_SPLIT_RE.split(text) if b.strip()]
 
 
-async def _dedup_betano_text(text: str) -> tuple[str, int]:
+async def _dedup_betano_text(text: str, dono: str) -> tuple[str, int]:
     """Remove bilhetes já liquidados no banco + duplicatas de scroll dentro do colar.
 
     Retorna (texto_filtrado, qtd_ignorada). Mantém a ordem original (mais recente no topo).
@@ -201,7 +205,7 @@ async def _dedup_betano_text(text: str) -> tuple[str, int]:
         m = _BETANO_ID_RE.search(b)
         ids.append(m.group(1) if m else None)
 
-    ja_resolvidos = await get_codigos_resolvidos([i for i in ids if i])
+    ja_resolvidos = await get_codigos_resolvidos([i for i in ids if i], dono)
 
     mantidos: list[str] = []
     vistos: set[str] = set()
@@ -550,13 +554,61 @@ async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo:
 # ── Rotas ─────────────────────────────────────────────────────────────────────
 
 @app.get("/")
-async def root():
+async def root(request: Request):
+    # Sem sessão válida → tela de login.
+    if not usuario_do_request(request):
+        return RedirectResponse("/login", status_code=303)
     content = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
     return HTMLResponse(content=content, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
+# ── Autenticação ──────────────────────────────────────────────────────────────
+
+@app.get("/login")
+async def login_page(request: Request):
+    # Já logado → vai direto para o app.
+    if usuario_do_request(request):
+        return RedirectResponse("/", status_code=303)
+    content = (Path(__file__).parent / "static" / "login.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=content, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+
+
+class LoginRequest(BaseModel):
+    usuario: str
+    senha: str
+
+
+@app.post("/login")
+async def login(body: LoginRequest):
+    usuario = body.usuario.strip()
+    if not verificar_credenciais(usuario, body.senha):
+        raise HTTPException(401, "Usuário ou senha inválidos.")
+    resp = JSONResponse({"ok": True, "usuario": usuario})
+    resp.set_cookie(
+        key=COOKIE_NAME,
+        value=criar_token(usuario),
+        max_age=SESSION_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=True,
+    )
+    return resp
+
+
+@app.post("/logout")
+async def logout():
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(COOKIE_NAME)
+    return resp
+
+
+@app.get("/me")
+async def me(dono: str = Depends(usuario_atual)):
+    return {"usuario": dono}
+
+
 @app.get("/casas")
-async def listar_casas():
+async def listar_casas(dono: str = Depends(usuario_atual)):
     casas = sorted(
         _casa_display(p.stem.removeprefix("CASA_"))
         for p in CASAS_DIR.glob("CASA_*.md")
@@ -575,6 +627,7 @@ async def extrair(
     imagens: list[UploadFile] = File(default=[]),
     xls_file: Optional[UploadFile] = File(default=None),
     data_referencia: Optional[str] = Form(None),
+    dono: str = Depends(usuario_atual),
 ):
     if modelo not in ALLOWED_MODELS:
         raise HTTPException(400, f"Modelo não permitido. Opções: {ALLOWED_MODELS}")
@@ -602,7 +655,7 @@ async def extrair(
         # Betano (texto): pré-dedup por ID antes de chamar o modelo — descarta
         # bilhetes já liquidados no banco e duplicatas de scroll dentro do colar.
         if casa_key.upper() == "BETANO":
-            texto, n_skip = await _dedup_betano_text(texto)
+            texto, n_skip = await _dedup_betano_text(texto, dono)
             xls_skipped += n_skip
         if texto:
             base_content.append({"type": "text", "text": texto})
@@ -612,7 +665,7 @@ async def extrair(
 
     if xls_file:
         raw = await xls_file.read()
-        xls_text, n_skip = await _parse_xls(raw)
+        xls_text, n_skip = await _parse_xls(raw, dono)
         xls_skipped += n_skip
         if xls_text:
             base_content.append({"type": "text", "text": xls_text})
@@ -671,7 +724,7 @@ class SalvarRequest(BaseModel):
 
 
 @app.post("/salvar")
-async def salvar(body: SalvarRequest):
+async def salvar(body: SalvarRequest, dono: str = Depends(usuario_atual)):
     rows = parse_tsv(body.tsv)
     if not rows:
         raise HTTPException(400, "Nenhuma linha válida encontrada no TSV.")
@@ -682,13 +735,13 @@ async def salvar(body: SalvarRequest):
         if body.parceiro:
             row["parceiro"] = body.parceiro
         row["tipster"] = ""
-    inseridos, atualizados, ids, alertas, duplicatas = await upsert_bilhetes(rows, confianca=body.confianca)
+    inseridos, atualizados, ids, alertas, duplicatas = await upsert_bilhetes(rows, dono, confianca=body.confianca)
 
     arquivados = 0
     if ids and (body.casa or rows):
         casa_display = _casa_display((body.casa or rows[0].get("casa", "")).upper())
         parceiro_nome = body.parceiro or (rows[0].get("parceiro", "") if rows else "")
-        arquivados = await auto_arquivar(casa_display, parceiro_nome, len(ids))
+        arquivados = await auto_arquivar(casa_display, parceiro_nome, len(ids), dono)
 
     return {"salvos": inseridos + atualizados, "inseridos": inseridos, "atualizados": atualizados,
             "ids": ids, "alertas": alertas, "duplicatas": duplicatas, "arquivados": arquivados}
@@ -699,16 +752,16 @@ class DeletarRequest(BaseModel):
 
 
 @app.delete("/bilhetes")
-async def deletar_bilhetes_route(body: DeletarRequest):
+async def deletar_bilhetes_route(body: DeletarRequest, dono: str = Depends(usuario_atual)):
     if not body.ids:
         raise HTTPException(400, "Lista de IDs vazia.")
-    deletados = await deletar_bilhetes(body.ids)
+    deletados = await deletar_bilhetes(body.ids, dono)
     return {"deletados": deletados}
 
 
 @app.delete("/bilhetes/{bilhete_id}")
-async def deletar_bilhete_route(bilhete_id: int):
-    deletados = await deletar_bilhetes([bilhete_id])
+async def deletar_bilhete_route(bilhete_id: int, dono: str = Depends(usuario_atual)):
+    deletados = await deletar_bilhetes([bilhete_id], dono)
     if not deletados:
         raise HTTPException(404, "Bilhete não encontrado.")
     return {"deletado": True}
@@ -722,8 +775,10 @@ async def listar_bilhetes(
     extraction_state: Optional[str] = None,
     archived: str = "false",
     order: str = "asc",
+    dono: str = Depends(usuario_atual),
 ):
     rows = await list_bilhetes(
+        dono,
         casa=casa or None,
         parceiro=parceiro or None,
         copy_state=copy_state or None,
@@ -733,7 +788,7 @@ async def listar_bilhetes(
     )
     arquivados_count = 0
     if archived != "true" and (casa or parceiro):
-        arquivados_count = await contar_arquivados(casa or "", parceiro or "")
+        arquivados_count = await contar_arquivados(casa or "", parceiro or "", dono)
     return {"bilhetes": rows, "total": len(rows), "arquivados": arquivados_count}
 
 
@@ -742,18 +797,18 @@ class CopiarRequest(BaseModel):
 
 
 @app.post("/bilhetes/copiar")
-async def marcar_bilhetes_copiados(body: CopiarRequest):
+async def marcar_bilhetes_copiados(body: CopiarRequest, dono: str = Depends(usuario_atual)):
     if not body.ids:
         raise HTTPException(400, "Lista de IDs vazia.")
-    atualizados = await marcar_copiada(body.ids)
+    atualizados = await marcar_copiada(body.ids, dono)
     return {"atualizados": atualizados}
 
 
 @app.post("/bilhetes/desmarcar")
-async def desmarcar_bilhetes(body: CopiarRequest):
+async def desmarcar_bilhetes(body: CopiarRequest, dono: str = Depends(usuario_atual)):
     if not body.ids:
         raise HTTPException(400, "Lista de IDs vazia.")
-    atualizados = await marcar_pendente(body.ids)
+    atualizados = await marcar_pendente(body.ids, dono)
     return {"atualizados": atualizados}
 
 
@@ -765,26 +820,27 @@ class ParceiroCriarRequest(BaseModel):
 
 
 @app.get("/parceiros")
-async def listar_parceiros(casa: Optional[str] = None, arquivados: bool = False):
-    rows = await list_parceiros(casa=casa or None, incluir_arquivados=arquivados)
+async def listar_parceiros(casa: Optional[str] = None, arquivados: bool = False,
+                           dono: str = Depends(usuario_atual)):
+    rows = await list_parceiros(dono, casa=casa or None, incluir_arquivados=arquivados)
     return {"parceiros": rows}
 
 
 @app.post("/parceiros")
-async def criar_parceiro_route(body: ParceiroCriarRequest):
+async def criar_parceiro_route(body: ParceiroCriarRequest, dono: str = Depends(usuario_atual)):
     casa_key = _display_to_key(body.casa)
     nome = body.nome.strip()
     if not nome:
         raise HTTPException(400, "Nome do parceiro não pode ser vazio.")
     if not (CASAS_DIR / f"CASA_{casa_key}.md").exists():
         raise HTTPException(400, f"Casa desconhecida: {body.casa}")
-    row = await criar_parceiro(_casa_display(casa_key), nome)
+    row = await criar_parceiro(_casa_display(casa_key), nome, dono)
     return row
 
 
 @app.post("/parceiros/{parceiro_id}/arquivar")
-async def arquivar_parceiro_route(parceiro_id: int):
-    ok = await arquivar_parceiro(parceiro_id)
+async def arquivar_parceiro_route(parceiro_id: int, dono: str = Depends(usuario_atual)):
+    ok = await arquivar_parceiro(parceiro_id, dono)
     if not ok:
         raise HTTPException(404, "Parceiro não encontrado.")
     return {"arquivado": True}
@@ -804,17 +860,18 @@ class AtualizarBilheteRequest(BaseModel):
 
 
 @app.patch("/bilhetes/{bilhete_id}")
-async def atualizar_bilhete_route(bilhete_id: int, body: AtualizarBilheteRequest):
+async def atualizar_bilhete_route(bilhete_id: int, body: AtualizarBilheteRequest,
+                                  dono: str = Depends(usuario_atual)):
     campos = {k: v for k, v in body.model_dump().items() if v is not None}
-    ok = await atualizar_bilhete(bilhete_id, campos)
+    ok = await atualizar_bilhete(bilhete_id, campos, dono)
     if not ok:
         raise HTTPException(404, "Bilhete não encontrado ou sem campos válidos.")
     return {"atualizado": True}
 
 
 @app.post("/parceiros/{parceiro_id}/reativar")
-async def reativar_parceiro_route(parceiro_id: int):
-    ok = await reativar_parceiro(parceiro_id)
+async def reativar_parceiro_route(parceiro_id: int, dono: str = Depends(usuario_atual)):
+    ok = await reativar_parceiro(parceiro_id, dono)
     if not ok:
         raise HTTPException(404, "Parceiro não encontrado.")
     return {"arquivado": False}

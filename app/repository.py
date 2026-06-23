@@ -61,7 +61,7 @@ def _assinatura(row: dict, _counter: int = 1) -> str:
 
 
 async def upsert_bilhetes(
-    rows: list[dict], confianca: float | None = None
+    rows: list[dict], dono: str, confianca: float | None = None
 ) -> tuple[int, int, list[int], list[str], dict]:
     """Retorna (inseridos, atualizados, ids, alertas, duplicatas).
 
@@ -116,8 +116,9 @@ async def upsert_bilhetes(
                 await conn.execute(
                     """UPDATE bilhetes SET assinatura = $1
                        WHERE casa = $2 AND parceiro = $3
-                         AND codigo_bilhete = $4 AND assinatura != $1""",
-                    sig, row.get("casa", ""), row.get("parceiro", ""), codigo,
+                         AND codigo_bilhete = $4 AND assinatura != $1
+                         AND dono = $5""",
+                    sig, row.get("casa", ""), row.get("parceiro", ""), codigo, dono,
                 )
                 # Migração B: adota linha sem código que bate em data+aposta+stake+odd
                 # (bets importadas via imagem antes do suporte a XLS)
@@ -128,6 +129,7 @@ async def upsert_bilhetes(
                         WHERE casa = $2 AND parceiro = $3
                           AND codigo_bilhete IS NULL
                           AND data = $4 AND aposta = $5 AND stake = $6 AND odd = $7
+                          AND dono = $9
                         LIMIT 1
                     )
                     UPDATE bilhetes SET assinatura = $1, codigo_bilhete = $8
@@ -136,7 +138,7 @@ async def upsert_bilhetes(
                     """,
                     sig, row.get("casa", ""), row.get("parceiro", ""),
                     row.get("data", ""), row.get("aposta", ""),
-                    row.get("stake", ""), row.get("odd", ""), codigo,
+                    row.get("stake", ""), row.get("odd", ""), codigo, dono,
                 )
 
             resultado = row.get("resultado", "").strip() or None
@@ -144,11 +146,11 @@ async def upsert_bilhetes(
             rec = await conn.fetchrow(
                 """
                 INSERT INTO bilhetes
-                    (casa, parceiro, assinatura, codigo_bilhete, data, esporte, tipster,
+                    (dono, casa, parceiro, assinatura, codigo_bilhete, data, esporte, tipster,
                      aposta, descricao, stake, odd, resultado,
                      extraction_state, confianca)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-                ON CONFLICT (casa, parceiro, assinatura) DO UPDATE SET
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+                ON CONFLICT (dono, casa, parceiro, assinatura) DO UPDATE SET
                     tipster          = EXCLUDED.tipster,
                     codigo_bilhete   = COALESCE(bilhetes.codigo_bilhete, EXCLUDED.codigo_bilhete),
                     resultado        = EXCLUDED.resultado,
@@ -156,7 +158,7 @@ async def upsert_bilhetes(
                     atualizado_em    = NOW()
                 RETURNING id, (xmax = 0) AS was_inserted
                 """,
-                row.get("casa", ""), row.get("parceiro", ""), sig,
+                dono, row.get("casa", ""), row.get("parceiro", ""), sig,
                 codigo or None,
                 row.get("data"), row.get("esporte"), row.get("tipster"),
                 row.get("aposta"), row.get("descricao"),
@@ -184,16 +186,16 @@ async def upsert_bilhetes(
     return inseridos, atualizados, ids, alertas, duplicatas
 
 
-async def deletar_bilhetes(ids: list[int]) -> int:
+async def deletar_bilhetes(ids: list[int], dono: str) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.execute(
-            "DELETE FROM bilhetes WHERE id = ANY($1)", ids
+            "DELETE FROM bilhetes WHERE id = ANY($1) AND dono = $2", ids, dono
         )
     return int(result.split()[-1])
 
 
-async def auto_arquivar(casa: str, parceiro: str, batch_size: int) -> int:
+async def auto_arquivar(casa: str, parceiro: str, batch_size: int, dono: str) -> int:
     """Arquiva apostas antigas, mantendo max(batch_size, 40) mais recentes visíveis.
 
     Retorna o número de apostas arquivadas nesta chamada.
@@ -207,7 +209,7 @@ async def auto_arquivar(casa: str, parceiro: str, batch_size: int) -> int:
                 SELECT id,
                        ROW_NUMBER() OVER (ORDER BY criado_em DESC) AS rn
                 FROM bilhetes
-                WHERE casa = $1 AND parceiro = $2
+                WHERE casa = $1 AND parceiro = $2 AND dono = $4
             )
             UPDATE bilhetes
             SET archived = CASE WHEN ranked.rn > $3 THEN TRUE ELSE FALSE END
@@ -215,23 +217,24 @@ async def auto_arquivar(casa: str, parceiro: str, batch_size: int) -> int:
             WHERE bilhetes.id = ranked.id
               AND bilhetes.archived != (ranked.rn > $3)
             """,
-            casa, parceiro, keep,
+            casa, parceiro, keep, dono,
         )
     updated = int(result.split()[-1])
     return updated
 
 
-async def contar_arquivados(casa: str, parceiro: str) -> int:
+async def contar_arquivados(casa: str, parceiro: str, dono: str) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT COUNT(*) FROM bilhetes WHERE casa = $1 AND parceiro = $2 AND archived = TRUE",
-            casa, parceiro,
+            "SELECT COUNT(*) FROM bilhetes WHERE casa = $1 AND parceiro = $2 AND dono = $3 AND archived = TRUE",
+            casa, parceiro, dono,
         )
     return row[0]
 
 
 async def list_bilhetes(
+    dono: str,
     casa: str | None = None,
     parceiro: str | None = None,
     copy_state: str | None = None,
@@ -243,7 +246,7 @@ async def list_bilhetes(
     pool = await get_pool()
     filters, params = [], []
 
-    for col, val in [("casa", casa), ("parceiro", parceiro),
+    for col, val in [("dono", dono), ("casa", casa), ("parceiro", parceiro),
                      ("copy_state", copy_state), ("extraction_state", extraction_state)]:
         if val is not None:
             params.append(val)
@@ -267,52 +270,53 @@ async def list_bilhetes(
     return [dict(r) for r in rows]
 
 
-async def marcar_copiada(ids: list[int]) -> int:
+async def marcar_copiada(ids: list[int], dono: str) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.execute(
-            "UPDATE bilhetes SET copy_state = 'copiada', atualizado_em = NOW() WHERE id = ANY($1)",
-            ids,
+            "UPDATE bilhetes SET copy_state = 'copiada', atualizado_em = NOW() WHERE id = ANY($1) AND dono = $2",
+            ids, dono,
         )
     return int(result.split()[-1])
 
 
-async def marcar_pendente(ids: list[int]) -> int:
+async def marcar_pendente(ids: list[int], dono: str) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.execute(
-            "UPDATE bilhetes SET copy_state = 'pendente', atualizado_em = NOW() WHERE id = ANY($1)",
-            ids,
+            "UPDATE bilhetes SET copy_state = 'pendente', atualizado_em = NOW() WHERE id = ANY($1) AND dono = $2",
+            ids, dono,
         )
     return int(result.split()[-1])
 
 
 # ── Parceiros ─────────────────────────────────────────────────────────────────
 
-async def criar_parceiro(casa: str, nome: str) -> dict:
+async def criar_parceiro(casa: str, nome: str, dono: str) -> dict:
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            INSERT INTO parceiros (casa, nome)
-            VALUES ($1, $2)
-            ON CONFLICT (casa, nome) DO UPDATE SET arquivado = FALSE
+            INSERT INTO parceiros (dono, casa, nome)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (dono, casa, nome) DO UPDATE SET arquivado = FALSE
             RETURNING id, casa, nome, arquivado, criado_em
             """,
-            casa, nome,
+            dono, casa, nome,
         )
     return dict(row)
 
 
-async def list_parceiros(casa: str | None = None, incluir_arquivados: bool = False) -> list[dict]:
+async def list_parceiros(dono: str, casa: str | None = None, incluir_arquivados: bool = False) -> list[dict]:
     pool = await get_pool()
-    filters, params = [], []
+    params = [dono]
+    filters = [f"dono = ${len(params)}"]
     if casa is not None:
         params.append(casa)
         filters.append(f"casa = ${len(params)}")
     if not incluir_arquivados:
         filters.append("arquivado = FALSE")
-    where = ("WHERE " + " AND ".join(filters)) if filters else ""
+    where = "WHERE " + " AND ".join(filters)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             f"SELECT id, casa, nome, arquivado, criado_em FROM parceiros {where} ORDER BY criado_em ASC",
@@ -321,16 +325,16 @@ async def list_parceiros(casa: str | None = None, incluir_arquivados: bool = Fal
     return [dict(r) for r in rows]
 
 
-async def arquivar_parceiro(parceiro_id: int) -> bool:
+async def arquivar_parceiro(parceiro_id: int, dono: str) -> bool:
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.execute(
-            "UPDATE parceiros SET arquivado = TRUE WHERE id = $1", parceiro_id
+            "UPDATE parceiros SET arquivado = TRUE WHERE id = $1 AND dono = $2", parceiro_id, dono
         )
     return result.split()[-1] == "1"
 
 
-async def atualizar_bilhete(bilhete_id: int, campos: dict) -> bool:
+async def atualizar_bilhete(bilhete_id: int, campos: dict, dono: str) -> bool:
     _EDITAVEIS = {"data", "esporte", "tipster", "casa", "parceiro",
                   "aposta", "descricao", "stake", "odd", "resultado"}
     safe = {k: v for k, v in campos.items() if k in _EDITAVEIS}
@@ -345,36 +349,39 @@ async def atualizar_bilhete(bilhete_id: int, campos: dict) -> bool:
         params.append(es)
         sets.append(f"extraction_state = ${len(params)}")
     params.append(bilhete_id)
-    sql = f"UPDATE bilhetes SET {', '.join(sets)}, atualizado_em = NOW() WHERE id = ${len(params)}"
+    id_ph = len(params)
+    params.append(dono)
+    sql = (f"UPDATE bilhetes SET {', '.join(sets)}, atualizado_em = NOW() "
+           f"WHERE id = ${id_ph} AND dono = ${len(params)}")
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.execute(sql, *params)
     return result.split()[-1] == "1"
 
 
-async def reativar_parceiro(parceiro_id: int) -> bool:
+async def reativar_parceiro(parceiro_id: int, dono: str) -> bool:
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.execute(
-            "UPDATE parceiros SET arquivado = FALSE WHERE id = $1", parceiro_id
+            "UPDATE parceiros SET arquivado = FALSE WHERE id = $1 AND dono = $2", parceiro_id, dono
         )
     return result.split()[-1] == "1"
 
 
-async def get_codigos_existentes(codigos: list[str]) -> set[str]:
-    """Retorna subset de codigos que já existem no banco."""
+async def get_codigos_existentes(codigos: list[str], dono: str) -> set[str]:
+    """Retorna subset de codigos que já existem no banco (deste dono)."""
     if not codigos:
         return set()
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT codigo_bilhete FROM bilhetes WHERE codigo_bilhete = ANY($1::text[])",
-            codigos,
+            "SELECT codigo_bilhete FROM bilhetes WHERE codigo_bilhete = ANY($1::text[]) AND dono = $2",
+            codigos, dono,
         )
     return {row["codigo_bilhete"] for row in rows}
 
 
-async def get_codigos_resolvidos(codigos: list[str]) -> set[str]:
+async def get_codigos_resolvidos(codigos: list[str], dono: str) -> set[str]:
     """Retorna subset de codigos já salvos E liquidados (extraction_state = 'resolvida').
 
     Usado no pré-dedup de texto (Betano): pula bilhetes que já estão no banco como
@@ -389,7 +396,8 @@ async def get_codigos_resolvidos(codigos: list[str]) -> set[str]:
         rows = await conn.fetch(
             """SELECT codigo_bilhete FROM bilhetes
                WHERE codigo_bilhete = ANY($1::text[])
-                 AND extraction_state = 'resolvida'""",
-            codigos,
+                 AND extraction_state = 'resolvida'
+                 AND dono = $2""",
+            codigos, dono,
         )
     return {row["codigo_bilhete"] for row in rows}

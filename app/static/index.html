@@ -42,6 +42,30 @@ body::before {
   padding-bottom: 20px; border-bottom: 1px solid var(--line);
 }
 .brand img { width: 100%; height: auto; display: block; user-select: none; -webkit-user-drag: none; }
+.user-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin: -8px 4px 14px;
+  padding: 8px 10px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.user-name {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.user-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #36d399; flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(54,211,153,.18);
+}
+.user-logout {
+  flex-shrink: 0; padding: 4px 10px;
+  background: transparent; border: 1px solid var(--line);
+  border-radius: var(--r-xs); color: var(--ink-soft);
+  font-size: 11px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+}
+.user-logout:hover { background: var(--elevated); color: var(--ink); border-color: var(--ink-mute); }
 .section-label {
   font-size: 10px; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-mute); padding: 10px 10px 5px;
@@ -447,6 +471,13 @@ td.c-res.res-HL { color: var(--warn); }
   <div class="brand">
     <img src="/static/fdc-logo-horizontal-dark.svg" alt="FDC Capital" draggable="false">
   </div>
+  <div class="user-bar">
+    <span class="user-name">
+      <span class="user-dot"></span>
+      <span id="user-nome">…</span>
+    </span>
+    <button id="btn-logout" class="user-logout" title="Sair">Sair</button>
+  </div>
   <div class="section-label">Casas</div>
   <div id="casa-list">
     <div style="font-size:12px;color:var(--ink-mute);padding:8px 10px">Carregando…</div>
@@ -604,6 +635,32 @@ td.c-res.res-HL { color: var(--warn); }
 <div id="img-lightbox"><img id="img-lightbox-img" alt=""></div>
 
 <script>
+// ── Sessão: redireciona para /login se o cookie expirar ───────────────────────
+(function () {
+  const _fetch = window.fetch;
+  window.fetch = async function (...args) {
+    const resp = await _fetch.apply(this, args);
+    if (resp.status === 401) {
+      window.location.href = '/login';
+    }
+    return resp;
+  };
+})();
+
+async function carregarUsuario() {
+  try {
+    const r = await fetch('/me');
+    if (!r.ok) return;
+    const data = await r.json();
+    document.getElementById('user-nome').textContent = data.usuario || '';
+  } catch (_) {}
+}
+
+async function logout() {
+  try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
+  window.location.href = '/login';
+}
+
 // ── Estado global ─────────────────────────────────────────────────────────────
 let casaSelecionada = null;
 let parceiroSelecionado = null;   // { id, casa, nome }
@@ -1626,6 +1683,8 @@ document.getElementById('s-arc').addEventListener('click', async () => {
 })();
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+document.getElementById('btn-logout').addEventListener('click', logout);
+carregarUsuario();
 carregarCasas();
 </script>
 </body>
