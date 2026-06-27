@@ -312,6 +312,19 @@ async def list_bilhetes(
     return [dict(r) for r in rows]
 
 
+async def list_tipsters(dono: str) -> list[str]:
+    """Tipsters distintos já usados por este dono — alimenta o autocomplete da grade."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT DISTINCT tipster FROM bilhetes "
+            "WHERE dono = $1 AND tipster IS NOT NULL AND tipster <> '' "
+            "ORDER BY tipster",
+            dono,
+        )
+    return [r["tipster"] for r in rows]
+
+
 async def marcar_copiada(ids: list[int], dono: str) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:

@@ -51,6 +51,18 @@ Os 6 MASTER_*.md estão em `/global/` (reorganização concluída em 12/06/2026)
 
 ## 4. Estado atual
 
+- **Sessão 55 (26/06/2026) — grade com teclado estilo planilha + autocomplete de tipster:**
+  - **Pedido (Feca):** preencher tipster dentro do app (hoje exporta TSV pro Google Sheets só por causa da musculatura de teclado). Tipster é imprevisível bilhete a bilhete, mas os nomes se repetem → autocomplete pesa muito.
+  - **Decisão:** caminho A (turbinar a grade que já existe), MVP. Caminho C (pré-preencher por leva/parceiro) descartado — tipster não é inferível. Caminho B (Handsontable/AG Grid) descartado — esforço alto, nunca bate a memória muscular do Sheets.
+  - **Backend:** `repository.list_tipsters(dono)` (DISTINCT, não-vazio, por dono) + `GET /tipsters` em `main.py`. `tipster` já era PATCH-editável (`_EDITAVEIS`).
+  - **Frontend (`app/static/index.html`):**
+    - Célula de tipster virou `<input class="cell-input" list="tipster-options">` (datalist global) — autocomplete nativo dos tipsters já usados. Demais células seguem `contenteditable`.
+    - Navegação por teclado: `Enter`/`Shift+Enter` desce/sobe na coluna · `Tab`/`Shift+Tab` anda lado a lado (estoura p/ próxima/linha anterior) · `↑`/`↓` movem entre linhas (exceto no input de tipster, onde controlam o dropdown).
+    - Entrar numa célula via navegação seleciona todo o conteúdo → digitar substitui (igual Sheets).
+    - Salvamento inline generalizado (`focusout`) atende tanto `contenteditable` quanto o input; novo tipster recarrega o autocomplete. `carregarTipsters()` dispara junto de `carregarGrade()`.
+  - **Fase 2 (só se a MVP não bastar):** seleção de intervalo `Shift+seta` + `Ctrl+D` (preencher p/ baixo) + colar coluna do clipboard.
+  - Backup: `Backups/pre_grade_teclado_autocomplete_2026-06-26/`. Commit: (este).
+
 - **Sessão 54 (26/06/2026) — data de captura vazava entre parceiros:**
   - **Sintoma (Feca):** ao mudar a data de captura num parceiro (ex.: setar "ontem" na Bet365 para um print que diz "Ontem"), o valor grudava e era usado em todos os outros parceiros. Na Superbet seguinte, "Ontem" resolvia para anteontem porque a data de referência ainda era a de ontem.
   - **Causa raiz:** havia **um único** `<input id="data-ref">` global. O `estadoExtrator` (estado por parceiro) salvava `arquivos/csvFiles/xlsFiles/texto` mas **não a data** — então a data nunca era isolada por parceiro.

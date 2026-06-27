@@ -29,7 +29,7 @@ from prompts import build_system
 from repository import (
     arquivar_parceiro, atualizar_bilhete, auto_arquivar, contar_arquivados,
     contar_pendentes, criar_parceiro, deletar_bilhetes, get_codigos_existentes,
-    get_codigos_resolvidos, list_bilhetes,
+    get_codigos_resolvidos, list_bilhetes, list_tipsters,
     list_parceiros, marcar_copiada, marcar_pendente, parse_tsv,
     reativar_parceiro, upsert_bilhetes,
 )
@@ -861,6 +861,11 @@ async def listar_bilhetes(
     if archived != "true" and (casa or parceiro):
         arquivados_count = await contar_arquivados(casa or "", parceiro or "", dono)
     return {"bilhetes": rows, "total": len(rows), "arquivados": arquivados_count}
+
+
+@app.get("/tipsters")
+async def listar_tipsters(dono: str = Depends(usuario_atual)):
+    return {"tipsters": await list_tipsters(dono)}
 
 
 class CopiarRequest(BaseModel):
