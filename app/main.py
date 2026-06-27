@@ -25,6 +25,7 @@ from auth import (
 )
 from config import ALLOWED_MODELS, CASAS_DIR, DEFAULT_MODEL
 from database import init_db
+from polymarket import coletar_bilhetes
 from prompts import build_system
 from repository import (
     arquivar_parceiro, atualizar_bilhete, auto_arquivar, contar_arquivados,
@@ -73,6 +74,7 @@ _CASA_DISPLAY: dict[str, str] = {
     "KTO":            "KTO",
     "LOTTU":          "Lottu",
     "PINNACLE":       "Pinnacle",
+    "POLYMARKET":     "Polymarket",
     "SUPERBET":       "Superbet",
 }
 
@@ -799,6 +801,44 @@ async def salvar(body: SalvarRequest, dono: str = Depends(usuario_atual)):
 
     return {"salvos": inseridos + atualizados, "inseridos": inseridos, "atualizados": atualizados,
             "ids": ids, "alertas": alertas, "duplicatas": duplicatas, "arquivados": arquivados}
+
+
+class PolymarketSyncRequest(BaseModel):
+    wallet: str
+    parceiro: str
+
+
+_WALLET_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+
+
+@app.post("/polymarket/sync")
+async def polymarket_sync(body: PolymarketSyncRequest, dono: str = Depends(usuario_atual)):
+    """Coleta o histórico resolvido de uma carteira Polymarket via API e salva na
+    grade (casa='Polymarket'). Reusa upsert/auto-arquivar — mesma resposta do /salvar."""
+    wallet = (body.wallet or "").strip()
+    if not _WALLET_RE.match(wallet):
+        raise HTTPException(400, "Carteira inválida — informe um endereço 0x… (42 caracteres).")
+    parceiro = (body.parceiro or "").strip()
+    if not parceiro:
+        raise HTTPException(400, "Selecione um parceiro antes de sincronizar.")
+
+    try:
+        rows = await coletar_bilhetes(wallet, parceiro)
+    except Exception as exc:
+        logger.exception("Falha na coleta Polymarket")
+        raise HTTPException(502, f"Erro ao consultar a Polymarket: {exc}")
+
+    if not rows:
+        return {"salvos": 0, "inseridos": 0, "atualizados": 0, "ids": [],
+                "alertas": ["Nenhum bilhete resolvido encontrado para esta carteira."],
+                "duplicatas": {}, "arquivados": 0, "coletados": 0}
+
+    inseridos, atualizados, ids, alertas, duplicatas = await upsert_bilhetes(rows, dono)
+    arquivados = await auto_arquivar("Polymarket", parceiro, len(ids), dono)
+
+    return {"salvos": inseridos + atualizados, "inseridos": inseridos, "atualizados": atualizados,
+            "ids": ids, "alertas": alertas, "duplicatas": duplicatas, "arquivados": arquivados,
+            "coletados": len(rows)}
 
 
 class DeletarRequest(BaseModel):

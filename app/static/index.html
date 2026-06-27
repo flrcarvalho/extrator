@@ -545,7 +545,7 @@ td.c-res.res-HL { color: var(--warn); }
       <div class="left-panel">
 
         <!-- Inputs -->
-        <div class="input-section">
+        <div class="input-section" id="upload-section">
           <div class="upload-zone" id="drop-zone">
             <div class="upload-label"><strong>Clique ou arraste</strong> os prints ou CSVs dos bilhetes aqui</div>
             <div class="upload-hint">ou Cole (Ctrl+V) um print · ou "+ Arquivo" abaixo · aceita imagens, .csv e .xls</div>
@@ -569,6 +569,21 @@ td.c-res.res-HL { color: var(--warn); }
               <input type="date" id="data-ref" class="data-ref-input">
             </label>
             <span class="status-msg" id="status-msg"></span>
+          </div>
+        </div>
+
+        <!-- Polymarket: sincronização via API (substitui o upload nesta casa) -->
+        <div class="input-section" id="polymarket-section" style="display:none">
+          <div class="upload-zone" style="cursor:default">
+            <div class="upload-label"><strong>Sincronizar carteira Polymarket</strong></div>
+            <div class="upload-hint">Cole o endereço da carteira (0x…) e busque o histórico resolvido direto da API — converte USD→BRL pela cotação do dia e deduplica por bilhete automaticamente.</div>
+          </div>
+          <div class="actions">
+            <input type="text" id="poly-wallet" class="data-ref-input"
+              style="flex:1;min-width:300px;font-family:var(--font-mono)"
+              placeholder="0x0000000000000000000000000000000000000000" spellcheck="false" autocomplete="off">
+            <button class="btn btn-primary" id="btn-poly-sync">↻ Sincronizar</button>
+            <span class="status-msg" id="poly-status"></span>
           </div>
         </div>
 
@@ -757,6 +772,7 @@ const NOMES = {
   KINGPANDA: 'KingPanda', BOLSADEAPOSTA: 'Bolsa de Aposta',
   BETNACIONAL: 'Betnacional', LOTTU: 'Lottu',
   JOGODEOURO: 'Jogo de Ouro', KTO: 'KTO',
+  POLYMARKET: 'Polymarket',
 };
 const DOMINIOS = {
   SUPERBET: 'superbet.bet.br', BET365: 'bet365.bet.br',
@@ -764,6 +780,7 @@ const DOMINIOS = {
   KingPanda: 'kingpanda.bet.br', 'Bolsa de Aposta': 'bolsadeaposta.bet.br',
   Betnacional: 'betnacional.bet.br', Lottu: 'lottu.bet.br',
   'Jogo de Ouro': 'jogodeouro.bet.br', KTO: 'kto.bet.br',
+  Polymarket: 'polymarket.com',
 };
 function faviconUrl(casa) {
   const domain = DOMINIOS[casa] || (casa.toLowerCase() + '.com');
@@ -956,6 +973,7 @@ function selecionarParceiro(p) {
 
   parceiroSelecionado = p;
   casaSelecionada = p.casa;
+  aplicarModoCasa(p.casa);
 
   document.querySelectorAll('.parceiro-item').forEach(el => el.classList.remove('active'));
   const el = document.querySelector(`.parceiro-item[data-id="${p.id}"]`);
@@ -1001,6 +1019,72 @@ function mostrarEmptyState() {
   document.getElementById('empty-state').style.display = '';
   document.getElementById('partner-page').style.display = 'none';
 }
+
+// ── Polymarket: sincronização via API ───────────────────────────────────────────
+function aplicarModoCasa(casa) {
+  const isPoly = casa === 'Polymarket';
+  const up = document.getElementById('upload-section');
+  const pm = document.getElementById('polymarket-section');
+  if (up) up.style.display = isPoly ? 'none' : '';
+  if (pm) pm.style.display = isPoly ? '' : 'none';
+  if (isPoly) {
+    const w = document.getElementById('poly-wallet');
+    if (w && !w.value) w.value = localStorage.getItem('poly-wallet') || '';
+    setPolyStatus('', '');
+  }
+}
+
+function setPolyStatus(msg, kind) {
+  const el = document.getElementById('poly-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'status-msg' + (kind ? ' ' + kind : '');
+}
+
+async function sincronizarPolymarket() {
+  if (!parceiroSelecionado) return;
+  const wallet = (document.getElementById('poly-wallet').value || '').trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+    setPolyStatus('Carteira inválida — endereço 0x… com 42 caracteres.', 'err');
+    return;
+  }
+  localStorage.setItem('poly-wallet', wallet);
+  const btn = document.getElementById('btn-poly-sync');
+  btn.disabled = true;
+  const t0 = Date.now();
+  const timer = setInterval(
+    () => setPolyStatus(`Sincronizando… (${Math.round((Date.now() - t0) / 1000)}s)`, ''), 250);
+  try {
+    const rs = await fetch('/polymarket/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet, parceiro: parceiroSelecionado.nome }),
+    });
+    clearInterval(timer);
+    if (!rs.ok) {
+      const err = await rs.json().catch(() => ({}));
+      throw new Error(err.detail || ('HTTP ' + rs.status));
+    }
+    const d = await rs.json();
+    const partes = [];
+    if (d.inseridos)   partes.push(`${d.inseridos} novo(s)`);
+    if (d.atualizados) partes.push(`${d.atualizados} atualizado(s)`);
+    setPolyStatus(`✓ ${partes.join(' · ') || 'nada novo'} · ${d.coletados || 0} coletados`, 'ok');
+    if ((d.alertas || []).length) setPolyStatus(`✓ ${d.coletados || 0} coletados · ${d.alertas[0]}`, 'warn');
+    await carregarGrade();
+    atualizarPendentes();
+  } catch (e) {
+    clearInterval(timer);
+    setPolyStatus('✗ ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btn-poly-sync').addEventListener('click', sincronizarPolymarket);
+document.getElementById('poly-wallet').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); sincronizarPolymarket(); }
+});
 
 // ── Upload ────────────────────────────────────────────────────────────────────
 const dropZone = document.getElementById('drop-zone');
