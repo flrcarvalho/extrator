@@ -424,6 +424,137 @@ async def coletar_bilhetes(wallet: str, parceiro: str) -> list[dict]:
     return linhas
 
 
+# ── Dashboard ao vivo: posições ativas + saldos da carteira ─────────────────
+
+# Tokens de colateral na Polygon (ERC-20, 6 casas decimais)
+_PUSD = "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB"   # pUSD (colateral atual)
+_USDC_E = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"  # USDC.e (legado)
+_POLYGON_RPCS = [
+    "https://polygon-bor-rpc.publicnode.com",
+    "https://polygon.llamarpc.com",
+    "https://rpc.ankr.com/polygon",
+]
+
+
+async def _rpc_balance(client: httpx.AsyncClient, token: str, wallet: str) -> float:
+    """Saldo ERC-20 (balanceOf) on-chain, em unidades (6 casas). Tenta os RPCs em ordem."""
+    data = "0x70a08231" + wallet.replace("0x", "").lower().rjust(64, "0")
+    payload = {"jsonrpc": "2.0", "method": "eth_call",
+               "params": [{"to": token, "data": data}, "latest"], "id": 1}
+    for rpc in _POLYGON_RPCS:
+        try:
+            r = await client.post(rpc, json=payload, timeout=15.0)
+            res = r.json().get("result")
+            if res and len(res) > 2:
+                return int(res, 16) / 1e6
+        except Exception:
+            continue
+    return 0.0
+
+
+async def _portfolio(client: httpx.AsyncClient, wallet: str) -> float:
+    """Valor de mercado das posições ativas, via endpoint /value do Worker."""
+    try:
+        r = await client.get(f"{POLY_BASE}/value", params={"user": wallet},
+                             headers={"Accept": "application/json"})
+        data = r.json()
+        if isinstance(data, list) and data:
+            return float(data[0].get("value") or 0)
+        if isinstance(data, dict) and data.get("value") is not None:
+            return float(data["value"])
+    except Exception:
+        pass
+    return 0.0
+
+
+def _rotulo_relativo(iso: str) -> str:
+    """'hoje' / 'amanhã' / 'ontem' para a data do evento; '' fora dessa janela."""
+    if not iso:
+        return ""
+    try:
+        d = datetime.strptime(iso, "%Y-%m-%d").date()
+    except Exception:
+        return ""
+    hoje = datetime.now(BRT).date()
+    delta = (d - hoje).days
+    return {0: "hoje", 1: "amanhã", -1: "ontem"}.get(delta, "")
+
+
+async def coletar_dashboard(wallet: str) -> dict:
+    """Estado ao vivo da carteira: contagem/portfólio/cash/total + lista de posições
+    ativas (com colunas do dashboard). NÃO toca no banco; o tipster é mesclado pela rota."""
+    wallet = wallet.strip().lower()
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        positions = await _paginate(client, "positions", wallet, {"sizeThreshold": _SIZE_THRESHOLD})
+        activity = await _paginate(client, "activity", wallet, {})
+
+        # Carteira proxy real (pode diferir do endereço informado) para o saldo on-chain
+        proxy = wallet
+        for fonte in (positions, activity):
+            if fonte and fonte[0].get("proxyWallet"):
+                proxy = str(fonte[0]["proxyWallet"]).lower()
+                break
+
+        ativas_raw = [p for p in positions
+                      if not (p.get("redeemable") is True and _f(p, "currentValue") < 0.01)]
+        ativas_raw = _split_multibuys(ativas_raw, activity)
+
+        pusd = await _rpc_balance(client, _PUSD, proxy)
+        usdce = await _rpc_balance(client, _USDC_E, proxy)
+        cash = pusd + usdce
+        portfolio = await _portfolio(client, wallet)
+        if portfolio <= 0:
+            portfolio = sum(_f(p, "currentValue") for p in ativas_raw)
+        hoje = None
+        for _back in range(0, 6):   # PTAX não publica fim de semana/feriado → recua
+            hoje = await _ptax(client, datetime.now(BRT) - timedelta(days=_back))
+            if hoje:
+                break
+
+    ativas = []
+    for pos in ativas_raw:
+        title = pos.get("title") or ""
+        split_total = int(pos.get("_splitTotal") or 1)
+        mercado = title
+        if split_total > 1:
+            mercado = f"{title} [{int(pos.get('_splitIndex', 0)) + 1}/{split_total}]"
+        stake_usd = _f(pos, "initialValue", "size")
+        valor_atual = _f(pos, "currentValue")
+        pnl_pct = ((valor_atual - stake_usd) / stake_usd * 100) if stake_usd else 0.0
+        # Odd da ativa = SEMPRE a odd de entrada (1/preço de compra). Não usar _calc_odd:
+        # com P&L não-realizado positivo ele daria o valor de mercado, não a odd apostada.
+        _pr = _f(pos, "avgPrice", "price")
+        odd_entrada = (1 / _pr) if 0 < _pr < 1 else 1.0
+        end_iso = ""
+        ed = pos.get("endDate")
+        if isinstance(ed, str):
+            m = re.match(r"(\d{4}-\d{2}-\d{2})", ed)
+            if m:
+                end_iso = m.group(1)
+        ativas.append({
+            "codigo": pos.get("_splitId") or pos.get("conditionId") or "",
+            "mercado": mercado,
+            "data": _iso_to_br(end_iso),
+            "data_rel": _rotulo_relativo(end_iso),
+            "stake_usd": round(stake_usd, 2),
+            "valor_atual": round(valor_atual, 2),
+            "pnl_pct": round(pnl_pct, 1),
+            "odd": _fmt_odd(odd_entrada),
+            "status": "ativa",
+        })
+    ativas.sort(key=lambda a: (a["data"] or "9999"))
+
+    total = cash + portfolio
+    return {
+        "count": len(ativas),
+        "portfolio": round(portfolio, 2),
+        "cash": round(cash, 2),
+        "total": round(total, 2),
+        "cotacao": round(hoje, 4) if hoje else None,
+        "ativas": ativas,
+    }
+
+
 # ── Dry-run de verificação (não toca em banco) ──────────────────────────────
 
 if __name__ == "__main__":

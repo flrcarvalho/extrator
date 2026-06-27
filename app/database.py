@@ -86,6 +86,17 @@ BEGIN
             UNIQUE (dono, casa, nome);
     END IF;
 END$$;
+
+-- Tipster atribuído a POSIÇÕES ATIVAS da Polymarket (dashboard ao vivo).
+-- Vive separado de `bilhetes` (que só guarda apostas resolvidas/exportáveis);
+-- chave = código do bilhete (conditionId/__i). Carregado p/ a grade quando resolve.
+CREATE TABLE IF NOT EXISTS polymarket_ativos_tipster (
+    dono          TEXT NOT NULL,
+    codigo        TEXT NOT NULL,
+    tipster       TEXT NOT NULL DEFAULT '',
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (dono, codigo)
+);
 """
 
 

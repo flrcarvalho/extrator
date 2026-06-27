@@ -25,12 +25,13 @@ from auth import (
 )
 from config import ALLOWED_MODELS, CASAS_DIR, DEFAULT_MODEL
 from database import init_db
-from polymarket import coletar_bilhetes
+from polymarket import coletar_bilhetes, coletar_dashboard
 from prompts import build_system
 from repository import (
     arquivar_parceiro, atualizar_bilhete, auto_arquivar, contar_arquivados,
-    contar_pendentes, criar_parceiro, deletar_bilhetes, get_codigos_existentes,
-    get_codigos_resolvidos, list_bilhetes, list_tipsters,
+    contar_pendentes, criar_parceiro, deletar_bilhetes, get_ativos_tipster,
+    get_codigos_existentes, get_codigos_resolvidos, list_bilhetes, list_tipsters,
+    set_ativo_tipster,
     list_parceiros, marcar_copiada, marcar_pendente, parse_tsv,
     reativar_parceiro, upsert_bilhetes,
 )
@@ -833,12 +834,55 @@ async def polymarket_sync(body: PolymarketSyncRequest, dono: str = Depends(usuar
                 "alertas": ["Nenhum bilhete resolvido encontrado para esta carteira."],
                 "duplicatas": {}, "arquivados": 0, "coletados": 0}
 
+    # Carry-over: o tipster atribuído à posição enquanto ativa (dashboard) acompanha
+    # o bilhete quando ele resolve. O upsert preserva tipster não-vazio.
+    codigos = [r["codigo_bilhete"] for r in rows if r.get("codigo_bilhete")]
+    salvos = await get_ativos_tipster(dono, codigos)
+    for r in rows:
+        t = salvos.get(r.get("codigo_bilhete", ""))
+        if t:
+            r["tipster"] = t
+
     inseridos, atualizados, ids, alertas, duplicatas = await upsert_bilhetes(rows, dono)
     arquivados = await auto_arquivar("Polymarket", parceiro, len(ids), dono)
 
     return {"salvos": inseridos + atualizados, "inseridos": inseridos, "atualizados": atualizados,
             "ids": ids, "alertas": alertas, "duplicatas": duplicatas, "arquivados": arquivados,
             "coletados": len(rows)}
+
+
+@app.get("/polymarket/dashboard")
+async def polymarket_dashboard(wallet: str, dono: str = Depends(usuario_atual)):
+    """Estado ao vivo da carteira Polymarket: KPIs (posições ativas, portfólio, cash,
+    total) + tabela de posições ativas, com o tipster salvo de cada uma mesclado."""
+    wallet = (wallet or "").strip()
+    if not _WALLET_RE.match(wallet):
+        raise HTTPException(400, "Carteira inválida — informe um endereço 0x… (42 caracteres).")
+    try:
+        dash = await coletar_dashboard(wallet)
+    except Exception as exc:
+        logger.exception("Falha no dashboard Polymarket")
+        raise HTTPException(502, f"Erro ao consultar a Polymarket: {exc}")
+    codigos = [a["codigo"] for a in dash["ativas"] if a.get("codigo")]
+    salvos = await get_ativos_tipster(dono, codigos)
+    for a in dash["ativas"]:
+        a["tipster"] = salvos.get(a["codigo"], "")
+    return dash
+
+
+class AtivoTipsterRequest(BaseModel):
+    codigo: str
+    tipster: str = ""
+
+
+@app.post("/polymarket/ativo-tipster")
+async def polymarket_ativo_tipster(body: AtivoTipsterRequest, dono: str = Depends(usuario_atual)):
+    """Salva o tipster de uma posição ativa (persistido até a aposta resolver e migrar)."""
+    codigo = (body.codigo or "").strip()
+    if not codigo:
+        raise HTTPException(400, "Código da posição ausente.")
+    await set_ativo_tipster(dono, codigo, (body.tipster or "").strip())
+    return {"ok": True}
 
 
 class DeletarRequest(BaseModel):

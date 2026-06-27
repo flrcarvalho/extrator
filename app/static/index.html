@@ -236,6 +236,30 @@ body::before {
 .status-msg.ok   { color: var(--pos); }
 .status-msg.err  { color: var(--neg); }
 .status-msg.warn { color: #f5a623; }
+
+/* Polymarket — dashboard ao vivo */
+.pm-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:4px 0 12px; }
+.pm-kpi { background:var(--surface); border:1px solid var(--grid); border-radius:10px; padding:11px 14px; display:flex; flex-direction:column; gap:2px; }
+.pm-kpi-label { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-mute); font-family:var(--font-mono); }
+.pm-kpi-val { font-size:22px; font-weight:700; font-family:var(--font-mono); letter-spacing:-.02em; color:var(--ink); }
+.pm-kpi-val.blue { color:var(--accent); }
+.pm-kpi-val.green { color:var(--pos); }
+.pm-kpi-sub { font-size:10px; color:var(--ink-mute); font-family:var(--font-mono); }
+.pm-ativas-wrap { background:var(--surface); border:1px solid var(--grid); border-radius:10px; margin-bottom:14px; overflow:hidden; }
+.pm-ativas-head { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-family:var(--font-mono); border-bottom:1px solid var(--grid); }
+.pm-ativas-scroll { max-height:300px; overflow:auto; }
+table.pm-ativas { width:100%; border-collapse:collapse; font-size:12px; }
+table.pm-ativas th { text-align:left; padding:7px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-mute); font-weight:600; position:sticky; top:0; background:var(--surface); z-index:1; }
+table.pm-ativas th.num, table.pm-ativas td.num { text-align:right; font-family:var(--font-mono); }
+table.pm-ativas td { padding:6px 10px; border-top:1px solid var(--grid); color:var(--ink-soft); vertical-align:middle; }
+table.pm-ativas td.merc { max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); }
+.pm-rel { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:4px; font-size:9px; font-family:var(--font-mono); background:rgba(229,162,26,.16); color:#E0A21A; }
+.pm-badge-ativa { padding:1px 7px; border-radius:4px; font-size:10px; font-family:var(--font-mono); background:rgba(229,162,26,.16); color:#E0A21A; }
+.pm-pos { color:var(--pos); } .pm-neg { color:var(--neg); }
+.pm-odd { color:#E0A21A; }
+.pm-tip-input { width:100%; min-width:88px; background:transparent; border:1px solid var(--grid); border-radius:5px; padding:3px 6px; color:var(--ink); font-size:11px; font-family:var(--font-mono); }
+.pm-tip-input:focus { outline:none; border-color:var(--accent); }
+.pm-empty { padding:16px; text-align:center; color:var(--ink-mute); }
 .data-ref-label {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 11px; color: var(--ink-mute); cursor: default;
@@ -582,6 +606,28 @@ td.c-res.res-HL { color: var(--warn); }
               spellcheck="false" autocomplete="off">
             <button class="btn btn-primary" id="btn-poly-sync">↻ Sincronizar</button>
             <span class="status-msg" id="poly-status"></span>
+          </div>
+        </div>
+
+        <!-- Polymarket: dashboard ao vivo (KPIs + posições ativas) -->
+        <div id="polymarket-dashboard" style="display:none">
+          <div class="pm-kpis">
+            <div class="pm-kpi"><span class="pm-kpi-label">Posições ativas</span><span class="pm-kpi-val" id="pm-k-count">—</span></div>
+            <div class="pm-kpi"><span class="pm-kpi-label">Portfólio (posições)</span><span class="pm-kpi-val blue" id="pm-k-portfolio">—</span><span class="pm-kpi-sub" id="pm-k-portfolio-sub"></span></div>
+            <div class="pm-kpi"><span class="pm-kpi-label">Cash disponível (pUSD)</span><span class="pm-kpi-val green" id="pm-k-cash">—</span><span class="pm-kpi-sub" id="pm-k-cash-sub"></span></div>
+            <div class="pm-kpi"><span class="pm-kpi-label">Total na carteira</span><span class="pm-kpi-val green" id="pm-k-total">—</span><span class="pm-kpi-sub" id="pm-k-total-sub"></span></div>
+          </div>
+          <div class="pm-ativas-wrap">
+            <div class="pm-ativas-head"><span>Posições ativas</span><span id="pm-ativas-status"></span></div>
+            <div class="pm-ativas-scroll">
+              <table class="pm-ativas">
+                <thead><tr>
+                  <th>Mercado</th><th>Data do evento</th><th>Tipster</th><th>Status</th>
+                  <th class="num">Stake</th><th class="num">P&amp;L %</th><th class="num">Valor atual</th><th class="num">Odd</th>
+                </tr></thead>
+                <tbody id="pm-ativas-body"><tr><td colspan="8" class="pm-empty">Cole a carteira e sincronize para ver as posições ativas.</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -1023,13 +1069,86 @@ function aplicarModoCasa(casa) {
   const isPoly = casa === 'Polymarket';
   const up = document.getElementById('upload-section');
   const pm = document.getElementById('polymarket-section');
+  const dash = document.getElementById('polymarket-dashboard');
   if (up) up.style.display = isPoly ? 'none' : '';
   if (pm) pm.style.display = isPoly ? '' : 'none';
+  if (dash) dash.style.display = isPoly ? '' : 'none';
   if (isPoly) {
     const w = document.getElementById('poly-wallet');
     if (w && !w.value) w.value = localStorage.getItem('poly-wallet') || '';
     setPolyStatus('', '');
+    carregarDashboardPoly();
   }
+}
+
+// ── Polymarket: dashboard ao vivo (KPIs + posições ativas) ──────────────────────
+function fmtUSD(v) { return '$ ' + Number(v || 0).toFixed(2).replace('.', ','); }
+function fmtBRLsub(v, cot) { return cot ? '≈ R$ ' + (Number(v || 0) * cot).toFixed(2).replace('.', ',') : ''; }
+
+async function carregarDashboardPoly() {
+  if (casaSelecionada !== 'Polymarket') return;
+  const wallet = (document.getElementById('poly-wallet').value || localStorage.getItem('poly-wallet') || '').trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) { renderDashPoly(null); return; }
+  const st = document.getElementById('pm-ativas-status');
+  if (st) st.textContent = 'carregando…';
+  try {
+    const rs = await fetch('/polymarket/dashboard?wallet=' + encodeURIComponent(wallet));
+    if (!rs.ok) throw new Error('HTTP ' + rs.status);
+    renderDashPoly(await rs.json());
+  } catch (e) {
+    if (st) st.textContent = '✗ ' + e.message;
+  }
+}
+
+function renderDashPoly(d) {
+  const setTxt = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+  const body = document.getElementById('pm-ativas-body');
+  if (!d) {
+    ['pm-k-count','pm-k-portfolio','pm-k-cash','pm-k-total'].forEach(i => setTxt(i, '—'));
+    ['pm-k-portfolio-sub','pm-k-cash-sub','pm-k-total-sub','pm-ativas-status'].forEach(i => setTxt(i, ''));
+    if (body) body.innerHTML = '<tr><td colspan="8" class="pm-empty">Cole a carteira e sincronize para ver as posições ativas.</td></tr>';
+    return;
+  }
+  const cot = d.cotacao;
+  setTxt('pm-k-count', d.count);
+  setTxt('pm-k-portfolio', fmtUSD(d.portfolio)); setTxt('pm-k-portfolio-sub', fmtBRLsub(d.portfolio, cot));
+  setTxt('pm-k-cash', fmtUSD(d.cash)); setTxt('pm-k-cash-sub', fmtBRLsub(d.cash, cot));
+  setTxt('pm-k-total', fmtUSD(d.total)); setTxt('pm-k-total-sub', fmtBRLsub(d.total, cot));
+  setTxt('pm-ativas-status', d.ativas.length + (d.ativas.length === 1 ? ' ativa' : ' ativas'));
+  if (!d.ativas.length) {
+    body.innerHTML = '<tr><td colspan="8" class="pm-empty">Nenhuma posição ativa.</td></tr>';
+    return;
+  }
+  body.innerHTML = d.ativas.map(a => {
+    const rel = a.data_rel ? `<span class="pm-rel">${a.data_rel}</span>` : '';
+    const pnlCls = a.pnl_pct >= 0 ? 'pm-pos' : 'pm-neg';
+    const pnlTxt = (a.pnl_pct >= 0 ? '+' : '') + Number(a.pnl_pct).toFixed(1) + '%';
+    return `<tr>
+      <td class="merc" title="${esc(a.mercado)}">${esc(a.mercado)}</td>
+      <td>${esc(a.data)}${rel}</td>
+      <td><input class="pm-tip-input" list="tipster-options" value="${esc(a.tipster || '')}" data-codigo="${esc(a.codigo)}" spellcheck="false" placeholder="— tipster —"></td>
+      <td><span class="pm-badge-ativa">ativa</span></td>
+      <td class="num">${fmtUSD(a.stake_usd)}</td>
+      <td class="num ${pnlCls}">${pnlTxt}</td>
+      <td class="num">${fmtUSD(a.valor_atual)}</td>
+      <td class="num pm-odd">${esc(a.odd)}</td>
+    </tr>`;
+  }).join('');
+  body.querySelectorAll('.pm-tip-input').forEach(inp => {
+    inp.addEventListener('change', () => salvarTipsterAtivo(inp.dataset.codigo, inp.value.trim()));
+  });
+}
+
+async function salvarTipsterAtivo(codigo, tipster) {
+  if (!codigo) return;
+  try {
+    await fetch('/polymarket/ativo-tipster', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo, tipster }),
+    });
+    if (tipster && typeof carregarTipsters === 'function') carregarTipsters();
+  } catch (e) { /* silencioso — o valor fica na tela */ }
 }
 
 function setPolyStatus(msg, kind) {
@@ -1071,6 +1190,7 @@ async function sincronizarPolymarket() {
     if ((d.alertas || []).length) setPolyStatus(`✓ ${d.coletados || 0} coletados · ${d.alertas[0]}`, 'warn');
     await carregarGrade();
     atualizarPendentes();
+    carregarDashboardPoly();
   } catch (e) {
     clearInterval(timer);
     setPolyStatus('✗ ' + e.message, 'err');

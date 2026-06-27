@@ -327,6 +327,33 @@ async def list_tipsters(dono: str) -> list[str]:
     return [r["tipster"] for r in rows]
 
 
+async def get_ativos_tipster(dono: str, codigos: list[str]) -> dict[str, str]:
+    """Tipster salvo para posições ativas Polymarket (codigo → tipster), deste dono."""
+    if not codigos:
+        return {}
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT codigo, tipster FROM polymarket_ativos_tipster "
+            "WHERE dono = $1 AND codigo = ANY($2::text[])",
+            dono, codigos,
+        )
+    return {r["codigo"]: r["tipster"] for r in rows}
+
+
+async def set_ativo_tipster(dono: str, codigo: str, tipster: str) -> None:
+    """Salva (ou limpa) o tipster de uma posição ativa Polymarket."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO polymarket_ativos_tipster (dono, codigo, tipster)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (dono, codigo) DO UPDATE
+                   SET tipster = EXCLUDED.tipster, atualizado_em = NOW()""",
+            dono, codigo, tipster,
+        )
+
+
 async def marcar_copiada(ids: list[int], dono: str) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
