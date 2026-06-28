@@ -249,6 +249,13 @@ body::before {
   filter: grayscale(1) invert(1) brightness(1.4);
   mix-blend-mode: screen;
 }
+/* BetMGM e BETesporte: logo com margem transparente → amplia para preencher o quadradinho */
+.casa-group[data-casa="BetMGM"] .casa-chip img,
+.casa-group[data-casa="BETesporte"] .casa-chip img,
+.btbl-casa .casa-chip[data-casa="BetMGM"] img,
+.btbl-casa .casa-chip[data-casa="BETesporte"] img,
+.partner-favicon img[data-casa="BetMGM"],
+.partner-favicon img[data-casa="BETesporte"] { transform: scale(1.5); }
 /* Fallback quando o favicon não carrega: inicial da casa em mono (REFERENCIA §2) */
 .chip-initial { font-family: var(--font-mono, "JetBrains Mono", monospace);
   font-size: 11px; color: #95A1B0; line-height: 1; }
@@ -1121,9 +1128,10 @@ const DOMINIOS = {
   Pinnacle: 'pinnacle.com', Superbet: 'superbet.com', Betnacional: 'betnacional.com',
   KTO: 'kto.com', 'Casa de Apostas': 'casadeapostas.com', 'Estrela Bet': 'estrelabet.com',
   MatchBook: 'matchbook.com', Novibet: 'novibet.com', 'Esportes da Sorte': 'esportesdasorte.com',
-  Betpontobet: 'bet.com.br', PixBet: 'pixbet.com', Polymarket: 'polymarket.com',
+  PixBet: 'pixbet.com', Polymarket: 'polymarket.com',
   // reguladas BR / .bet.br
-  '7K': '7k.bet.br', Bateu: 'bateu.bet.br',
+  '7K': '7k.bet.br', Bateu: 'bateu.bet.br', Betbra: 'betbra.bet.br',
+  Betpontobet: 'betpontobet.bet.br',
   'Bolsa de Aposta': 'bolsadeaposta.bet.br', BETesporte: 'betesporte.bet.br',
   Betfast: 'betfast.bet.br', BetMGM: 'betmgm.bet.br', 'Donald Bet': 'donald.bet.br',
   Esportiva: 'esportiva.bet.br', Faz1Bet: 'faz1.bet.br', Fulltbet: 'fulltbet.bet.br',
