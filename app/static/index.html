@@ -134,7 +134,16 @@ body::before {
 }
 .casa-chip img { width: 100%; height: 100%; object-fit: cover; display: block;
   filter: grayscale(1) contrast(0.5) brightness(1.25); }
-.casa-name { flex: 1; }
+/* Nome da casa = rótulo de grupo discreto (estilo "Cabeçalho" da REFERENCIA §3),
+   para que o PARCEIRO ganhe destaque visual abaixo. */
+.casa-name {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  color: var(--ink-mute);
+}
+.casa-header.expanded .casa-name { color: var(--ink-soft); }
 .casa-arrow { font-size: 9px; color: var(--ink-mute); transition: transform .15s; }
 /* Badge azul (FDC) com nº de bilhetes pendentes de cópia */
 .pend-badge {
@@ -152,12 +161,13 @@ body::before {
 .parceiro-item {
   display: flex; align-items: center;
   padding: 5px 8px 5px 10px; border-radius: var(--r-sm);
-  cursor: pointer; font-size: 12px; color: var(--ink-soft);
+  cursor: pointer; font-size: 12.5px; color: var(--ink);
   transition: background .12s, color .12s; position: relative;
 }
 .parceiro-item:hover { background: var(--surface-2); color: var(--ink); }
-.parceiro-item.active { background: rgba(46,139,255,.12); color: var(--accent-2); font-weight: 600; }
-.parceiro-nome { flex: 1; }
+.parceiro-item.active { background: rgba(46,139,255,.12); color: var(--accent-2); }
+/* Parceiro = item principal da lista: Manrope 600, mais brilhante que o rótulo da casa */
+.parceiro-nome { flex: 1; font-family: var(--font-sans); font-weight: 600; letter-spacing: -.01em; }
 .btn-arquivar {
   display: none; background: none; border: none; cursor: pointer;
   font-size: 10px; color: var(--ink-mute); padding: 2px 4px;
