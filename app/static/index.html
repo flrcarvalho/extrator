@@ -550,10 +550,12 @@ table.pm-ativas td.merc { max-width:340px; overflow:hidden; text-overflow:ellips
 .btbl-desc { font-size: 12px; color: var(--ink); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btbl-desc .dup-badge, .btbl-desc .so-badge { margin-left: 6px; vertical-align: middle; }
 .btbl-sport { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; }
+/* Mesma casca do chip de casa (REFERENCIA_EMOJIS_ESPORTES §2): 24×24, raio 7px,
+   fundo steel, emoji 14px dessaturado. */
 .sp-chip {
-  width: 20px; height: 20px; border-radius: 6px; background: #222831;
+  width: 24px; height: 24px; border-radius: 7px; background: #222831;
   border: 1px solid rgba(255,255,255,.08); display: inline-grid; place-items: center;
-  flex: none; font-size: 11px; line-height: 1;
+  flex: none; font-size: 14px; line-height: 1; filter: grayscale(1);
 }
 .btbl-tip-input {
   width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid transparent;
@@ -2101,16 +2103,46 @@ function esc(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// Chip de esporte (emoji) — espelha o visual do Dashboard.
-const SPORT_EMOJI = {
-  'Futebol':'⚽','Basquete':'🏀','Tênis':'🎾','Tenis':'🎾','Vôlei':'🏐','Volei':'🏐',
-  'Futebol Americano':'🏈','Beisebol':'⚾','Hóquei':'🏒','Hoquei':'🏒','Boxe':'🥊',
-  'MMA':'🥊','UFC':'🥊','Tênis de Mesa':'🏓','E-Sports':'🎮','eSports':'🎮',
-  'Dardos':'🎯','Sinuca':'🎱','Snooker':'🎱','Fórmula 1':'🏎️','Golfe':'⛳',
-  'Handebol':'🤾','Críquete':'🏏','Cricket':'🏏','Rugby':'🏉','Ciclismo':'🚴',
-  'Múltiplos':'🔗','Multiplos':'🔗','Outro':'🎲','Outros':'🎲'
+// Chip de esporte — alias map + emoji da marca (REFERENCIA_EMOJIS_ESPORTES).
+// Fallback obrigatório 🏅 (nunca •/?); combinadas usam 🔗 (🎰 proibido).
+const SPORT_KEY = {
+  'Futebol':'futebol','Fútbol':'futebol','Soccer':'futebol',
+  'NBA':'basquete','Basquete':'basquete','Basquetebol':'basquete','Basketball':'basquete','Nba':'basquete',
+  'Tênis':'tenis','Tenis':'tenis','Tennis':'tenis','Tênis de Mesa':'tenis','Ping Pong':'tenis',
+  'MMA':'mma','UFC':'mma','Boxe':'mma','Boxing':'mma','Luta':'mma',
+  'F1':'f1','Formula 1':'f1','Fórmula 1':'f1','Formula1':'f1',
+  'NFL':'nfl','Futebol Americano':'nfl',
+  'NHL':'nhl','Hóquei':'nhl','Hockey':'nhl',
+  'MLB':'baseball','Baseball':'baseball','Beisebol':'baseball',
+  'Vôlei':'volei','Volei':'volei','Volleyball':'volei',
+  'Handeball':'handbol','Handebol':'handbol','Handball':'handbol',
+  'Dardos':'dardos','Darts':'dardos',
+  'CS':'esports','CS:GO':'esports','Counter-Strike':'esports','E-Sports':'esports','Esports':'esports','eSports':'esports',
+  'Multiplos':'multiplos','Múltiplos':'multiplos','Multiple':'multiplos',
+  'Peixe':'peixe','Fish':'peixe',
+  'Snooker':'snooker','Sinuca':'snooker',
+  'Golf':'golf','Golfe':'golf',
+  'Rugby':'rugby','Cricket':'rugby','Críquete':'rugby',
+  'Outro':'outro','Other':'outro','Outros':'outro',
 };
-function sportEmoji(esp) { return SPORT_EMOJI[esp] || '🎲'; }
+const SPORT_EMOJI = {
+  futebol:'⚽', basquete:'🏀', tenis:'🎾', mma:'🥊', f1:'🏎️',
+  nfl:'🏈', nhl:'🏒', baseball:'⚾', volei:'🏐', handbol:'🤾',
+  dardos:'🎯', esports:'🎮', multiplos:'🔗', peixe:'🐟',
+  snooker:'🎱', golf:'⛳', rugby:'🏉',
+};
+function _sportKey(nome) {
+  let key = SPORT_KEY[nome];
+  if (!key) {
+    const k = Object.keys(SPORT_KEY).find(k => k.toLowerCase() === (nome || '').toLowerCase());
+    key = k ? SPORT_KEY[k] : null;
+  }
+  return key;
+}
+function sportEmoji(nome) {
+  if (!nome) return '🏅';
+  return SPORT_EMOJI[_sportKey(nome)] || '🏅';
+}
 
 const RES_LABEL = { W:'W', HW:'½W', L:'L', HL:'½L', V:'V' };
 function resPill(res) {
