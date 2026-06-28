@@ -570,6 +570,18 @@ table.pm-ativas td.merc { max-width:340px; overflow:hidden; text-overflow:ellips
 .btbl-desc { font-size: 12px; color: var(--ink); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btbl-desc .dup-badge, .btbl-desc .so-badge { margin-left: 6px; vertical-align: middle; }
 .btbl-sport { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; }
+/* ── Autocomplete de tipster (dropdown custom — substitui o <datalist> nativo) ── */
+.ac-menu {
+  position: fixed; z-index: 200; max-height: 240px; overflow-y: auto;
+  background: var(--elevated); border: 1px solid var(--line); border-radius: var(--r-sm);
+  box-shadow: 0 12px 32px rgba(0,0,0,.4); padding: 4px;
+}
+.ac-item {
+  padding: 6px 10px; border-radius: var(--r-xs); cursor: pointer;
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ac-item.active, .ac-item:hover { background: var(--surface-2); color: var(--ink); }
 /* Mesma casca do chip de casa (REFERENCIA_EMOJIS_ESPORTES §2): 24×24, raio 7px,
    fundo steel, emoji 14px dessaturado. */
 .sp-chip {
@@ -963,7 +975,6 @@ td.c-res.res-HL { color: var(--warn); }
               <span class="pg-info" id="pg-info"></span>
               <button id="pg-next" type="button">Próximas ›</button>
             </div>
-            <datalist id="tipster-options"></datalist>
           </div>
         </div>
 
@@ -1011,7 +1022,7 @@ td.c-res.res-HL { color: var(--warn); }
       <div class="modal-field"><label>Esporte</label><input type="text" id="ed-esporte" spellcheck="false"></div>
       <div class="modal-field"><label>Casa</label><input type="text" id="ed-casa" spellcheck="false"></div>
       <div class="modal-field"><label>Parceiro</label><input type="text" id="ed-parceiro" spellcheck="false"></div>
-      <div class="modal-field"><label>Tipster</label><input type="text" id="ed-tipster" list="tipster-options" spellcheck="false"></div>
+      <div class="modal-field"><label>Tipster</label><input type="text" id="ed-tipster" class="js-ac-tipster" spellcheck="false" autocomplete="off"></div>
       <div class="modal-field"><label>Resultado</label><input type="text" id="ed-resultado" spellcheck="false" placeholder="W · L · V · HW · HL"></div>
       <div class="modal-field"><label>Stake</label><input type="text" id="ed-stake" spellcheck="false"></div>
       <div class="modal-field"><label>Odd</label><input type="text" id="ed-odd" spellcheck="false"></div>
@@ -1576,7 +1587,7 @@ function renderDashPoly(d) {
     return `<tr>
       <td class="merc" title="${esc(a.mercado)}">${esc(a.mercado)}</td>
       <td>${esc(a.data)}${rel}</td>
-      <td><input class="pm-tip-input" list="tipster-options" value="${esc(a.tipster || '')}" data-codigo="${esc(a.codigo)}" spellcheck="false" placeholder="— tipster —"></td>
+      <td><input class="pm-tip-input js-ac-tipster" value="${esc(a.tipster || '')}" data-codigo="${esc(a.codigo)}" spellcheck="false" autocomplete="off" placeholder="— tipster —"></td>
       <td><span class="pm-badge-ativa">ativa</span></td>
       <td class="num">${fmtUSD(a.stake_usd)}</td>
       <td class="num ${pnlCls}">${pnlTxt}</td>
@@ -2265,7 +2276,7 @@ function renderGrade() {
       <div class="btbl-cell btbl-date">${esc(b.data)}</div>
       <div class="btbl-cell">${tipoHtml}<div class="btbl-desc">${esc(b.descricao)}${badges.join('')}</div></div>
       <div class="btbl-cell btbl-sport"><span class="sp-chip">${sportEmoji(b.esporte)}</span><span>${esc(b.esporte)}</span></div>
-      <div class="btbl-cell"><input class="btbl-tip-input" type="text" list="tipster-options" data-tip-id="${b.id}" spellcheck="false" value="${esc(b.tipster)}" placeholder="— tipster —"></div>
+      <div class="btbl-cell"><input class="btbl-tip-input js-ac-tipster" type="text" data-tip-id="${b.id}" spellcheck="false" autocomplete="off" value="${esc(b.tipster)}" placeholder="— tipster —"></div>
       <div class="btbl-cell btbl-casa">
         <span class="casa-chip" data-casa="${esc(b.casa)}"><img src="${faviconUrl(b.casa)}" alt="${esc(nomeCasa)}" loading="lazy"></span>
         <div class="btbl-casa-sub"><span class="btbl-casa-nome">${esc(nomeCasa)}</span>${contaHtml}</div>
@@ -2388,15 +2399,87 @@ document.getElementById('pg-next').addEventListener('click', () => {
   if (paginaAtual < pages - 1) { paginaAtual++; carregarGrade(); document.getElementById('grade-body').scrollTop = 0; }
 });
 
-// ── Autocomplete de tipster (datalist global) ─────────────────────────────────
+// ── Autocomplete de tipster (dropdown custom — datalist nativo não é estilizável) ──
+let tipstersList = [];
 async function carregarTipsters() {
   try {
     const r = await fetch('/tipsters');
     const data = await r.json();
-    document.getElementById('tipster-options').innerHTML =
-      (data.tipsters || []).map(t => `<option value="${esc(t)}"></option>`).join('');
+    tipstersList = data.tipsters || [];
   } catch {}
 }
+
+// Dropdown único reutilizado por todos os inputs .js-ac-tipster (grade, modal, Polymarket).
+(function () {
+  const menu = document.createElement('div');
+  menu.className = 'ac-menu';
+  menu.style.display = 'none';
+  document.body.appendChild(menu);
+  let inp = null, items = [], active = -1;
+
+  function close() { menu.style.display = 'none'; inp = null; items = []; active = -1; }
+
+  function render(useFilter) {
+    if (!inp) return;
+    const q = inp.value.trim().toLowerCase();
+    let opts = tipstersList;
+    if (useFilter && q) {
+      opts = tipstersList.filter(t => t.toLowerCase().includes(q))
+        .sort((a, b) => (b.toLowerCase().startsWith(q) ? 1 : 0) - (a.toLowerCase().startsWith(q) ? 1 : 0));
+    }
+    opts = opts.slice(0, 50);
+    items = opts;
+    if (!opts.length) { close(); return; }
+    const r = inp.getBoundingClientRect();
+    menu.style.left = r.left + 'px';
+    menu.style.top = (r.bottom + 2) + 'px';
+    menu.style.minWidth = Math.max(r.width, 150) + 'px';
+    active = -1;
+    menu.innerHTML = opts.map((t, i) => `<div class="ac-item" data-i="${i}">${esc(t)}</div>`).join('');
+    menu.style.display = 'block';
+  }
+
+  function highlight() {
+    Array.from(menu.children).forEach((el, i) => el.classList.toggle('active', i === active));
+    if (menu.children[active]) menu.children[active].scrollIntoView({ block: 'nearest' });
+  }
+
+  function select(i) {
+    if (!inp || i < 0 || i >= items.length) return;
+    const target = inp, val = items[i];
+    close();
+    target.value = val;
+    target.dispatchEvent(new Event('change', { bubbles: true }));  // Polymarket salva no change
+    target.blur();                                                  // grade salva no focusout
+  }
+
+  document.addEventListener('focusin', e => {
+    if (e.target.classList && e.target.classList.contains('js-ac-tipster')) { inp = e.target; render(false); }
+  });
+  document.addEventListener('input', e => { if (e.target === inp) render(true); });
+  document.addEventListener('keydown', e => {
+    if (!inp || menu.style.display === 'none') return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); active = Math.min(items.length - 1, active + 1); highlight(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); active = Math.max(0, active - 1); highlight(); }
+    else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); e.stopPropagation(); select(active); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+  }, true);
+  menu.addEventListener('mousedown', e => {
+    const it = e.target.closest('.ac-item');
+    if (!it) return;
+    e.preventDefault();   // mantém o foco no input até selecionar
+    select(parseInt(it.dataset.i));
+  });
+  menu.addEventListener('mouseover', e => {
+    const it = e.target.closest('.ac-item');
+    if (it) { active = parseInt(it.dataset.i); highlight(); }
+  });
+  document.addEventListener('focusout', e => {
+    if (e.target === inp) setTimeout(() => { if (document.activeElement !== inp) close(); }, 120);
+  });
+  window.addEventListener('scroll', () => { if (inp) close(); }, true);
+  window.addEventListener('resize', () => { if (inp) close(); });
+})();
 
 // Stats do PARCEIRO INTEIRO (não só da página): total = contagem; pendentes vêm
 // do mapa de /pendentes; copiadas = total − pendentes.
