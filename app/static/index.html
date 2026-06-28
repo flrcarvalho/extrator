@@ -543,6 +543,7 @@ table.pm-ativas td.merc { max-width:340px; overflow:hidden; text-overflow:ellips
 }
 .btbl-th.right { text-align: right; }
 .btbl-th.center { text-align: center; }
+.btbl-th.th-tip { padding-left: 7px; }   /* acompanha o padding do input de tipster */
 /* Alça de redimensionamento (borda direita de cada cabeçalho redimensionável) */
 .btbl-resizer { position: absolute; top: 0; right: -1px; width: 9px; height: 100%; cursor: col-resize; user-select: none; z-index: 3; }
 .btbl-resizer::after { content: ''; position: absolute; top: 22%; right: 3px; height: 56%; width: 2px; border-radius: 2px; background: transparent; transition: background .12s; }
@@ -590,7 +591,7 @@ table.pm-ativas td.merc { max-width:340px; overflow:hidden; text-overflow:ellips
   flex: none; font-size: 14px; line-height: 1; filter: grayscale(1);
 }
 .btbl-tip-input {
-  width: 100%; box-sizing: border-box; padding: 4px 6px 4px 0; border: 1px solid transparent;
+  width: 100%; box-sizing: border-box; padding: 4px 7px; border: 1px solid transparent;
   border-radius: var(--r-xs); background: transparent; color: var(--ink-soft);
   font: inherit; font-size: 11px; cursor: text;
 }
@@ -958,7 +959,7 @@ td.c-res.res-HL { color: var(--warn); }
                   <div class="btbl-th">Data</div>
                   <div class="btbl-th">Aposta / Evento</div>
                   <div class="btbl-th">Esporte</div>
-                  <div class="btbl-th">Tipster</div>
+                  <div class="btbl-th th-tip">Tipster</div>
                   <div class="btbl-th">Casa · Parceiro</div>
                   <div class="btbl-th">Stake</div>
                   <div class="btbl-th">Odd</div>
