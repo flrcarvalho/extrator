@@ -71,7 +71,7 @@ está suja). Servindo 25k linhas do Postgres: query + transferência em **sub-se
 | # | Decisão | Racional | Precisa do Feca? |
 |---|---|---|---|
 | D1 | **NÃO apagar o banco.** Import **aditivo**, tag `origem='import'`: trazer da planilha **só a era anterior à cobertura do DB** (por casa: linhas com `data` < `MIN(data)` daquela casa no DB; casas que o DB nunca viu → tudo). Polymarket fora do import. | O **Código** (chave de dedup das casas com ID) nunca foi pra planilha — só vivia no DB. Linha importada seria **codeless** → assinatura por conteúdo; re-extração futura gera Código → assinatura por **ID** → **não casa → duplicata**. Importar só a era pré-DB (congelada, nunca re-extraída) preserva 100% a dedup e mantém os Códigos recentes que a planilha descartou. | **SIM** (confirmar a era-split) |
-| D2 | **Não armazenar colunas derivadas.** Adicionar `stake_num`/`odd_num` NUMERIC; `valor_num`/`pl_num` como **colunas geradas** (SQL `CASE`). Validar recálculo contra as colunas K/L da planilha. | NUMERIC é decimal exato (sem erro de float, preserva precisão da sessão 50) e deixa o dashboard agregar via SQL se um dia quisermos. Geradas nunca derivam. | não (eu decido) |
+| D2 | Adicionar `stake_num`/`odd_num`/`valor_num`/`pl_num` NUMERIC **armazenados** (não gerados). Preenchimento **por origem**: import (era antiga) e backfill (era recente) → carregam o **P/L da planilha** direto; extração/sync novos → calculam da **odd cheia**. | **Achado da auditoria (harness v0):** recalcular o P/L pela odd da planilha diverge **R$ 319,58 em 1.678 linhas** — a planilha arredonda a odd a 2 casas mas o P/L usa a odd cheia (sessão 50). Logo a coluna P/L da planilha é a verdade para o histórico; coluna gerada recalcularia errado. | não (eu decido) |
 | D3 | Dashboard **servido pela própria app** (mesma origem) + **um endpoint** que replica o contrato do `Code.gs`. **Zero reescrita de analytics.** | Mesma origem = o cookie de login funciona (GitHub Pages é cross-origin e o cookie não iria). A matemática é toda client-side; só falta a fonte de dados. | não |
 | D4 | Backup = **botão "Exportar base (CSV)"** + backups automáticos do Postgres no Railway. **NÃO** escrever de volta no Sheets. | Escrever no Google exige OAuth, é caminho de escrita frágil e reintroduz a planilha como dependência. CSV é pull, não corrompe. | não |
 | D5 | Casas offline: registrar **só o nome** (display/armazenamento), sem manual de extração. Parceiros: import em massa; arquivar os inativos. | Manual só é preciso pra extrair print; dado importado já vem estruturado. | **SIM** (regra de "inativo") |
@@ -87,8 +87,9 @@ Migração **idempotente** (`ADD COLUMN IF NOT EXISTS` + bloco `DO`):
 - `origem TEXT NOT NULL DEFAULT 'extracao'` — valores `extracao | sync | import`.
 - `stake_num NUMERIC` , `odd_num NUMERIC` — preenchidos em **todo** caminho de escrita
   (import, extração, sync), parseando a vírgula. As colunas de texto seguem para display.
-- `valor_num NUMERIC GENERATED ALWAYS AS (CASE resultado …) STORED` e
-  `pl_num NUMERIC GENERATED ALWAYS AS (valor − stake) STORED`.
+- `valor_num NUMERIC` , `pl_num NUMERIC` — **armazenados** (não gerados). Import/backfill
+  carregam o **P/L da planilha**; extração/sync calculam da **odd cheia**. (Ver achado da
+  auditoria: a odd da planilha é arredondada → recalcular daria R$ 319 de erro.)
 
 **Função de resultado (espelha a planilha, validada contra K/L):**
 
@@ -169,7 +170,7 @@ e o `doGet` embrulha em `{ ok:true, data:[...], builtAt:ISO, count:N }`.
 
 | Fase | Entrega | Depende de |
 |---|---|---|
-| **A** | Migração de schema (§4) + função de resultado + validação do recálculo contra K/L (sem UI). | nada |
+| **A** | Schema (§4) + carregar P/L da planilha + canônicos `Múltiplos`/`Handebol` + **harness de auditoria** (§11) + **botão Export base CSV** (backup, D4). Sem tocar em dado existente. | nada |
 | **B** | ETL de import (§5). | CSV limpo + de-para aprovado + "Peixe"/"HPC"/Over-Under resolvidos (§10) |
 | **C** | Endpoint `/dashboard/data` + dashboard hospedado same-origin + cutover do `loadData`. | A, B |
 | **D** | Botão Export CSV (backup) + aposentar Apps Script (mantém vivo até validar). | C |
@@ -191,6 +192,25 @@ e o `doGet` embrulha em `{ ok:true, data:[...], builtAt:ISO, count:N }`.
   rápido e *errado* é pior que planilha lenta e certa. Não pular essa validação.
 - **Polymarket:** fora do import (D1). Continua via API/sync, com o dashboard ao vivo já
   existente na grade.
+
+---
+
+## 11. Harness de auditoria (erro ZERO)
+
+Regressão por agregados, além do diff linha-a-linha. Mesmo código roda sobre **duas
+fontes** (planilha = golden · endpoint do Planilhador) e dá diff.
+
+- **Golden (planilha, harness v0 — 25.708 bets válidas):** P/L R$ 288.921,33 · ROI 4,85%
+  · turnover R$ 5.956.595 · odd média ponderada 10,80 · W/L/V/HW/HL = 8016/16132/1470/50/40.
+  Reproduz o dashboard (sessão 46: R$ 289.223 / 4,86%, com 2 dias a menos). Método validado.
+- **Definições espelham o dashboard:** turnover e ROI **excluem Void**; odd média
+  ponderada `Σ(odd·stake)/Σ(stake)` com odd>0 & stake>0; win rate sobre não-Void; P/L = coluna L.
+- **Dimensões que devem bater CENTAVO a centavo** (invariantes ao de-para de esporte/categoria
+  e ao backfill): **total geral · por casa · por tipster · por mês/semana**.
+- **Esporte e categoria** mudam de bucket pelo de-para → validados pela soma dos buckets
+  remapeados (não por igualdade crua).
+- **Gate:** Fase B só fecha quando o diff golden × Planilhador = **0** em todas as
+  dimensões invariantes.
 
 ---
 
