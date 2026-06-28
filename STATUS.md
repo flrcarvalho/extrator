@@ -4,9 +4,9 @@ Documento de rehydration de sessão. Quem abrir o Claude Code neste repo lê ist
 
 Repo local: `C:\Users\Fernando\Downloads\FDC Capital\Planilhador`
 
-_Atualizado: 2026-06-28 (sessão 59 — MIGRAÇÃO DA BASE DO FECA da planilha → Postgres COMPLETA. ~22.451 bilhetes em 19 lotes auditados; check final reconciliado (planilha 22.394 vs DB 22.451, +57 DB-only reais/API explicados). Bug de data futura 19/07 eliminado. Bet365/Betano/Superbet/Pinnacle fechadas)_
+_Atualizado: 2026-06-28 (sessão 60 — ajustes visuais da sidebar: logo fixo no scroll, export na base, "Operador" com menu suspenso, header do parceiro sem repetição, abas Ativas/Inativas. Pendente: modelo de login de operadores — discutir antes de codar)_
 
-_Anterior: 2026-06-27 (sessão 58 — auditoria da integração Polymarket (3 auditores) + correções aplicadas + modo online: posição resolvida sai das ativas e entra no TSV sozinha)_
+_Anterior: 2026-06-28 (sessão 59 — MIGRAÇÃO DA BASE DO FECA da planilha → Postgres COMPLETA. ~22.451 bilhetes em 19 lotes auditados; check final reconciliado (planilha 22.394 vs DB 22.451, +57 DB-only reais/API explicados). Bug de data futura 19/07 eliminado. Bet365/Betano/Superbet/Pinnacle fechadas)_
 
 > Próxima sessão: (1) **Migrar a base do OPERADOR** (CSV separado que o Feca vai subir; mesmos padrões da migração do Feca — ver §4 lote 19). (2) **Rotacionar a senha do Postgres** no Railway (a DATABASE_URL trafegou no chat). (3) Fase C do PLANO_UNIFICACAO: endpoint `/dashboard/data` + dashboard same-origin. (4) Fase A2: colunas `pl_num`/`valor_num` (carregar P/L da planilha). (5) Candidatos antigos: aposentar app Polymarket standalone; cadastrar Snooker em `MASTER_ESPORTES`.
 
@@ -54,6 +54,14 @@ Os 6 MASTER_*.md estão em `/global/` (reorganização concluída em 12/06/2026)
 ---
 
 ## 4. Estado atual
+
+- **Sessão 60 (28/06/2026) — Ajustes visuais da sidebar (antes da base do operador):**
+  - **Logo fixo no scroll + export na base (commit `9c29600`):** `.sidebar` virou layout de 3 faixas — topo fixo (logo + operador), miolo rolável (`.sidebar-scroll`, casas), rodapé fixo. O **Baixar base (CSV)** foi pro fim do menu. Só o miolo rola.
+  - **"Usuário" → "Operador" com menu suspenso:** a `user-bar` virou `.operador-bar` (botão rotulado **Operador** + caret, dropdown com Sair; abre/fecha por clique e fecha ao clicar fora/Esc). **Prep visual** para o modelo de login de operadores — ver abaixo.
+  - **Header do parceiro sem repetição:** deixou de mostrar "Casa · Parceiro" grande **e** "Parceiro" embaixo. Agora **casa grande** + **parceiro menor embaixo** (padrão do print BOOKIE). `selecionarParceiro`: `partner-name = nomeCasa`, `partner-sub = p.nome`.
+  - **Abas Ativas / Inativas na sidebar (commit `50c24ce`):** separa as casas pelo estado do parceiro (`arquivado`). **Ativas** (padrão) esconde as contas migradas/arquivadas; **Inativas** mostra só os arquivados, com botão **Reativar** (↩) no lugar de Arquivar (▣). `carregarParceiros` busca `arquivados=true` e separa em `parceirosCache` (ativos) + `parceirosArquivadosCache`. Arquivar/reativar move entre abas em tempo real. Regra de visibilidade: casa aparece na Ativas com ≥1 ativo **ou** quando totalmente vazia (preserva criar o 1º parceiro); some quando só tem arquivados. Reusa endpoints `/parceiros?arquivados=`, `/arquivar`, `/reativar` (nada no backend).
+  - **PENDENTE (decisão do Feca, discutir antes de codar): modelo de login de operadores.** Conceito travado: **dono de carteira** (usuário, ex. Feca) pode **criar logins de operador** que acessam aquela base; criar novo usuário = novo dono. O dono cria o login do operador e ele passa a ter acesso à base do dono. Isso mexe em `auth.py` (hoje `USUARIOS` é dict estático em código + senha hash) e no modelo `dono` (coluna que isola dados). **Só o relabel visual foi feito; a mecânica de login fica para sessão dedicada.**
+  - Backup: `Backups/ajustes-visuais-sidebar_2026-06-28/`.
 
 - **Sessão 59 (28/06/2026) — Início da migração planilha → Postgres (unificação c/ Dashboard):**
   - **Plano completo:** `PLANO_UNIFICACAO_2026.md`. Resumo da memória: [[migracao-planilha-dashboard]].
