@@ -110,7 +110,8 @@ Conferência financeira: `Ganhos = 0` → L · `Ganhos = Aposta` → V · `Ganho
 | Total de Faltas | **Outros** ⚠️ (nicho) |
 | Tie Breaks | **Outros** ⚠️ (nicho tênis) |
 | 1º Quarto - Total de pontos | **Outros** ⚠️ (total de período — avaliar Team Props) |
-| Total de 180s / Mais/Menos 180s / H2H 180s (Dardos) | **Legs** |
+| Total de 180's / Mais de–Menos de N 180's (Over/Under de **um** jogador) | Player Props |
+| Maioria de 180's / H2H 180's (comparativo: quem faz **mais** no confronto) | H2H |
 | Criar Aposta / N-seleções / Dupla / Tripla | Múltipla |
 
 Notas de reconstrução:
@@ -118,6 +119,7 @@ Notas de reconstrução:
 - Confronto `A - B` → `[A v B]`.
 - `Mais de` / `Menos de` → Over / Under.
 - `Tripla` / `Dupla` / `N-seleções` / `Criar Aposta` → `Múltipla`, uma linha, seleções com ` // `.
+- **Maioria de 180's / H2H 180's (Dardos):** comparativo de quem faz mais 180s → `H2H` (nunca `Legs`/`Player Props`). Layout com dois nomes sem `A v B` explícito: primeiro nome (topo) = apostado, segundo = adversário. Descrição: `Jogador - Maioria de 180's [Jogador A v Jogador B]` (espelha Bet365/Betfair · `MASTER_APOSTAS §6`).
 
 ---
 
