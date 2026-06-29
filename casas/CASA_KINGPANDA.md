@@ -188,7 +188,7 @@ Apostas abertas → `extraction_state = aberta`.
 
 ## 9. Mapa de mercados (KingPanda → `Aposta` global)
 
-Fonte de verdade das categorias: `MASTER_APOSTAS_2026 §3`. Este mapa cobre **todas** as 27 categorias globais.
+Fonte de verdade das categorias: `MASTER_APOSTAS_2026 §3`. Este mapa lista **apenas** os mercados já confirmados num bilhete real desta casa (camada fina) — a taxonomia completa vive no MASTER e **não** se reescreve aqui.
 
 | KingPanda exibe | Aposta global | Status |
 |---|---|---|

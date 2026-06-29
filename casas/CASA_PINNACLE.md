@@ -144,7 +144,7 @@ Cobrindo rótulos web **e** export:
 | (mercados nomeados: Over/Under Gols, Cartões, Escanteios, Sets…) | seguir o nome → `MASTER_APOSTAS_2026` |
 
 Notas de reconstrução:
-- `(Sets)` / `(Games)` no nome da seleção = unidade do mercado em Tênis (ex.: `Segundo Goity Zapico (Games) -1.5` → Handicap em games). Entra na descrição conforme `MASTER_DESCRICAO_2026 §13.1`.
+- `(Sets)` / `(Games)` no nome da seleção = unidade do mercado em Tênis (ex.: `Segundo Goity Zapico (Games) -1.5` → categoria `Handicap`, a unidade games entra na descrição conforme `MASTER_DESCRICAO_2026 §13.1`). **Convenção:** handicap sobre a unidade de pontuação do esporte (games, sets, gols, pontos) é `Handicap`; só handicap sobre **estatística-prop** (cartões, chutes, finalizações…) segue o objeto (`MASTER_APOSTAS §1`).
 - Player props de NBA/WNBA/MLB → `Player Props` (estatística individual). Nome do jogador costuma vir na linha 1 do Seleção; normalizar (ex.: `Jesús Luzardo (Total Strikeouts)(must start)` → `Jesús Luzardo`, mercado `Strikeouts`).
 
 ---

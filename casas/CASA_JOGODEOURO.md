@@ -158,7 +158,7 @@ Apostas abertas → `extraction_state = aberta` — não incluir no TSV.
 
 ## 9. Mapa de mercados (Jogo de Ouro → `Aposta` global)
 
-Fonte de verdade das categorias: `MASTER_APOSTAS_2026 §3`. Este mapa cobre **todas** as 27 categorias globais.
+Fonte de verdade das categorias: `MASTER_APOSTAS_2026 §3`. Este mapa lista **apenas** os mercados já confirmados num bilhete real desta casa (camada fina) — a taxonomia completa vive no MASTER e **não** se reescreve aqui.
 
 | Jogo de Ouro exibe | Aposta global | Status |
 |---|---|---|
