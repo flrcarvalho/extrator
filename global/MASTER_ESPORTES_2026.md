@@ -516,6 +516,10 @@ Utilizar os nomes abaixo como apoio de desambiguação em mercados ML/H2H. A lis
 - Oliver Mitchell
 - Joe Croft
 - Alec Small
+- Adam Sevada (CDC / circuito americano)
+- Alex Spellman (CDC / circuito americano)
+- Leonard Gates (CDC / circuito americano)
+- Fred Krueger (CDC / circuito americano)
 
 ---
 
