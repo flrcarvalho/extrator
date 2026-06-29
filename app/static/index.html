@@ -615,6 +615,13 @@ table.pm-ativas td.merc { max-width:340px; overflow:hidden; text-overflow:ellips
 .btbl-tip-input::placeholder { color: var(--ink-mute); }
 .btbl-tip-input:hover { border-color: var(--line); }
 .btbl-tip-input:focus { outline: none; border-color: var(--accent); background: rgba(var(--accent-rgb),.06); color: var(--ink); }
+/* Sinal AZUL: tipster não preenchido — fácil de achar na lista */
+.btbl-tip-input.tip-empty {
+  background: rgba(var(--accent-rgb),.12); border-color: rgba(var(--accent-rgb),.55);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.btbl-tip-input.tip-empty::placeholder { color: var(--accent-2); opacity: 1; }
+.btbl-tip-input.tip-empty:hover { border-color: rgba(var(--accent-rgb),.7); }
 .btbl-casa { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
 .btbl-casa-sub { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .btbl-casa-nome { font-size: 11px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -630,6 +637,8 @@ table.pm-ativas td.merc { max-width:340px; overflow:hidden; text-overflow:ellips
 .bet-res-L  { background: var(--d-neg-soft); color: var(--neg);   border: 1px solid rgba(var(--neg-rgb),.25); }
 .bet-res-HL { background: var(--d-neg-soft); color: var(--neg);   border: 1px solid rgba(var(--neg-rgb),.25); }
 .bet-res-V  { background: rgba(255,255,255,.06); color: var(--ink-mute); border: 1px solid var(--line); }
+/* Sinal AMARELO: resultado não preenchido (aposta aberta) — fácil de achar */
+.bet-res-empty { background: rgba(var(--warn-rgb),.18); color: var(--warn); border: 1px solid rgba(var(--warn-rgb),.55); }
 .money { display: inline-flex; justify-content: flex-start; gap: 4px; width: 100%; font-family: var(--font-mono); }
 .money-sign { color: var(--ink-soft); font-size: .78em; flex-shrink: 0; }
 .money-val { font-variant-numeric: tabular-nums; }
@@ -2284,7 +2293,8 @@ function sportEmoji(nome) {
 const RES_LABEL = { W:'W', HW:'½W', L:'L', HL:'½L', V:'V' };
 function resPill(res) {
   const r = (res || '').toUpperCase();
-  if (!r) return '';
+  // vazio → pílula âmbar de "resultado não preenchido" (aposta aberta)
+  if (!r) return `<span class="bet-res-pill bet-res-empty" title="Resultado não preenchido (aposta aberta)">?</span>`;
   const cls = ['W','HW','L','HL','V'].includes(r) ? r : 'V';
   return `<span class="bet-res-pill bet-res-${cls}">${esc(RES_LABEL[r] || res)}</span>`;
 }
@@ -2317,7 +2327,7 @@ function renderGrade() {
       <div class="btbl-cell btbl-date">${esc(b.data)}</div>
       <div class="btbl-cell">${tipoHtml}<div class="btbl-desc">${esc(b.descricao)}${badges.join('')}</div></div>
       <div class="btbl-cell btbl-sport"><span class="sp-chip">${sportEmoji(b.esporte)}</span><span>${esc(b.esporte)}</span></div>
-      <div class="btbl-cell"><input class="btbl-tip-input js-ac-tipster" type="text" data-tip-id="${b.id}" spellcheck="false" autocomplete="off" value="${esc(b.tipster)}" placeholder="— tipster —"></div>
+      <div class="btbl-cell"><input class="btbl-tip-input js-ac-tipster${(b.tipster || '').trim() ? '' : ' tip-empty'}" type="text" data-tip-id="${b.id}" spellcheck="false" autocomplete="off" value="${esc(b.tipster)}" placeholder="— tipster —"></div>
       <div class="btbl-cell btbl-casa">
         <span class="casa-chip" data-casa="${esc(b.casa)}"><img src="${faviconUrl(b.casa)}" alt="${esc(nomeCasa)}" loading="lazy"></span>
         <div class="btbl-casa-sub"><span class="btbl-casa-nome">${esc(nomeCasa)}</span>${contaHtml}</div>
@@ -2344,6 +2354,7 @@ function renderGrade() {
     if ((b.tipster || '') === valor) return;
     const anterior = b.tipster;
     b.tipster = valor;
+    inp.classList.toggle('tip-empty', !valor);  // sinal azul some ao preencher
     try {
       const r = await fetch(`/bilhetes/${id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -2353,6 +2364,7 @@ function renderGrade() {
       if (valor) carregarTipsters();
     } catch {
       b.tipster = anterior; inp.value = anterior || '';
+      inp.classList.toggle('tip-empty', !(anterior || '').trim());
       setExpStatus('Erro ao salvar tipster', 'err');
     }
   }
