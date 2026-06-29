@@ -213,6 +213,20 @@ Sinônimos:
 
 ---
 
+## E-Sports Props
+
+Sinônimos:
+- E-Sports Props
+- Estatísticas de E-Sports
+- Kills / Deaths / Assists (over/under de jogador)
+- Total de Kills / Abates
+- Map / Series Total (estatística de E-Sports)
+
+> Sempre que o objeto for estatística de E-Sports, a categoria é `E-Sports Props`
+> (nunca `Player Props`) e o Esporte é `E-Sports` — ver §6 (E-Sports) e §7 (prioridade).
+
+---
+
 ## Escanteios
 
 Sinônimos:

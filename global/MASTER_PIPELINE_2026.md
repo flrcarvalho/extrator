@@ -270,6 +270,12 @@ Utilizar exclusivamente:
 MASTER_APOSTAS_2026
 ```
 
+> **Exceção — casas ingeridas por API/código (ex.: Polymarket).** §6.1 e §6.2 regem
+> os **extratores de IA de visão**, que leem o print guiados pelos masters. Casas que
+> ingerem por API classificam esporte e categoria **em código** (`app/polymarket.py`)
+> e **não** herdam as listas de `MASTER_ESPORTES`/`MASTER_APOSTAS` — podem inclusive
+> ter mercados fora da taxonomia esportiva (política, cripto). Ver `CASA_POLYMARKET §13`.
+
 ---
 
 ## 6.3 Prioridade semântica

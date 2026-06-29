@@ -365,20 +365,28 @@ Perdida
 
 # 14. Regra de Cashout
 
-Quando houver cashout com valor diferente da stake, o extrator deve ajustar a odd.
+Quando houver cashout, o resultado e a odd seguem (regra completa em
+`MASTER_RESULTADO_2026 §5.6` e `§5.1.2`):
 
-Regra:
+- **Cashout ≠ stake** (maior **ou** menor) → Resultado **W**, `Odd = Cashout / Stake`.
+- **Cashout = stake** → Resultado **V** (anulada), odd exibida no bilhete.
 
-```text
-Odd = Retorno / Stake
-```
-
-Exemplo:
+Exemplo (cashout maior):
 
 ```text
 Stake = 100
-Retorno = 160
+Cashout = 160
+Resultado = W
 Odd = 1,60
+```
+
+Exemplo (cashout menor — ainda W, com odd < 1):
+
+```text
+Stake = 100
+Cashout = 40
+Resultado = W
+Odd = 0,40
 ```
 
 Isso garante compatibilidade com a planilha.
