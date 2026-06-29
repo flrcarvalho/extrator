@@ -854,7 +854,11 @@ async def salvar(body: SalvarRequest, dono: str = Depends(usuario_atual)):
 
     arquivados = 0
     if ids and (body.casa or rows):
-        casa_display = _casa_display((body.casa or rows[0].get("casa", "")).upper())
+        # Usa o MESMO display name com que as linhas foram gravadas (acima), senão
+        # o filtro do auto_arquivar não casa. Antes: _casa_display(body.casa.upper())
+        # transformava "Bolsa de Aposta" em "Bolsa De Aposta" (D maiúsculo) e o
+        # arquivamento silenciosamente não ocorria para casas multi-palavra.
+        casa_display = _casa_display(casa_key) if casa_key else rows[0].get("casa", "")
         parceiro_nome = body.parceiro or (rows[0].get("parceiro", "") if rows else "")
         arquivados = await auto_arquivar(casa_display, parceiro_nome, len(ids), dono)
 
