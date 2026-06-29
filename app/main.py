@@ -651,11 +651,37 @@ class LoginRequest(BaseModel):
     senha: str
 
 
+# Rate limit de login em memória (reseta no reinício). Tolerante: não tranca
+# usuário legítimo, só desacelera brute-force dos 2 usuários conhecidos.
+_LOGIN_WINDOW = 300        # janela de 5 min
+_LOGIN_MAX_FAILS = 10      # falhas permitidas por IP na janela
+_login_fails: dict[str, list[float]] = {}
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")  # Railway fica atrás de proxy
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
 @app.post("/login")
-async def login(body: LoginRequest):
+async def login(body: LoginRequest, request: Request):
+    ip = _client_ip(request)
+    now = time.time()
+    fails = [t for t in _login_fails.get(ip, []) if now - t < _LOGIN_WINDOW]
+    if len(fails) >= _LOGIN_MAX_FAILS:
+        _login_fails[ip] = fails
+        raise HTTPException(429, "Muitas tentativas. Aguarde alguns minutos e tente novamente.")
+
     usuario = body.usuario.strip()
     if not verificar_credenciais(usuario, body.senha):
+        fails.append(now)
+        _login_fails[ip] = fails
+        await asyncio.sleep(0.5)  # atraso constante desacelera brute-force
         raise HTTPException(401, "Usuário ou senha inválidos.")
+
+    _login_fails.pop(ip, None)  # sucesso limpa o contador do IP
     resp = JSONResponse({"ok": True, "usuario": usuario})
     resp.set_cookie(
         key=COOKIE_NAME,
