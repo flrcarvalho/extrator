@@ -351,15 +351,25 @@ body::before {
 .status-msg.err  { color: var(--neg); }
 .status-msg.warn { color: var(--warn); }
 
+/* Polymarket — carteira + sincronizar no cabeçalho (ocupa o lugar do seletor de modelo) */
+.poly-head-sync { display:flex; align-items:center; gap:8px; }
+.poly-head-sync .status-msg { font-size:11px; font-family:var(--font-mono); color:var(--ink-mute); white-space:nowrap; }
+.poly-wallet-input {
+  width:340px; max-width:42vw; background:var(--surface-2); border:1px solid var(--line);
+  color:var(--ink); border-radius:var(--r-sm); padding:6px 10px;
+  font-size:12px; font-family:var(--font-mono); outline:none; transition:border-color .12s;
+}
+.poly-wallet-input:focus { border-color:var(--accent); box-shadow:var(--glow); }
+
 /* Polymarket — dashboard ao vivo */
-.pm-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:4px 0 12px; }
+.pm-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:8px 18px 12px; }
 .pm-kpi { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm); padding:11px 14px; display:flex; flex-direction:column; gap:2px; }
 .pm-kpi-label { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-mute); font-family:var(--font-mono); }
 .pm-kpi-val { font-size:22px; font-weight:700; font-family:var(--font-mono); letter-spacing:-.02em; color:var(--ink); }
 .pm-kpi-val.blue { color:var(--accent); }
 .pm-kpi-val.green { color:var(--pos); }
 .pm-kpi-sub { font-size:10px; color:var(--ink-mute); font-family:var(--font-mono); }
-.pm-ativas-wrap { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm); margin-bottom:14px; overflow:hidden; }
+.pm-ativas-wrap { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); margin:0 18px 14px; overflow:hidden; }
 .pm-ativas-head { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-family:var(--font-mono); border-bottom:1px solid var(--line); }
 .pm-ativas-scroll { max-height:300px; overflow:auto; }
 table.pm-ativas { width:100%; table-layout:fixed; border-collapse:collapse; font-size:12px; }
@@ -888,6 +898,15 @@ td.c-res.res-HL { color: var(--warn); }
         <option value="claude-sonnet-4-6" selected>Sonnet 4.6 · padrão</option>
         <option value="claude-opus-4-8">Opus 4.8 · casos difíceis</option>
       </select>
+      <!-- Polymarket: sincronização via API ocupa o lugar do seletor de modelo (sem IA nesta casa) -->
+      <div class="poly-head-sync" id="poly-head-sync" style="display:none">
+        <span class="status-msg" id="poly-status"></span>
+        <input type="text" id="poly-wallet" class="poly-wallet-input"
+          placeholder="Carteira Polymarket (0x…)"
+          title="Cole o endereço da carteira e clique Sincronizar — sincroniza o histórico, converte USD→BRL e deduplica"
+          spellcheck="false" autocomplete="off">
+        <button class="btn btn-primary btn-sm" id="btn-poly-sync">↻ Sincronizar</button>
+      </div>
     </div>
 
     <!-- Body: two columns -->
@@ -921,19 +940,6 @@ td.c-res.res-HL { color: var(--warn); }
               <input type="date" id="data-ref" class="data-ref-input">
             </label>
             <span class="status-msg" id="status-msg"></span>
-          </div>
-        </div>
-
-        <!-- Polymarket: sincronização via API (substitui o upload nesta casa) -->
-        <div class="input-section" id="polymarket-section" style="display:none">
-          <div class="actions" style="margin:0">
-            <input type="text" id="poly-wallet" class="data-ref-input"
-              style="flex:1;min-width:300px;font-family:var(--font-mono)"
-              placeholder="Carteira Polymarket (0x…) — sincroniza o histórico, converte USD→BRL e deduplica"
-              title="Cole o endereço da carteira e clique Sincronizar"
-              spellcheck="false" autocomplete="off">
-            <button class="btn btn-primary" id="btn-poly-sync">↻ Sincronizar</button>
-            <span class="status-msg" id="poly-status"></span>
           </div>
         </div>
 
@@ -1552,10 +1558,12 @@ function mostrarEmptyState() {
 function aplicarModoCasa(casa) {
   const isPoly = casa === 'Polymarket';
   const up = document.getElementById('upload-section');
-  const pm = document.getElementById('polymarket-section');
+  const headSync = document.getElementById('poly-head-sync');
+  const modelo = document.getElementById('modelo');
   const dash = document.getElementById('polymarket-dashboard');
   if (up) up.style.display = isPoly ? 'none' : '';
-  if (pm) pm.style.display = isPoly ? '' : 'none';
+  if (headSync) headSync.style.display = isPoly ? '' : 'none';
+  if (modelo) modelo.style.display = isPoly ? 'none' : '';   // sem IA na Polymarket
   if (dash) dash.style.display = isPoly ? '' : 'none';
   if (isPoly) {
     const w = document.getElementById('poly-wallet');
