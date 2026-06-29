@@ -27,7 +27,7 @@ from auth import (
 )
 from config import ALLOWED_MODELS, CASAS_DIR, DEFAULT_MODEL
 from database import init_db
-from polymarket import coletar_bilhetes, coletar_dashboard
+from polymarket import CambioIndisponivel, coletar_bilhetes, coletar_dashboard
 from prompts import build_system
 from repository import (
     arquivar_parceiro, atualizar_bilhete, auto_arquivar, contar_arquivados,
@@ -887,7 +887,10 @@ async def polymarket_sync(body: PolymarketSyncRequest, dono: str = Depends(usuar
 
     try:
         rows = await coletar_bilhetes(wallet, parceiro)
-    except Exception as exc:
+    except CambioIndisponivel as exc:
+        # Mensagem controlada por nós (não vaza internals); 503 = tente de novo depois.
+        raise HTTPException(503, str(exc))
+    except Exception:
         logger.exception("Falha na coleta Polymarket")
         raise HTTPException(502, "Erro ao consultar a Polymarket. Tente novamente.")
 

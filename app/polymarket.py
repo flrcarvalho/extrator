@@ -45,14 +45,51 @@ _PAGE_POSITIONS = 100
 _PAGE_ACTIVITY = 500
 _SIZE_THRESHOLD = ".1"
 
+# Retry/backoff para soluços transitórios do proxy/PTAX (429/5xx/timeout/conexão).
+_RETRY_ATTEMPTS = 3
+_RETRY_BASE = 1.0   # espera = base * 2**tentativa → 1s, 2s
+
+
+class CambioIndisponivel(RuntimeError):
+    """PTAX/BCB não retornou cotação — abortamos para NÃO gravar USD como se fosse R$."""
+
+
+class PolymarketRespostaInesperada(RuntimeError):
+    """Endpoint respondeu 200 mas não com uma lista — falha em vez de truncar o histórico em silêncio."""
+
 
 # ── HTTP ────────────────────────────────────────────────────────────────────
 
+async def _get_retry(client: httpx.AsyncClient, url: str, params: dict) -> httpx.Response:
+    """GET com retry/backoff em erros transitórios (timeout, conexão, 429/5xx)."""
+    last_exc: Exception | None = None
+    for attempt in range(_RETRY_ATTEMPTS):
+        ultima = attempt == _RETRY_ATTEMPTS - 1
+        try:
+            r = await client.get(url, params=params, headers={"Accept": "application/json"})
+            if r.status_code in (429, 500, 502, 503, 504) and not ultima:
+                await asyncio.sleep(_RETRY_BASE * (2 ** attempt))
+                continue
+            r.raise_for_status()
+            return r
+        except (httpx.TimeoutException, httpx.TransportError) as e:
+            last_exc = e
+            if ultima:
+                raise
+            await asyncio.sleep(_RETRY_BASE * (2 ** attempt))
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("retry exauriu sem resposta")  # inalcançável
+
+
 async def _get_json(client: httpx.AsyncClient, url: str, params: dict) -> list:
-    r = await client.get(url, params=params, headers={"Accept": "application/json"})
-    r.raise_for_status()
+    r = await _get_retry(client, url, params)
     data = r.json()
-    return data if isinstance(data, list) else []
+    if not isinstance(data, list):
+        # 200 com objeto de erro vinha sendo tratado como página vazia → o loop de
+        # paginação parava e cortava o histórico sem avisar. Falha alto em vez disso.
+        raise PolymarketRespostaInesperada(f"Resposta inesperada (não-lista) de {url}")
+    return data
 
 
 async def _paginate(client: httpx.AsyncClient, path: str, wallet: str,
@@ -79,8 +116,7 @@ async def _ptax(client: httpx.AsyncClient, dia: datetime) -> float | None:
     mdy = f"{dia.month:02d}-{dia.day:02d}-{dia.year:04d}"
     params = {"@dataCotacao": f"'{mdy}'", "$top": "1", "$format": "json"}
     try:
-        r = await client.get(BCB_PTAX, params=params, headers={"Accept": "application/json"})
-        r.raise_for_status()
+        r = await _get_retry(client, BCB_PTAX, params)
         vals = r.json().get("value", [])
         return float(vals[0]["cotacaoVenda"]) if vals else None
     except Exception:
@@ -413,7 +449,13 @@ async def coletar_bilhetes(wallet: str, parceiro: str) -> list[dict]:
             raw_sport = _detes_raw(title)
             stake_usd = _f(pos, "initialValue", "size")
             cotacao = await _cotacao_para(client, iso, cot_cache, hoje)
-            stake_brl = stake_usd * cotacao if cotacao else stake_usd
+            if not cotacao:
+                # Sem cotação NÃO gravamos USD como se fosse R$ (corromperia stake e P/L).
+                raise CambioIndisponivel(
+                    "Câmbio (PTAX/BCB) indisponível agora — não foi possível converter "
+                    "USD→BRL. Tente sincronizar novamente em alguns minutos."
+                )
+            stake_brl = stake_usd * cotacao
             pnl = _f(pos, "cashPnl")
             split_total = int(pos.get("_splitTotal") or 1)
             desc = title
@@ -434,7 +476,8 @@ async def coletar_bilhetes(wallet: str, parceiro: str) -> list[dict]:
                 "stake": _fmt_money(stake_brl),
                 "stake_usd": round(stake_usd, 2),   # valor original (saiu da conta) p/ referência na grade
                 "odd": _fmt_odd(_calc_odd(pos)),
-                "resultado": "W" if pnl > 0 else "L",
+                # pnl exatamente zero = retornou o stake → V (P/L 0), não L (que daria -stake).
+                "resultado": "W" if pnl > 0.005 else ("L" if pnl < -0.005 else "V"),
                 "codigo_bilhete": pos.get("_splitId") or pos.get("conditionId") or "",
             })
 
