@@ -11,19 +11,30 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
+import secrets
 import time
 
 from fastapi import HTTPException, Request
 
+logger = logging.getLogger("auth")
+
 COOKIE_NAME = "fdc_sessao"
 SESSION_MAX_AGE = 60 * 60 * 24 * 30  # 30 dias
 
-# Segredo de assinatura do cookie. Em produção, defina SESSION_SECRET no Railway.
-SESSION_SECRET = os.environ.get(
-    "SESSION_SECRET",
-    "fdc-capital-planilhador-segredo-padrao-troque-em-producao",
-)
+# Segredo de assinatura do cookie.
+# Em produção, defina SESSION_SECRET no Railway (persiste sessões entre reinícios).
+# Se ausente, gera um segredo ALEATÓRIO no boot: ninguém consegue forjar cookies
+# (não há mais default conhecido), ao custo de as sessões caírem a cada reinício.
+# Nunca derruba o app — falha-fechado seguro em vez de falha-aberto.
+SESSION_SECRET = os.environ.get("SESSION_SECRET") or secrets.token_hex(32)
+if not os.environ.get("SESSION_SECRET"):
+    logger.warning(
+        "SESSION_SECRET não definido — usando segredo efêmero aleatório. "
+        "Sessões cairão a cada reinício do servidor. "
+        "Defina SESSION_SECRET no Railway para persistir os logins."
+    )
 
 
 def _hash(senha: str) -> str:
