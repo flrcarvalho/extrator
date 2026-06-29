@@ -1658,6 +1658,13 @@ function renderDashPoly(d) {
     body.innerHTML = '<tr><td colspan="10" class="pm-empty">Nenhuma posição ativa.</td></tr>';
     return;
   }
+  // Se o operador está digitando um tipster agora, NÃO reconstruir o corpo: o
+  // body.innerHTML abaixo apagaria o input em foco e descartaria o texto não salvo.
+  // Os KPIs acima já atualizaram; o próximo poll (após o blur) refaz a tabela.
+  const _ae = document.activeElement;
+  if (_ae && _ae.classList && _ae.classList.contains('pm-tip-input') && body.contains(_ae)) {
+    return;
+  }
   const parc = (parceiroSelecionado && parceiroSelecionado.nome) || '';
   body.innerHTML = d.ativas.map(a => {
     const rel = a.data_rel ? `<span class="pm-rel">${esc(a.data_rel)}</span>` : '';
