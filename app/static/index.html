@@ -2362,6 +2362,7 @@ function renderGrade() {
       });
       if (!r.ok) throw new Error();
       if (valor) carregarTipsters();
+      atualizarPendentes();  // atualiza o badge azul da sidebar (sem tipster)
     } catch {
       b.tipster = anterior; inp.value = anterior || '';
       inp.classList.toggle('tip-empty', !(anterior || '').trim());
