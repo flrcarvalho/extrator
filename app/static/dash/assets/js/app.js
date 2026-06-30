@@ -463,8 +463,13 @@ function buildHTML(){
   </div>
   <div class="app">
     <aside class="sidebar">
-      <div class="sidebar-logo"><img src="brand/fdc-logo-vertical-dark.svg" class="logo-dark" alt="FDC Capital" draggable="false" style="width:202px;margin:0 auto;"><img src="brand/fdc-logo-vertical-light.svg" class="logo-light" alt="FDC Capital" draggable="false" style="width:202px;margin:0 auto;"></div>
+      <div class="sidebar-brand">
+        <svg width="30" height="30" viewBox="0 0 120 120" aria-label="FDC Capital"><defs><linearGradient id="fdcSb" x1="6" y1="10" x2="114" y2="110" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5BA9FF"/><stop offset="1" stop-color="#1E7CF0"/></linearGradient></defs><path d="M6 110L60 80L114 110L96 110L60 90L24 110Z" fill="#333B45"/><path d="M6 75L60 45L114 75L96 75L60 55L24 75Z" fill="#9AA6B4"/><path d="M6 40L60 10L114 40L96 40L60 20L24 40Z" fill="url(#fdcSb)"/></svg>
+        <div class="sb-wm"><div class="w">FDC <span>Capital</span></div><div class="d">Data Intelligence</div></div>
+      </div>
       <nav class="sidebar-nav">
+        <div class="nav-group">Operação</div>
+        <a class="nav-item" href="/" style="text-decoration:none" title="Abrir o Planilhador — extração e edição de bilhetes"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="13" height="13" rx="1"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13"/></svg>Planilhador</a>
         <div class="nav-group">Análise</div>
         ${[
           ['overview','Visão Geral','<rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>'],
@@ -486,12 +491,9 @@ function buildHTML(){
         ].map(([id,label,icon])=>`<div class="nav-item" id="nav-${id}" onclick="showPage('${id}')"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">${icon}</svg>${label}</div>`).join('')}
       </nav>
       <div class="sidebar-bottom">
-        <div class="app-switcher">
-          <a class="app-sw-item" href="/" title="Abrir o Planilhador — extração e edição de bilhetes"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="13" height="13" rx="1"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13"/></svg>Planilhador</a>
-          <a class="app-sw-item active" href="/dashboard/" title="Você está no Betting Dashboard"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12l4-4 3 3 5-6"/><path d="M1.5 14.5h13"/></svg>Betting Dashboard</a>
-        </div>
-        <button class="update-btn" onclick="loadData(true)">↻ Atualizar dados</button>
         <div class="last-update" id="lastUpdate"><span class="pulse-dot"></span><span id="lastUpdateText">carregando…</span></div>
+        <a class="sb-csv" href="/exportar.csv" title="Baixar toda a base como CSV (backup)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Baixar base (CSV)</a>
+        <button class="update-btn" onclick="loadData(true)">↻ Atualizar dados</button>
       </div>
     </aside>
     <main class="main"><div class="main-content">

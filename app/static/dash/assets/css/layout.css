@@ -49,21 +49,16 @@ body::before {
   overflow-y: auto;
 }
 
-.sidebar-logo {
-  padding: 1rem 1rem 1.5rem;
+.sidebar-brand {
+  display: flex; align-items: center; gap: 11px;
+  padding: 2px 6px 14px; margin-bottom: 4px;
   border-bottom: 1px solid var(--line-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
-
-.sidebar-logo img {
-  width: 100%;
-  max-width: 160px;
-  height: auto;
-  object-fit: contain;
-  margin: 0 auto;
-}
+.sidebar-brand svg { flex: none; }
+.sb-wm { display: flex; flex-direction: column; gap: 3px; line-height: 1; }
+.sb-wm .w { font-weight: var(--weight-extrabold); font-size: 18px; letter-spacing: -0.04em; color: var(--ink); }
+.sb-wm .w span { font-weight: var(--weight-bold); color: var(--ink-soft); }
+.sb-wm .d { font-family: var(--font-mono); font-size: 7.5px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--ink-mute); }
 
 .logo-name {
   font-size: var(--text-sm);
@@ -82,15 +77,13 @@ body::before {
 .sidebar-nav { padding: var(--space-1) 0; flex: 1; }
 
 .nav-group {
-  padding: var(--space-2) var(--space-4) var(--space-1);
+  padding: var(--space-4) var(--space-4) var(--space-1);
   font-size: var(--text-nano);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-mute);
   font-family: var(--font-mono);
   font-weight: var(--weight-bold);
-  border-top: 1px solid var(--line-2);
-  margin-top: 2px;
 }
 
 .nav-item {
@@ -126,7 +119,7 @@ body::before {
 [data-theme="light"] .nav-item:hover { color: var(--accent); background: rgba(30,124,240,0.06); }
 [data-theme="light"] .nav-item.active { color: var(--accent); background: rgba(30,124,240,0.10); }
 [data-theme="light"] .nav-group { color: var(--fdc-steel); opacity: 0.6; }
-[data-theme="light"] .sidebar-logo { border-bottom-color: var(--line); }
+[data-theme="light"] .sidebar-brand { border-bottom-color: var(--line); }
 
 .sidebar-bottom {
   padding: var(--space-3) var(--space-4);
@@ -164,6 +157,15 @@ body::before {
   transition: all 0.12s;
 }
 .update-btn:hover { border-color: var(--accent-2); color: var(--accent-2); }
+.sb-csv {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; margin-bottom: var(--space-2);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em;
+  color: var(--ink-soft); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 9px; text-decoration: none; transition: .2s;
+}
+.sb-csv:hover { border-color: rgba(var(--accent-rgb),.4); color: var(--ink); }
 .last-update {
   display: flex;
   align-items: center;

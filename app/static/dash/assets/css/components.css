@@ -1120,11 +1120,6 @@
 /* Fallback: inicial da casa em mono quando favicon indisponível */
 .chip-initial { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink-soft); }
 
-.logo-dark  { display: block; }
-.logo-light { display: none; }
-[data-theme="light"] .logo-dark  { display: none; }
-[data-theme="light"] .logo-light { display: block; }
-
 /* ── Win Rate bar ────────────────────────────────────────────────────────── */
 .wrc { display: inline-flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; }
 .wrc .t { height: 6px; border-radius: 3px; background: rgba(255,255,255,.06); overflow: hidden; width: 100%; }
