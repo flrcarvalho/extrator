@@ -157,7 +157,7 @@ function renderCostPies(){
   const casaTots={};
   allCasas.forEach(c=>{casaTots[c]=allForns.reduce((a,f)=>{const k=f+'||'+c;return a+(custoData[k]||0)*(contaCount[k]||0);},0);});
   const cEnts=Object.entries(casaTots).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]);
-  const PIE_COLORS=['#2BC07E','#2E8BFF','#E0A21A','#7FB2FF','#95A1B0','#E5524B','#34d399','#fbbf24','#60a5fa','#AEB7C2','#fb923c','#E0A21A','#1E7CF0','#AEB7C2','#60a5fa'];
+  const PIE_COLORS=['#2BC07E','#2E8BFF','#E0A21A','#7FB2FF','#95A1B0','#E5524B','#4FC79A','#D6A45A','#4DA3FF','#AEB7C2','#5E6775','#E0A21A','#1E7CF0','#AEB7C2','#4DA3FF'];
   if(!fEnts.length){destroyChart('chartCostForn');destroyChart('chartCostCasa');return;}
   const txtColor=isDark()?'#eeedf0':'#0f0f18';
   const pieOpts=(totalVal)=>({responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{
@@ -268,7 +268,7 @@ function renderParceiros(rows){
 function renderCustoCards(allForns,allCasas,contaCount){
   const el=document.getElementById('fornCustoCards');
   if(!el)return;
-  const PIE_COLORS=['#2BC07E','#2E8BFF','#E0A21A','#7FB2FF','#95A1B0','#E5524B','#34d399','#fbbf24','#60a5fa','#AEB7C2','#fb923c'];
+  const PIE_COLORS=['#2BC07E','#2E8BFF','#E0A21A','#7FB2FF','#95A1B0','#E5524B','#4FC79A','#D6A45A','#4DA3FF','#AEB7C2','#5E6775'];
   const fornTots={};
   allForns.forEach(f=>{fornTots[f]=allCasas.reduce((a,c)=>{const k=f+'||'+c;return a+(custoData[k]||0)*(contaCount[k]||0);},0);});
   const grandCost=Object.values(fornTots).reduce((a,v)=>a+v,0);

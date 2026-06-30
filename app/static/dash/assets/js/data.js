@@ -86,7 +86,7 @@ const HOUSE_DOMAIN={
 };
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const MESES_CURTOS=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-const TC_COLORS=['#2BC07E','#2E8BFF','#E0A21A','#7FB2FF','#E5524B','#34d399','#fbbf24','#60a5fa','#fb923c','#AEB7C2','#95A1B0','#1E7CF0','#fbbf24','#2BC07E','#2E8BFF'];
+const TC_COLORS=['#2BC07E','#2E8BFF','#E0A21A','#7FB2FF','#E5524B','#4FC79A','#D6A45A','#4DA3FF','#5E6775','#AEB7C2','#95A1B0','#1E7CF0','#D6A45A','#2BC07E','#2E8BFF'];
 
 // Mapa de emojis por chave de esporte — fallback universal: 🏅
 const SPORT_EMOJI={

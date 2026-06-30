@@ -2,15 +2,14 @@
 // Uso: node scripts/tokens/check-tokens.mjs
 // (a) DRIFT  (BLOQUEANTE): as cópias do app batem com o canônico gerado?
 //     Se alguém editou uma cópia à mão (ou esqueceu de rodar o build) → falha.
-// (b) PALETA (WARN por padrão): cores hex/rgba hardcoded no app fora dos
-//     tokens.css. Hoje é baseline (~160). Vira bloqueante com TOKENS_STRICT=1
-//     depois da limpeza P0 (Fase 2).
+// (b) PALETA: as cores BANIDAS (cyan / azul off-paleta / Tailwind) são SEMPRE
+//     bloqueantes — foram erradicadas na Fase 2 e não podem voltar. O total de
+//     cores literais é só informativo (WARN); reduzi-lo é trabalho de polimento.
 // Skip gracioso se o canônico (../pack) não existir — não trava clones sem o pack.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, join, basename } from 'node:path';
 import { REPO_ROOT, TARGETS, CANONICAL, canonicalExists, expectedContent } from './_lib.mjs';
 
-const STRICT = process.env.TOKENS_STRICT === '1';
 let blocking = 0;
 
 // ── (a) DRIFT ───────────────────────────────────────────────────────────────
@@ -63,16 +62,16 @@ for (const f of walk(SCAN_ROOT)) {
 console.log(`\n── Paleta (app/static, fora dos tokens.css) ──`);
 console.log(`  ${total} cores literais · ${uniq.size} valores únicos`);
 if (offHits.length) {
-  console.log(`  ⚠ ${offHits.length} OFF-BRAND conhecidos (cyan / azul off / Tailwind):`);
+  console.error(`  ✗ ${offHits.length} cor(es) BANIDA(S) (cyan / azul off / Tailwind):`);
   const by = {};
   for (const h of offHits) (by[h.c] = by[h.c] || new Set()).add(h.rel);
   for (const [c, files] of Object.entries(by))
-    console.log(`     ${c}  →  ${[...files].join(', ')}`);
+    console.error(`     ${c}  →  ${[...files].join(', ')}`);
+  blocking++;
 } else {
-  console.log(`  ✓ nenhum off-brand conhecido`);
+  console.log(`  ✓ nenhuma cor banida`);
 }
 
 // ── veredito ─────────────────────────────────────────────────────────────────
-if (STRICT && offHits.length) { console.error(`\n✗ STRICT: ${offHits.length} cores off-brand.`); blocking++; }
 if (blocking) { console.error(`\n✗ check-tokens FALHOU (${blocking}).`); process.exit(1); }
-console.log(`\n✓ check-tokens OK${STRICT ? ' (strict)' : ' (paleta em WARN)'}.`);
+console.log(`\n✓ check-tokens OK.`);
