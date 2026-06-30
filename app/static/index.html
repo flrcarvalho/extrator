@@ -991,68 +991,70 @@ td.c-res.res-HL { color: var(--warn); }
 <!-- Área principal -->
 <div class="content">
 
+  <!-- 4.2.c — context bar SEMPRE visível (Operador + seletor de conta + Modelo).
+       Fica fora do partner-page para que o seletor de conta seja acessível também
+       no estado vazio — sem ela aqui, sem árvore na sidebar, não há como fazer a 1ª seleção. -->
+  <div class="ctxbar">
+    <!-- Operador movido da sidebar (preserva o trocador "ver como operador") -->
+    <div>
+      <div class="ctx-lbl">Operador</div>
+      <div class="operador-bar" id="operador-bar">
+        <button class="operador-trigger" id="operador-trigger" title="Operador">
+          <span class="operador-id">
+            <span class="user-dot"></span>
+            <span class="label" id="operador-label">Operador</span>
+            <span id="user-nome">…</span>
+          </span>
+          <span class="operador-caret">▾</span>
+        </button>
+        <div class="operador-menu">
+          <div id="operador-switch"></div>
+          <button id="btn-logout">Sair</button>
+        </div>
+      </div>
+    </div>
+    <div class="ctx-divider"></div>
+    <div>
+      <div class="ctx-lbl">Conta ativa</div>
+      <div class="acct-selwrap" id="acctSelWrap">
+        <div class="acct-sel" id="acctSelBtn" title="Trocar conta">
+          <span class="ctx-hchip" id="ctx-hchip"></span>
+          <span class="ctx-meta"><span class="ctx-h" id="ctx-casa">—</span><span class="ctx-a" id="ctx-parceiro">selecione uma conta</span></span>
+          <svg class="ctx-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="acctpop" id="acctPop">
+          <div class="acct-srch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink-mute)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="acct-search" placeholder="buscar casa ou parceiro…" autocomplete="off" spellcheck="false"></div>
+          <div class="acct-tabs"><button class="on" data-aba="ativas">Ativas</button><button data-aba="inativas">Inativas</button></div>
+          <div id="acctTree"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Modelo (e o sync da Polymarket, seu par de troca) movidos do partner-header -->
+    <div class="ctx-right">
+      <select id="modelo" class="model-select">
+        <option value="claude-sonnet-4-6" selected>Sonnet 4.6 · padrão</option>
+        <option value="claude-opus-4-8">Opus 4.8 · casos difíceis</option>
+      </select>
+      <!-- Polymarket: sincronização via API ocupa o lugar do seletor de modelo (sem IA nesta casa) -->
+      <div class="poly-head-sync" id="poly-head-sync" style="display:none">
+        <span class="status-msg" id="poly-status"></span>
+        <input type="text" id="poly-wallet" class="poly-wallet-input"
+          placeholder="Carteira Polymarket (0x…)"
+          title="Cole o endereço da carteira e clique Sincronizar — sincroniza o histórico, converte USD→BRL e deduplica"
+          spellcheck="false" autocomplete="off">
+        <button class="btn btn-primary btn-sm" id="btn-poly-sync">↻ Sincronizar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Empty state -->
   <div class="empty-state" id="empty-state">
-    <div class="empty-state-icon">←</div>
-    <div>Selecione ou crie um parceiro</div>
+    <div class="empty-state-icon">↑</div>
+    <div>Selecione uma conta em "Conta ativa" acima</div>
   </div>
 
   <!-- Partner page -->
   <div class="partner-page" id="partner-page" style="display:none">
-
-    <!-- 4.2.a — Conta ativa na barra de contexto (coexiste com a sidebar durante a migração) -->
-    <div class="ctxbar">
-      <!-- 4.2.c — Operador movido da sidebar (preserva o trocador "ver como operador") -->
-      <div>
-        <div class="ctx-lbl">Operador</div>
-        <div class="operador-bar" id="operador-bar">
-          <button class="operador-trigger" id="operador-trigger" title="Operador">
-            <span class="operador-id">
-              <span class="user-dot"></span>
-              <span class="label" id="operador-label">Operador</span>
-              <span id="user-nome">…</span>
-            </span>
-            <span class="operador-caret">▾</span>
-          </button>
-          <div class="operador-menu">
-            <div id="operador-switch"></div>
-            <button id="btn-logout">Sair</button>
-          </div>
-        </div>
-      </div>
-      <div class="ctx-divider"></div>
-      <div>
-        <div class="ctx-lbl">Conta ativa</div>
-        <div class="acct-selwrap" id="acctSelWrap">
-          <div class="acct-sel" id="acctSelBtn" title="Trocar conta">
-            <span class="ctx-hchip" id="ctx-hchip"></span>
-            <span class="ctx-meta"><span class="ctx-h" id="ctx-casa">—</span><span class="ctx-a" id="ctx-parceiro">selecione uma conta</span></span>
-            <svg class="ctx-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-          <div class="acctpop" id="acctPop">
-            <div class="acct-srch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink-mute)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="acct-search" placeholder="buscar casa ou parceiro…" autocomplete="off" spellcheck="false"></div>
-            <div class="acct-tabs"><button class="on" data-aba="ativas">Ativas</button><button data-aba="inativas">Inativas</button></div>
-            <div id="acctTree"></div>
-          </div>
-        </div>
-      </div>
-      <!-- 4.2.c — Modelo (e o sync da Polymarket, seu par de troca) movidos do partner-header -->
-      <div class="ctx-right">
-        <select id="modelo" class="model-select">
-          <option value="claude-sonnet-4-6" selected>Sonnet 4.6 · padrão</option>
-          <option value="claude-opus-4-8">Opus 4.8 · casos difíceis</option>
-        </select>
-        <!-- Polymarket: sincronização via API ocupa o lugar do seletor de modelo (sem IA nesta casa) -->
-        <div class="poly-head-sync" id="poly-head-sync" style="display:none">
-          <span class="status-msg" id="poly-status"></span>
-          <input type="text" id="poly-wallet" class="poly-wallet-input"
-            placeholder="Carteira Polymarket (0x…)"
-            title="Cole o endereço da carteira e clique Sincronizar — sincroniza o histórico, converte USD→BRL e deduplica"
-            spellcheck="false" autocomplete="off">
-          <button class="btn btn-primary btn-sm" id="btn-poly-sync">↻ Sincronizar</button>
-        </div>
-      </div>
-    </div>
 
     <!-- Header -->
     <div class="partner-header">

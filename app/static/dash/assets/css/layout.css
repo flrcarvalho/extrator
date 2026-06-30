@@ -53,7 +53,9 @@ body::before {
   padding: 6px 8px 16px; margin-bottom: 4px;
   border-bottom: 1px solid var(--line-2);
 }
-.sidebar-brand img { width: 100%; height: auto; display: block; }
+/* Sem `display` aqui: `.sidebar-brand img` (0,1,1) venceria `.logo-light` (0,1,0)
+   e mostraria os DOIS logos. O display fica só nos toggles logo-dark/logo-light. */
+.sidebar-brand img { width: 100%; height: auto; }
 .logo-dark { display: block; }
 .logo-light { display: none; }
 [data-theme="light"] .logo-dark { display: none; }
