@@ -1,7 +1,7 @@
 /* ============================================================
-   FDC CAPITAL — Design Tokens
-   Paleta: Platinum + Electric Blue
-   Dark é o tema padrão; [data-theme="light"] inverte.
+   FDC CAPITAL — Design Tokens · CÓPIA GERADA — NÃO EDITAR
+   Gerado de pack/tokens/tokens.css por scripts/tokens/build-tokens.mjs.
+   Edite o canônico e rode: node scripts/tokens/build-tokens.mjs
    ============================================================ */
 
 :root {
@@ -17,6 +17,12 @@
   --pos:  #2BC07E;
   --neg:  #E5524B;
   --warn: #E0A21A;
+
+  /* ---- Triplets RGB (para rgba(var(--*-rgb), alpha)) ---- */
+  --accent-rgb: 46,139,255;
+  --pos-rgb:    43,192,126;
+  --neg-rgb:    229,82,75;
+  --warn-rgb:   224,162,26;
 
   /* ---- Superfícies (dark, padrão) ---- */
   --bg:        #0A0D12;

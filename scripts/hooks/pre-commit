@@ -1,0 +1,9 @@
+#!/bin/sh
+# FDC Capital — guardrail de tokens (drift).
+# Barra o commit se as cópias do app divergirem do canônico (pack/tokens/tokens.css).
+# Instale com:  cp scripts/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+if ! command -v node >/dev/null 2>&1; then
+  echo "⚠ node não encontrado — pulo o check de tokens (instale Node para ativar o guardrail)."
+  exit 0
+fi
+node scripts/tokens/check-tokens.mjs
