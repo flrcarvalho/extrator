@@ -520,6 +520,18 @@ Utilizar os nomes abaixo como apoio de desambiguação em mercados ML/H2H. A lis
 - Alex Spellman (CDC / circuito americano)
 - Leonard Gates (CDC / circuito americano)
 - Fred Krueger (CDC / circuito americano)
+- Jack Aldridge
+- Nathan Potter
+- Jamai van den Herik
+- Carl Batchelor
+- Mike Warburton
+- Robert Thornton (PDC)
+- Reece Robinson
+- Scott Mitchell (BDO)
+- Fallon Sherrock
+- Deta Hedman
+- Conor Heneghan
+- Robbie Martin
 
 ---
 
