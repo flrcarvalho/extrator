@@ -292,6 +292,34 @@ body::before {
   font-size: 11px; color: var(--ink-soft); line-height: 1; }
 .partner-name { font-size: 14px; font-weight: 800; letter-spacing: -.035em; }
 .partner-sub { font-size: 11px; color: var(--ink-mute); margin-top: 1px; }
+
+/* ── 4.2.a — Conta ativa na barra de contexto (migração casca unificada) ── */
+.ctxbar { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 12px 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.ctx-lbl { font-family: var(--font-mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 5px; }
+.acct-selwrap { position: relative; }
+.acct-sel { display: flex; align-items: center; gap: 10px; background: var(--field); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px 12px; cursor: pointer; transition: .2s; min-width: 240px; }
+.acct-sel:hover { border-color: rgba(var(--accent-rgb),.4); }
+.ctx-hchip { width: 22px; height: 22px; border-radius: 6px; background: var(--fdc-steel); border: 1px solid var(--line); display: grid; place-items: center; overflow: hidden; filter: grayscale(1); flex: none; }
+.ctx-hchip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ctx-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin-right: auto; }
+.ctx-meta .ctx-h { font-size: 13px; font-weight: 600; line-height: 1.1; }
+.ctx-meta .ctx-a { font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); line-height: 1.1; }
+.ctx-chev { color: var(--ink-mute); flex: none; transition: .2s; }
+.acct-selwrap.open .ctx-chev { transform: rotate(180deg); color: var(--accent-2); }
+.acctpop { position: absolute; top: calc(100% + 8px); left: 0; width: 340px; max-height: 440px; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--glow); z-index: 60; display: none; padding: 8px; }
+.acct-selwrap.open .acctpop { display: block; }
+.acct-srch { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--field); }
+.acct-srch input { flex: 1; background: transparent; border: 0; outline: 0; color: var(--ink); font-family: var(--font-mono); font-size: 12px; }
+.acct-tabs { display: flex; gap: 4px; padding: 0 2px 8px; }
+.acct-tabs button { flex: 1; font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 7px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-soft); cursor: pointer; }
+.acct-tabs button.on { background: var(--accent); color: #fff; border-color: transparent; }
+.acct-hgroup { padding: 9px 8px 4px; display: flex; align-items: center; gap: 9px; }
+.acct-hgroup .ctx-hchip { width: 20px; height: 20px; }
+.acct-hgroup .nm { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); }
+.acct-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer; font-size: 13px; color: var(--ink-soft); }
+.acct-row:hover { background: var(--surface-2); color: var(--ink); }
+.acct-row.sel { background: rgba(var(--accent-rgb),.10); color: var(--ink); }
+.acct-empty { font-size: 12px; color: var(--ink-mute); padding: 14px 10px; text-align: center; }
 .model-select {
   background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--r-sm); padding: 6px 12px;
@@ -917,6 +945,25 @@ td.c-res.res-HL { color: var(--warn); }
 
   <!-- Partner page -->
   <div class="partner-page" id="partner-page" style="display:none">
+
+    <!-- 4.2.a — Conta ativa na barra de contexto (coexiste com a sidebar durante a migração) -->
+    <div class="ctxbar">
+      <div>
+        <div class="ctx-lbl">Conta ativa</div>
+        <div class="acct-selwrap" id="acctSelWrap">
+          <div class="acct-sel" id="acctSelBtn" title="Trocar conta">
+            <span class="ctx-hchip" id="ctx-hchip"></span>
+            <span class="ctx-meta"><span class="ctx-h" id="ctx-casa">—</span><span class="ctx-a" id="ctx-parceiro">selecione uma conta</span></span>
+            <svg class="ctx-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="acctpop" id="acctPop">
+            <div class="acct-srch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink-mute)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input id="acct-search" placeholder="buscar casa ou parceiro…" autocomplete="off" spellcheck="false"></div>
+            <div class="acct-tabs"><button class="on" data-aba="ativas">Ativas</button><button data-aba="inativas">Inativas</button></div>
+            <div id="acctTree"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Header -->
     <div class="partner-header">
@@ -1584,8 +1631,73 @@ function selecionarParceiro(p) {
   const boxNotas = document.getElementById('box-notas');
   if (boxNotas) boxNotas.style.display = 'none';
 
+  if (typeof atualizarBotaoConta === 'function') atualizarBotaoConta();
   carregarGrade();
 }
+
+// ── 4.2.a — Conta ativa na barra de contexto (dropdown que reusa a árvore) ──
+// Aditivo: coexiste com a sidebar. Reusa parceirosCache/parceirosArquivadosCache,
+// NOMES, faviconUrl e selecionarParceiro (mesma máquina). A sidebar continua viva
+// até o 4.2.c. Atualiza o botão na seleção (venha da sidebar ou do dropdown).
+let acctPopAba = 'ativas';
+function atualizarBotaoConta() {
+  const casaEl = document.getElementById('ctx-casa');
+  if (!casaEl || !parceiroSelecionado) return;
+  const nomeCasa = NOMES[parceiroSelecionado.casa] || parceiroSelecionado.casa;
+  casaEl.textContent = nomeCasa;
+  document.getElementById('ctx-parceiro').textContent = parceiroSelecionado.nome;
+  const chip = document.getElementById('ctx-hchip');
+  chip.innerHTML = '';
+  const img = Object.assign(document.createElement('img'), { alt: nomeCasa });
+  img.dataset.casa = parceiroSelecionado.casa;
+  img.src = faviconUrl(parceiroSelecionado.casa);
+  chip.appendChild(img);
+}
+function renderAcctTree() {
+  const tree = document.getElementById('acctTree');
+  if (!tree) return;
+  const q = (document.getElementById('acct-search').value || '').toLowerCase().trim();
+  const fonte = acctPopAba === 'ativas' ? parceirosCache : parceirosArquivadosCache;
+  let html = '';
+  (casasCarregadas || []).forEach(casa => {
+    const nomeCasa = NOMES[casa] || casa;
+    let parceiros = (fonte[casa] || []);
+    if (q) parceiros = parceiros.filter(p => (p.nome || '').toLowerCase().includes(q) || nomeCasa.toLowerCase().includes(q));
+    if (!parceiros.length) return;
+    html += '<div class="acct-hgroup"><span class="ctx-hchip"><img data-casa="' + casa + '" src="' + faviconUrl(casa) + '" alt=""></span><span class="nm">' + nomeCasa + '</span></div>';
+    parceiros.forEach(p => {
+      const isSel = parceiroSelecionado && parceiroSelecionado.id === p.id;
+      html += '<div class="acct-row' + (isSel ? ' sel' : '') + '" data-casa="' + casa + '" data-id="' + p.id + '"><span>' + (p.nome || '—') + '</span></div>';
+    });
+  });
+  tree.innerHTML = html || '<div class="acct-empty">Nenhuma conta nesta aba</div>';
+}
+function abrirAcctPop(open) {
+  const wrap = document.getElementById('acctSelWrap');
+  if (!wrap) return;
+  if (open) { renderAcctTree(); wrap.classList.add('open'); const s = document.getElementById('acct-search'); if (s) { s.value = ''; s.focus(); } }
+  else wrap.classList.remove('open');
+}
+(function initAcctPop() {
+  const wrap = document.getElementById('acctSelWrap');
+  const btn = document.getElementById('acctSelBtn');
+  if (!wrap || !btn) return;
+  btn.addEventListener('click', e => { e.stopPropagation(); abrirAcctPop(!wrap.classList.contains('open')); });
+  document.addEventListener('click', e => { if (!wrap.contains(e.target)) wrap.classList.remove('open'); });
+  document.getElementById('acct-search').addEventListener('input', renderAcctTree);
+  document.querySelectorAll('.acct-tabs button').forEach(b => b.addEventListener('click', () => {
+    acctPopAba = b.dataset.aba;
+    document.querySelectorAll('.acct-tabs button').forEach(x => x.classList.toggle('on', x === b));
+    renderAcctTree();
+  }));
+  document.getElementById('acctTree').addEventListener('click', e => {
+    const row = e.target.closest('.acct-row');
+    if (!row) return;
+    const fonte = acctPopAba === 'ativas' ? parceirosCache : parceirosArquivadosCache;
+    const p = (fonte[row.dataset.casa] || []).find(x => x.id === parseInt(row.dataset.id, 10));
+    if (p) { selecionarParceiro(p); abrirAcctPop(false); }
+  });
+})();
 
 function mostrarEmptyState() {
   document.getElementById('empty-state').style.display = '';
