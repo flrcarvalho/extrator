@@ -1426,6 +1426,16 @@ async function logout() {
 let casaSelecionada = null;
 let parceiroSelecionado = null;   // { id, casa, nome }
 let parceirosCache = {};            // casa → parceiros ATIVOS
+// Polymarket: posições ativas AO VIVO por parceiro (vêm do dashboard sync, não do
+// banco — as ativas não são persistidas). Mapa SEPARADO p/ não ser apagado pelo
+// poll de /incompletos. Alimenta o badge âmbar da Polymarket no dropdown e em Contas.
+let polyAtivasLive = {};            // nome do parceiro Polymarket → nº posições ativas
+// Contagem de "em aberto" de uma conta para o badge âmbar: Polymarket usa as posições
+// ativas AO VIVO (quando já sincronizadas nesta sessão); as demais usam o persistido.
+function abertasDe(casa, nome) {
+  if (casa === 'Polymarket' && polyAtivasLive[nome] != null) return polyAtivasLive[nome];
+  return (abertasPorParceiro[casa] || {})[nome] || 0;
+}
 let parceirosArquivadosCache = {};  // casa → parceiros ARQUIVADOS (inativos)
 let casasCarregadas = [];           // ordem das casas (p/ re-render ao trocar de aba)
 let abaParceiros = 'ativas';        // 'ativas' | 'inativas'
@@ -1865,7 +1875,7 @@ function renderContas() {
     if (!ps.length) return;
     html += '<div class="contas-casa"><div class="contas-casa-head"><span class="ctx-hchip"><img data-casa="' + esc(casa) + '" src="' + faviconUrl(casa) + '" alt=""></span><span class="contas-casa-nome">' + esc(nomeCasa) + '</span><span class="contas-casa-count">' + ps.length + (ps.length === 1 ? ' conta' : ' contas') + '</span></div>';
     ps.forEach(p => {
-      const ab = (abertasPorParceiro[casa] || {})[p.nome] || 0;
+      const ab = abertasDe(casa, p.nome);
       const st = (semTipsterPorParceiro[casa] || {})[p.nome] || 0;
       const badges = (ab > 0 ? '<span class="acct-badge open" title="Apostas abertas (sem resultado)">' + (ab > 99 ? '99+' : ab) + '</span>' : '')
                    + (st > 0 ? '<span class="acct-badge pend" title="Bilhetes sem tipster">' + (st > 99 ? '99+' : st) + '</span>' : '');
@@ -2038,7 +2048,7 @@ function renderAcctTree() {
       const isSel = parceiroSelecionado && parceiroSelecionado.id === p.id;
       // Badges de incompletos (restaurados da sidebar antiga): azul=sem tipster, âmbar=abertas.
       const semt = (semTipsterPorParceiro[casa] || {})[p.nome] || 0;
-      const abr  = (abertasPorParceiro[casa]    || {})[p.nome] || 0;
+      const abr  = abertasDe(casa, p.nome);
       let badges = '';
       if (semt > 0 || abr > 0) {
         badges = '<span class="acct-badges">'
@@ -2224,6 +2234,15 @@ function renderDashPoly(d) {
   }
   const cot = d.cotacao;
   setTxt('pm-k-count', d.count);
+  // Badge live: guarda a contagem de posições ativas desta conta Polymarket e
+  // atualiza os badges âmbar (dropdown + Contas) se estiverem visíveis.
+  if (parceiroSelecionado && parceiroSelecionado.casa === 'Polymarket' && typeof d.count === 'number') {
+    polyAtivasLive[parceiroSelecionado.nome] = d.count;
+    const wrap = document.getElementById('acctSelWrap');
+    if (wrap && wrap.classList.contains('open')) renderAcctTree();
+    const vc = document.getElementById('view-contas');
+    if (vc && vc.style.display !== 'none') renderContas();
+  }
   setTxt('pm-k-portfolio', fmtUSD(d.portfolio)); setTxt('pm-k-portfolio-sub', fmtBRLsub(d.portfolio, cot));
   setTxt('pm-k-cash', fmtUSD(d.cash)); setTxt('pm-k-cash-sub', fmtBRLsub(d.cash, cot));
   setTxt('pm-k-total', fmtUSD(d.total)); setTxt('pm-k-total-sub', fmtBRLsub(d.total, cot));
