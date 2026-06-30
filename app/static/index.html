@@ -1078,7 +1078,11 @@ td.c-res.res-HL { color: var(--warn); }
 .extract-card--err .ec-header { background: rgba(var(--neg-rgb),.07); }
 .extract-card--warn .ec-header { background: rgba(var(--warn-rgb),.07); }
 /* ── View: Contas & Parceiros (gestão) ── */
-#view-contas { padding-bottom: 24px; }
+/* Mesma cadeia flex da view de extração: sem isto, a lista de contas estoura a
+   altura e é cortada sem rolar (a barra fica fixa, só #contas-list rola). */
+#view-contas { flex: 1; display: flex; flex-direction: column; min-height: 0; padding-bottom: 24px; }
+#view-contas .contas-bar { flex-shrink: 0; }
+#contas-list { flex: 1; min-height: 0; overflow-y: auto; }
 .contas-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
 .contas-newform { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .contas-newform[hidden] { display: none; }
