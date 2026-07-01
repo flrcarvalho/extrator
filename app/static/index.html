@@ -3029,12 +3029,12 @@ function _salvarCusto(forn, casa, val) {
     localStorage.setItem(DASH_COST_KEY, JSON.stringify(o));
   } catch (e) {}
 }
-// Números da faixa no padrão de marca (UI_REFERENCE §5): dinheiro VALOR INTEIRO
-// (sem abreviação "k"), 2 casas pt-BR, via componente .money — R$ menor/neutro,
-// cor só no número. P/L usa o helper canônico fmtPL (sinal colado, U+2212, zero
-// neutro). Turnover é positivo sem sinal → _moneyFull. % com 1 casa.
-function _moneyFull(n) {
-  const abs = (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Faixa de KPIs no padrão de marca (UI_REFERENCE §5). Dinheiro SEM abreviação,
+// via componente .money (R$ menor/neutro, cor só no número). Casas por contexto:
+// P/L → fmtPL (2 casas, sinal colado, U+2212, zero neutro); agregado/KPI sem sinal
+// (turnover) → INTEIRO, espelhando fmtR do Dashboard. % com 1 casa.
+function _moneyInt(n) {
+  const abs = (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   return `<span class="money"><span class="money-sign">R$</span><span class="money-val">${abs}</span></span>`;
 }
 function _pctK(n) { return (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; }
@@ -3077,7 +3077,7 @@ function _renderCtxKpis(d, casa, parceiro) {
     : `<div class="ctx-kpi"><div class="ctx-kpi-lbl">Custo</div><div class="ctx-kpi-val" style="color:var(--ink-mute)">—</div></div>`;
   bar.innerHTML =
     cell('P/L', fmtPL(d.pl))
-    + cell('Turnover', _moneyFull(d.turnover))
+    + cell('Turnover', _moneyInt(d.turnover))
     + cell('Apostas', (d.apostas || 0).toLocaleString('pt-BR'))
     + cell('ROI', _pctK(d.roi), roiCls)
     + cell('Win Rate', _pctK(d.win_rate))

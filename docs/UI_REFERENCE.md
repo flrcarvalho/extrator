@@ -82,27 +82,54 @@
 
 ## 5. Padrão monetário (R$ e P/L)
 
-> Fonte de verdade: helpers `fmt` / `fmtPL` do Betting Dashboard
+> Fonte de verdade: helpers `fmt` / `fmtPL` / `fmtR` do Betting Dashboard
 > (`assets/js/app.js`) e a classe `.money` em `assets/css/components.css`.
 > O Planilhador apenas espelha — não reinventa a máscara.
 
-- **Número:** `toLocaleString('pt-BR')`, sempre 2 casas → milhar `.`, decimal `,`
-  (ex.: `1.234,50`).
-- **P/L:** sinal **colado** ao símbolo (`+R$` / `−R$`), com **minus tipográfico
-  U+2212** — nunca o hífen `-`.
-- **Cor:** verde (`--pos`) / vermelho (`--neg`) **só no número** (`.money-val`);
-  `R$` e sinal ficam neutros (`--ink-soft`, `.money-sign`).
-- **Zero é neutro:** P/L `= 0` (Void / cashout = stake) → `R$ 0,00` **sem sinal
-  e sem cor** (nem verde nem vermelho). Refinamento do Planilhador sobre o
-  `fmtPL` do Dashboard, que trata zero como positivo.
-- **`R$`:** menor — `0.76em`, `--ink-soft`, com mini-gap antes do número.
-- **Sempre** mono + `font-variant-numeric: tabular-nums`, alinhado à direita
-  (ver §2).
-- **Cabeçalho:** PT-BR — `"P/L"`, nunca `"PROFIT"`.
-- **Separação backend ↔ UI:** o backend entrega o valor como **número cru**
-  (ex.: `81.0`, `-100.0`); a máscara monetária é responsabilidade exclusiva da
-  UI. Nunca formatar moeda fora dos helpers (`.toFixed`/`.replace` proibidos no
-  display).
+### 5.1 — Um componente, duas variações (por contexto)
+
+**Todo valor em R$ usa o componente `.money`** — nunca string crua (`'R$ ' + x`).
+O `.money` sempre entrega: `R$`/sinal **neutros e menores** (`.money-sign`,
+`--ink-soft`, `~0.78em`) + o número em `.money-val` (mono, `tabular-nums`), com
+**cor só no número**. O que muda entre um caso e outro é **só as casas decimais e o
+sinal**, conforme o contexto:
+
+| Contexto | Helper | Casas | Sinal |
+|---|---|---|---|
+| **P/L** (célula de tabela **e** KPI) | `fmtPL(v)` | **2** | `+R$`/`−R$` colado, minus **U+2212**, **zero neutro** (`R$ 0,00` sem sinal/cor) |
+| **Agregado / KPI / resumo** — turnover, totais, custos | `fmtR(v)` | **0 (inteiro)** | sem sinal |
+| **Stake / valor unitário** | `moneyStake(v)` / `.money` | 2 | sem sinal |
+
+> **Regra de decisão (fim da ambiguidade):** é P/L? → `fmtPL` (2 casas). É um
+> agregado/total/turnover/custo? → `fmtR` (**inteiro**). Não existe terceira
+> máscara de R$; contexto novo que não se encaixe → **perguntar ao Feca**.
+
+### 5.2 — Invariantes (valem nas duas variações)
+
+- **Número pt-BR:** milhar `.`, decimal `,` (ex.: `1.234,50` / `18.912`).
+- **Nunca abreviar** milhar (`k`/`M`/`mil`) — **barrado pelo `check-tokens §(d)`** (pre-commit).
+- **Cor** verde (`--pos`) / vermelho (`--neg`) **só no `.money-val`**; `R$` e sinal neutros.
+- **Cor sempre de token** (`var(--…)`), nunca literal.
+- **Mono + `tabular-nums`, à direita** (§2).
+- **Cabeçalho PT-BR:** `"P/L"`, `"Turnover"` (termo do produto) — nunca `"PROFIT"`.
+- **Backend entrega número cru** (ex.: `81.0`, `-100.0`); a máscara é exclusiva da UI.
+
+### 5.3 — Exceções (não são R$ / têm helper próprio)
+
+- **%** → `fmtPct(v)` (cor por sinal é OK; **não** é dinheiro, não segue as regras de R$).
+- **Odd** → `fmtOdd(v)` (2 casas, **sem** `R$`).
+- **USD (Polymarket)** → `fmtUSD(v)` / `fmtBRLsub(v,cot)` (`$ …` / `≈ R$ …`).
+- ⚠️ O `fmtOdd`/odd do extrator e o `fmtUSD`/`fmtBRLsub` usam `.toFixed().replace()`
+  — a **única** exceção tolerada à regra "sem `.toFixed`/`.replace` no display",
+  porque são caminhos isolados (odd/USD) que **não** passam pelo `.money`. **Não
+  replicar esse padrão em R$** — R$ é sempre `.money` via `fmtPL`/`fmtR`.
+
+### 5.4 — Desvio conhecido (tech-debt, NÃO copiar)
+
+Alguns KPIs do `charts/gestao.js` e o `metricsKPI` montam dinheiro com
+`'R$ ' + fmt(v,0)` **cru** (fora do `.money`) → o `R$` não fica menor/neutro e a
+cor do KPI pinta o `R$` junto do número. Devem migrar para `fmtR`/`fmtPL`. **Código
+novo não deve copiar** — é a origem histórica da confusão "qual padrão usar".
 
 ---
 

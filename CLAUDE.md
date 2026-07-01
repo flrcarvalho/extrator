@@ -39,7 +39,7 @@ Planilhador/
 **Antes de escrever qualquer render de número, dinheiro, cor, tipografia ou componente visual, NESTA ordem:**
 
 1. **Ler** `docs/UI_REFERENCE.md` (§5 = padrão monetário) e, se tocar na casca, `docs/SHELL_SPEC.md`. A bíblia de marca é [`../pack/CLAUDE.md`](../pack/CLAUDE.md); tokens em [`../pack/tokens/tokens.css`](../pack/tokens/tokens.css).
-2. **Reusar helper existente, nunca criar formatador.** `grep` por `fmtPL`/`moneyStake`/`fmt`/`.money` no arquivo e reusar. Dinheiro em tabela → `fmtPL`/`.money` (2 casas, `R$` menor `--ink-soft`, cor SÓ no número, minus U+2212, zero neutro). Dinheiro em card de KPI → `'R$ '+fmt(v,0)` (inteiro), padrão do Dashboard. **Nunca abreviar milhar (`k`/`M`) — barrado pelo `check-tokens`.** `.toFixed`/`.replace` proibidos no display.
+2. **Reusar helper existente, nunca criar formatador.** `grep` por `fmtPL`/`fmtR`/`moneyStake`/`.money` no arquivo e reusar. Todo R$ usa o componente `.money`; só muda as casas por contexto (ver `UI_REFERENCE §5`): **P/L → `fmtPL` (2 casas**, `R$` menor `--ink-soft`, cor SÓ no número, minus U+2212, zero neutro); **agregado/KPI/turnover/custo → `fmtR` (inteiro)**. **Nunca abreviar milhar (`k`/`M`) — barrado pelo `check-tokens §d`.** `.toFixed`/`.replace` só nas exceções documentadas (odd/USD), nunca em R$.
 3. **Cor sempre de token** (`var(--…)`), nunca literal. `.money-sign`/sinal ficam neutros.
 4. **Auto-auditar item a item contra §5 ANTES do commit** + rodar `node scripts/tokens/check-tokens.mjs`.
 

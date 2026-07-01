@@ -19,11 +19,13 @@ por 1-3. Uma etapa por vez; parar e perguntar ao Feca em qualquer duvida de conv
 
 ## 2. REUSAR helper — nunca criar formatador
 - `grep -nE "fmtPL|moneyStake|function fmt|\.money" app/static/index.html` (e no dashboard, os charts/*.js).
-- **Dinheiro em tabela/celula** -> `fmtPL` / componente `.money` (2 casas, `R$` menor `--ink-soft`, cor SO no numero `.money-val`, sinal colado, minus U+2212, zero neutro).
-- **Dinheiro em card de KPI** -> `'R$ '+fmt(v,0)` (valor inteiro), padrao do Dashboard.
-- **Nunca** abreviar milhar (`k`/`M`) — barrado pelo `check-tokens`. **Nunca** `.toFixed`/`.replace` no display.
-- **Cor** sempre `var(--…)`, nunca literal. **%** com `fmtPct` (colorido por sinal e' OK; nao e' dinheiro).
-- Duas convencoes de dinheiro convivem (tabela vs card). Na duvida de qual usar: **perguntar ao Feca**, nao inventar uma terceira.
+- Todo R$ usa o componente `.money`; muda so as casas por contexto (`UI_REFERENCE §5.1`):
+  - **P/L** (tabela e KPI) -> `fmtPL` (2 casas, `R$` menor `--ink-soft`, cor SO no numero `.money-val`, sinal colado, minus U+2212, zero neutro).
+  - **Agregado / KPI / turnover / custo** -> `fmtR` (**inteiro**).
+  - **Stake / unitario** -> `moneyStake` / `.money` (2 casas).
+- **Nunca** abreviar milhar (`k`/`M`) — barrado pelo `check-tokens §d`. **`.toFixed`/`.replace`** so nas excecoes (odd/USD, §5.3), nunca em R$.
+- **Cor** sempre `var(--…)`, nunca literal. **%** com `fmtPct`; **odd** com `fmtOdd`.
+- Regra de decisao: e' P/L -> `fmtPL`; e' agregado/total -> `fmtR`. Contexto novo que nao se encaixe: **perguntar ao Feca**, nao inventar uma terceira mascara.
 
 ## 3. CONSTRUIR
 - Backup em `Backups/<nome-descritivo>/` antes de editar (invariante 4).
