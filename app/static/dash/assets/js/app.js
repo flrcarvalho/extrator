@@ -1,41 +1,13 @@
-﻿// ── Aparência system ──────────────────────────────────────────────────────────
-// Apenas o tema é configurável; gradiente, kpi-azul e compact são fixos.
-const APARENCIA_DEFAULTS={theme:'dark'};
-let APARENCIA={...APARENCIA_DEFAULTS};
-try{const s=localStorage.getItem('aparencia_v1');if(s)APARENCIA={...APARENCIA_DEFAULTS,theme:JSON.parse(s).theme||'dark'};}catch(e){}
-
+﻿// ── Aparência ────────────────────────────────────────────────────────────────
+// App 100% dark por enquanto (tema claro adiado). Sem seletor de tema no app:
+// o dark é cravado no boot (index.html) e reforçado aqui.
 function applyAparencia(){
   const h=document.documentElement;
-  h.setAttribute('data-theme',APARENCIA.theme);
+  h.setAttribute('data-theme','dark');
   h.setAttribute('data-density','compact');
   h.classList.add('t-page-gradient');
   h.classList.add('kpi-azul');
-  // sync button states in tema panel
-  document.querySelectorAll('.ap-btn[data-ap-key]').forEach(btn=>{
-    const key=btn.dataset.apKey,val=btn.dataset.apVal;
-    btn.classList.toggle('active',APARENCIA[key]===val);
-  });
 }
-
-function setAparencia(key,val){
-  APARENCIA[key]=val;
-  localStorage.setItem('aparencia_v1',JSON.stringify(APARENCIA));
-  applyAparencia();
-  // re-render active page for theme change
-  if(key==='theme'){const active=document.querySelector('.page.active')?.id?.replace('page-','');if(active)renderPage(active);}
-}
-
-function toggleAparenciaPanel(){
-  const p=document.getElementById('aparenciaPanel');
-  if(p)p.classList.toggle('open');
-}
-
-// close panel on outside click
-document.addEventListener('click',e=>{
-  const p=document.getElementById('aparenciaPanel');
-  const w=document.getElementById('aparenciaWrap');
-  if(p&&p.classList.contains('open')&&!w?.contains(e.target))p.classList.remove('open');
-});
 
 // Helpers
 function fmt(v,d=2){return Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});}
@@ -453,21 +425,6 @@ function buildHTML(){
       <div class="page-title" id="topbarTitle">Visão Geral</div>
       <div class="page-sub" id="topbarSub">performance consolidada</div>
     </div>
-    <div class="aparencia-wrap" id="aparenciaWrap">
-      <div class="aparencia-trigger" onclick="toggleAparenciaPanel()">
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
-        Aparência
-      </div>
-      <div class="aparencia-panel" id="aparenciaPanel">
-        <div class="ap-section">
-          <div class="ap-label">Tema</div>
-          <div class="ap-btns">
-            <button class="ap-btn" data-ap-key="theme" data-ap-val="dark"  onclick="setAparencia('theme','dark')">Escuro</button>
-            <button class="ap-btn" data-ap-key="theme" data-ap-val="light" disabled title="Em breve — finalizando o tema escuro primeiro" style="opacity:.4;cursor:not-allowed">Claro</button>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
   <div class="app">
     <aside class="sidebar">
@@ -502,6 +459,7 @@ function buildHTML(){
         <div class="last-update" id="lastUpdate"><span class="pulse-dot"></span><span id="lastUpdateText">carregando…</span></div>
         <a class="sb-csv" href="/exportar.csv" title="Baixar toda a base como CSV (backup)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Baixar base (CSV)</a>
         <button class="update-btn" onclick="loadData(true)">↻ Atualizar dados</button>
+        <div class="sb-endorse">by FDC Capital</div>
       </div>
     </aside>
     <main class="main"><div class="main-content">
@@ -971,7 +929,7 @@ async function loadData(force){
 
     // Sem cache: loader original (0→90% calibrado para o fetch longo)
     if(!servedFromCache){
-      document.getElementById('root').innerHTML=`<div class="loader" id="loaderEl"><div class="loader-content"><img src="brand/sharpen-lockup-endorsed.svg" alt="Sharpen — by FDC Capital" style="width:676px;max-width:88vw;display:block;object-fit:contain;opacity:.97" draggable="false"><div class="loader-bottom"><div class="loader-bar-wrap"><div class="loader-bar-fill p1" id="loaderBar"></div></div><div class="loader-pct" id="loaderPct">0%</div></div></div></div>`;
+      document.getElementById('root').innerHTML=`<div class="loader" id="loaderEl"><div class="loader-content"><img src="brand/sharpen-lockup-dark.svg" alt="Sharpen" style="width:676px;max-width:88vw;display:block;object-fit:contain;opacity:.97" draggable="false"><div class="loader-bottom"><div class="loader-bar-wrap"><div class="loader-bar-fill p1" id="loaderBar"></div></div><div class="loader-pct" id="loaderPct">0%</div></div></div></div>`;
       const _pctT0=Date.now();
       (function _tick(){const pEl=document.getElementById('loaderPct');if(!pEl)return;const t=Math.min((Date.now()-_pctT0)/90000,1);const e=1-Math.pow(1-t,3);pEl.textContent=Math.round(e*90)+'%';if(t<1)requestAnimationFrame(_tick);})();
     }

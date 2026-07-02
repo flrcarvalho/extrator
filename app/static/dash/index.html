@@ -30,21 +30,16 @@
   <!-- Design System CSS — ?v= força o navegador a recarregar após edições (cache-busting) -->
   <link rel="stylesheet" href="assets/css/tokens.css?v=2">
   <link rel="stylesheet" href="/static/shell.css?v=1"><!-- casca compartilhada c/ o Planilhador (etapa A) -->
-  <link rel="stylesheet" href="assets/css/layout.css?v=3">
+  <link rel="stylesheet" href="assets/css/layout.css?v=4">
   <link rel="stylesheet" href="assets/css/components.css?v=4">
 
-  <!-- Aparência init: aplica tema antes do render para evitar flash -->
+  <!-- Aparência init: aplica tema antes do render para evitar flash.
+       App 100% dark por enquanto — dark cravado, sem leitura de localStorage
+       nem seletor de tema (tema claro adiado; bloco [data-theme=light] dormente). -->
   <script>
     (function() {
-      var theme='dark';
-      try{var s=localStorage.getItem('aparencia_v1');if(s){var p=JSON.parse(s);if(p.theme)theme=p.theme;}}catch(e){}
-      // legacy fallback
-      if(!localStorage.getItem('aparencia_v1')){var t=localStorage.getItem('theme');if(t)theme=t;}
-      // Tema claro DESATIVADO por enquanto (finalizando o escuro): força dark e
-      // destrava quem ficou preso no claro de uma sessão anterior.
-      if(theme==='light')theme='dark';
       var h=document.documentElement;
-      h.setAttribute('data-theme',theme);
+      h.setAttribute('data-theme','dark');
       h.setAttribute('data-density','compact');
       h.classList.add('t-page-gradient');
       h.classList.add('kpi-azul');
@@ -69,7 +64,7 @@
 <script src="assets/js/charts/temporal.js?v=2"   defer></script>
 <script src="assets/js/charts/performance.js?v=3" defer></script>
 <script src="assets/js/charts/apostas.js?v=2"    defer></script>
-<script src="assets/js/app.js?v=6"               defer></script>
+<script src="assets/js/app.js?v=7"               defer></script>
 
 </body>
 </html>
