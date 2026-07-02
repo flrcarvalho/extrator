@@ -472,8 +472,8 @@ function buildHTML(){
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <img src="brand/fdc-logo-horizontal-dark.svg" class="logo-dark" alt="FDC Capital" draggable="false">
-        <img src="brand/fdc-logo-horizontal-light.svg" class="logo-light" alt="FDC Capital" draggable="false">
+        <img src="brand/sharpen-lockup-dark.svg" class="logo-dark" alt="Sharpen" draggable="false">
+        <img src="brand/sharpen-lockup-light.svg" class="logo-light" alt="Sharpen" draggable="false">
       </div>
       <nav class="sidebar-nav">
         <div class="nav-group">Operação</div>
@@ -750,7 +750,7 @@ function buildHTML(){
       <div class="analise-popup-modal" id="tipsterDrillModal" onclick="event.stopPropagation()">
         <div class="analise-popup-hdr" style="gap:12px;align-items:center">
           <div style="display:flex;align-items:center;flex-shrink:0">
-            <img src="brand/fdc-logo-horizontal-dark.svg" height="70" alt="FDC Capital" class="drill-brand-logo" style="flex-shrink:0;filter:brightness(1.15)" crossorigin="anonymous">
+            <img src="brand/sharpen-lockup-dark.svg" height="70" alt="Sharpen" class="drill-brand-logo" style="flex-shrink:0;filter:brightness(1.15)" crossorigin="anonymous">
             <div style="width:1px;height:32px;background:var(--line);flex-shrink:0;margin-left:10px;margin-right:14px"></div>
             <div style="flex-shrink:0;display:flex;flex-direction:column;gap:2px">
               <span style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:0.18em;color:var(--ink-mute)">TIPSTER</span>
@@ -781,7 +781,7 @@ function buildHTML(){
       <div class="analise-popup-modal" id="casaDrillModal" onclick="event.stopPropagation()">
         <div class="analise-popup-hdr" style="gap:12px;align-items:center">
           <div style="display:flex;align-items:center;flex-shrink:0">
-            <img src="brand/fdc-logo-horizontal-dark.svg" height="70" alt="FDC Capital" class="drill-brand-logo" style="flex-shrink:0;filter:brightness(1.15)" crossorigin="anonymous">
+            <img src="brand/sharpen-lockup-dark.svg" height="70" alt="Sharpen" class="drill-brand-logo" style="flex-shrink:0;filter:brightness(1.15)" crossorigin="anonymous">
             <div style="width:1px;height:32px;background:var(--line);flex-shrink:0;margin-left:10px;margin-right:14px"></div>
             <div style="flex-shrink:0;display:flex;flex-direction:column;gap:2px">
               <span style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:0.18em;color:var(--ink-mute)">BOOKIE</span>
@@ -815,7 +815,7 @@ function buildHTML(){
       <div class="analise-popup-modal" id="sportDrillModal" onclick="event.stopPropagation()">
         <div class="analise-popup-hdr" style="gap:12px;align-items:center">
           <div style="display:flex;align-items:center;flex-shrink:0">
-            <img src="brand/fdc-logo-horizontal-dark.svg" height="70" alt="FDC Capital" class="drill-brand-logo" style="flex-shrink:0;filter:brightness(1.15)" crossorigin="anonymous">
+            <img src="brand/sharpen-lockup-dark.svg" height="70" alt="Sharpen" class="drill-brand-logo" style="flex-shrink:0;filter:brightness(1.15)" crossorigin="anonymous">
             <div style="width:1px;height:32px;background:var(--line);flex-shrink:0;margin-left:10px;margin-right:14px"></div>
             <div style="flex-shrink:0;display:flex;flex-direction:column;gap:2px">
               <span style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:0.18em;color:var(--ink-mute)">ESPORTE</span>
@@ -971,7 +971,7 @@ async function loadData(force){
 
     // Sem cache: loader original (0→90% calibrado para o fetch longo)
     if(!servedFromCache){
-      document.getElementById('root').innerHTML=`<div class="loader" id="loaderEl"><div class="loader-content"><img src="brand/fdc-logo-horizontal-dark.svg" alt="FDC Capital" style="width:676px;max-width:88vw;display:block;object-fit:contain;opacity:.97" draggable="false"><div class="loader-bottom"><div class="loader-bar-wrap"><div class="loader-bar-fill p1" id="loaderBar"></div></div><div class="loader-pct" id="loaderPct">0%</div></div></div></div>`;
+      document.getElementById('root').innerHTML=`<div class="loader" id="loaderEl"><div class="loader-content"><img src="brand/sharpen-lockup-endorsed.svg" alt="Sharpen — by FDC Capital" style="width:676px;max-width:88vw;display:block;object-fit:contain;opacity:.97" draggable="false"><div class="loader-bottom"><div class="loader-bar-wrap"><div class="loader-bar-fill p1" id="loaderBar"></div></div><div class="loader-pct" id="loaderPct">0%</div></div></div></div>`;
       const _pctT0=Date.now();
       (function _tick(){const pEl=document.getElementById('loaderPct');if(!pEl)return;const t=Math.min((Date.now()-_pctT0)/90000,1);const e=1-Math.pow(1-t,3);pEl.textContent=Math.round(e*90)+'%';if(t<1)requestAnimationFrame(_tick);})();
     }
