@@ -396,6 +396,14 @@ const PAGE_META={
   'custos_tipster': ['Custo de Tipsters',        'assinaturas, serviços e pagamentos'],
   'metrics':        ['Métricas',                 'base de conhecimento e valores atuais'],
 };
+// Deep-link: os atalhos do Planilhador chegam como /dashboard/#<id>. Sem âncora
+// (ou âncora desconhecida) cai na Visão Geral, preservando o comportamento antigo.
+function _pageFromHash(){
+  const h=(location.hash||'').replace(/^#/,'');
+  return PAGE_META[h]?h:'overview';
+}
+// Deep-link com o SPA já aberto: reage a mudança de âncora na URL.
+window.addEventListener('hashchange',()=>{const id=_pageFromHash();if(document.getElementById('page-'+id))showPage(id);});
 function updateTopbarTitle(id){
   const meta=PAGE_META[id]||[id,''];
   const t=document.getElementById('topbarTitle');
@@ -837,7 +845,7 @@ function buildHTML(){
     </div>
   </div>`;
 
-  showPage('overview');
+  showPage(_pageFromHash());
   initBtblResize();
 }
 
