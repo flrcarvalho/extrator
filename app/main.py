@@ -144,14 +144,15 @@ app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), na
 
 # ── Cabeçalhos de segurança (CSP + hardening) ─────────────────────────────────
 # Defesa em profundidade junto do escaping do frontend. A CSP restringe as origens
-# de script/estilo/fonte às realmente usadas (self + cdnjs + Google Fonts) e bloqueia
-# o resto; 'unsafe-inline' segue necessário enquanto o front usa handlers/estilos
-# inline (removê-los depois permite apertar). frame-ancestors 'self' preserva os
-# iframes da casca (/app). connect-src 'self': o front só fala com a própria origem
-# (a Polymarket é chamada server-side).
+# às realmente usadas e bloqueia o resto. Chart.js/html2canvas agora são VENDORIZADOS
+# (app/static/dash/vendor/) → script-src não precisa mais de CDN externo, só 'self'.
+# 'unsafe-inline' segue necessário enquanto o front usa handlers/estilos inline
+# (removê-los é o próximo passo para dropar o 'unsafe-inline' e travar em 'self' puro).
+# frame-ancestors 'self' preserva os iframes da casca (/app). connect-src 'self': o
+# front só fala com a própria origem (a Polymarket é chamada server-side).
 _CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+    "script-src 'self' 'unsafe-inline'; "
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src 'self' https://fonts.gstatic.com; "
     "img-src 'self' data: blob: https://www.google.com; "  # favicons das casas (s2/favicons)
