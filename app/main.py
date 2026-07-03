@@ -5,12 +5,14 @@ import io
 import json
 import logging
 import math
+import os
 import re
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlsplit
 
 import xlrd
 
@@ -168,6 +170,47 @@ async def _security_headers(request: Request, call_next):
     resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     return resp
+
+
+# ── Proteção CSRF leve: checagem de Origin/Referer ────────────────────────────
+# Cookie de sessão + dados financeiros → validamos a origem das requisições que
+# MUTAM estado (POST/PUT/PATCH/DELETE). SameSite=Lax já barra o CSRF clássico;
+# isto é o cinto adicional. Regra: havendo Origin (ou, na falta, Referer), o host
+# tem de bater com o host da própria requisição (Railway encaminha em
+# X-Forwarded-Host) ou com um host extra em ALLOWED_ORIGIN_HOSTS. Sem Origin nem
+# Referer (cliente não-browser) não há o que verificar → passa. Métodos seguros
+# (GET/HEAD/OPTIONS) são isentos. Registrado como middleware DEPOIS de
+# _security_headers → roda ANTES dele (outermost), rejeitando cedo.
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_ALLOWED_ORIGIN_HOSTS = {
+    h.strip().lower()
+    for h in os.environ.get("ALLOWED_ORIGIN_HOSTS", "").split(",")
+    if h.strip()
+}
+
+
+def _host_de(valor: str) -> str:
+    """Host (minúsculo, sem esquema nem porta) de uma URL de Origin/Referer ou de um Host."""
+    if not valor:
+        return ""
+    if "://" in valor:
+        return (urlsplit(valor).hostname or "").lower()
+    return valor.split(":")[0].strip().lower()
+
+
+@app.middleware("http")
+async def _csrf_origin_guard(request: Request, call_next):
+    if request.method in _UNSAFE_METHODS:
+        fonte = request.headers.get("origin") or request.headers.get("referer")
+        if fonte:
+            proprio = _host_de(request.headers.get("x-forwarded-host")
+                               or request.headers.get("host") or "")
+            permitidos = {h for h in ({proprio} | _ALLOWED_ORIGIN_HOSTS) if h}
+            if _host_de(fonte) not in permitidos:
+                logger.warning("Origem bloqueada em %s %s: %s",
+                               request.method, request.url.path, fonte)
+                return JSONResponse(status_code=403, content={"detail": "Origem não autorizada."})
+    return await call_next(request)
 
 
 @app.get("/healthz")
