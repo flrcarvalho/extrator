@@ -711,10 +711,10 @@ table.pm-ativas td.c-merc { color:var(--ink); }
   display: flex; align-items: center; gap: 8px;
   font-size: 12px; font-family: var(--font-mono);
 }
-.s-total { color: var(--ink-soft); }
-.s-sep   { color: var(--ink-mute); }
-.s-cop   { color: var(--pos); font-weight: 600; }
-.s-pend  { color: var(--accent-2); font-weight: 600; }
+.s-total  { color: var(--ink-soft); }
+.s-sep    { color: var(--ink-mute); }
+.s-info   { color: var(--accent-2); font-weight: 600; }   /* aguardando informação (sem tipster) — azul, espelha o badge */
+.s-result { color: var(--warn); font-weight: 600; }       /* aguardando resultado (abertas) — âmbar */
 .grade-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
 .exp-status { font-size: 11px; color: var(--ink-mute); }
 .exp-status.ok  { color: var(--pos); }
@@ -1435,11 +1435,11 @@ td.c-res.res-HL { color: var(--warn); }
             <div class="grade-title-row">
               <span class="grade-title">Apostas</span>
               <div class="stats-bar">
-                <span id="s-total" class="s-total">— total</span>
+                <span id="s-total" class="s-total">— apostas</span>
                 <span class="s-sep">·</span>
-                <span id="s-cop" class="s-cop">— copiadas</span>
+                <span id="s-info" class="s-info">— aguardando informação</span>
                 <span class="s-sep">·</span>
-                <span id="s-pend" class="s-pend">— pendentes</span>
+                <span id="s-result" class="s-result">— aguardando resultado</span>
                 <span id="exp-status" class="exp-status"></span>
               </div>
             </div>
@@ -1896,7 +1896,6 @@ async function atualizarPendentes() {
       (por_parceiro || []).forEach(({ casa, parceiro, pendentes }) => {
         (pendentesPorParceiro[casa] = pendentesPorParceiro[casa] || {})[parceiro] = pendentes;
       });
-      if (parceiroSelecionado) atualizarStats();
     }
   } catch { /* informativo */ }
   // Badges da sidebar (incompletos: sem tipster + abertas)
@@ -1912,6 +1911,7 @@ async function atualizarPendentes() {
     semTipsterPorCasa = por_casa_tipster || {};
     abertasPorCasa    = por_casa_aberta  || {};
     aplicarBadgesSidebar();
+    if (parceiroSelecionado) atualizarStats();
   } catch { /* badge é informativo — falha silenciosa */ }
 }
 
@@ -3970,17 +3970,18 @@ async function salvarTipsterVal(id, valor) {
   window.addEventListener('resize', () => closeMenu());
 })();
 
-// Stats do PARCEIRO INTEIRO (não só da página): total = contagem; pendentes vêm
-// do mapa de /pendentes; copiadas = total − pendentes.
+// Stats do PARCEIRO INTEIRO (não só da página): total = contagem;
+// aguardando informação (sem tipster) e aguardando resultado (abertas) vêm do
+// mapa de /incompletos. Espelha os badges azul/âmbar do dropdown.
 function atualizarStats() {
   if (!parceiroSelecionado) return;
   const total = totalBilhetes;
-  const mapa = pendentesPorParceiro[parceiroSelecionado.casa] || {};
-  const pend = mapa[parceiroSelecionado.nome] || 0;
-  const cop = Math.max(0, total - pend);
-  document.getElementById('s-total').textContent = `${total} total`;
-  document.getElementById('s-cop').textContent   = `${cop} copiadas`;
-  document.getElementById('s-pend').textContent  = `${pend} pendentes`;
+  const casa = parceiroSelecionado.casa, nome = parceiroSelecionado.nome;
+  const semInfo   = (semTipsterPorParceiro[casa] || {})[nome] || 0;
+  const semResult = abertasDe(casa, nome);
+  document.getElementById('s-total').textContent  = `${total} apostas`;
+  document.getElementById('s-info').textContent   = `${semInfo} aguardando informação`;
+  document.getElementById('s-result').textContent = `${semResult} aguardando resultado`;
 }
 
 // Busca TODOS os bilhetes do parceiro atual num dado estado (pagina em blocos de 1000).
