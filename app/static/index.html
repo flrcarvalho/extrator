@@ -1780,6 +1780,11 @@ const DOMINIOS = {
   'Vitória Bet': 'vitoriabet.bet',
   // chaveado pelo valor do DB ("Rei do Pitaco"); marca rebatizada para Pitaco (pitaco.bet.br)
   'Rei do Pitaco': 'pitaco.bet.br',
+  // grafias das bases importadas (ex.: Jonathan) — o DB guarda ESTES rótulos exatos,
+  // que diferem em caixa/sufixo das chaves canônicas acima (BetBra≠Betbra etc.).
+  'BetBra': 'betbra.bet.br', 'Aposta Ganha': 'apostaganha.bet.br',
+  'Esportiva Bet': 'esportiva.bet.br', 'Multibet': 'multi.bet.br',
+  'Faz1be': 'faz1.bet.br', 'Pagol': 'pagol.bet.br',
 };
 function faviconUrl(casa) {
   const domain = DOMINIOS[casa] || (casa.toLowerCase() + '.com');
