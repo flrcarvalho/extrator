@@ -6,42 +6,60 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <header class="hdr">
-    <img src="icons/icon32.png" alt="" width="22" height="22">
-    <span class="hdr-nome">Sharpen Capture</span>
+  <!-- Gradiente da lâmina (kit SharpenUp) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="bladeV" x1="60" y1="16" x2="60" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5BA9FF"></stop><stop offset="1" stop-color="#1E7CF0"></stop>
+    </linearGradient>
+  </defs></svg>
+
+  <header class="top">
+    <span class="tile">
+      <svg viewBox="40 10 40 100"><path d="M60 16 L60 90 L42 104 Z" fill="url(#bladeV)"></path><path d="M60 16 L78 104 L60 90 Z" fill="#333B45"></path></svg>
+      <span class="up"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"></path></svg></span>
+    </span>
+    <span class="wm">Sharpen<span class="u">Up</span></span>
+    <span id="status-pill" class="status off"><span class="d"></span><span id="status-txt">offline</span></span>
   </header>
 
-  <!-- Estado: desconectado -->
-  <section id="tela-conectar" class="tela">
-    <p class="lead">Cole o código gerado no <strong>Conectar extensão</strong> do dashboard.</p>
-    <input id="codigo" class="campo-codigo" type="text" inputmode="text"
-           autocomplete="off" spellcheck="false" placeholder="ABCD-EFGH" maxlength="9">
-    <button id="btn-conectar" class="btn btn-primary">Conectar</button>
+  <!-- Estado A: desconectado / parear -->
+  <section id="tela-conectar" class="bd tela">
+    <p class="say">Gere um <b>código de pareamento</b> no dashboard (botão <b>Conectar extensão</b>) e cole aqui pra ligar esta casa ao seu Scanner.</p>
+    <div class="field">
+      <label for="codigo">Código de pareamento</label>
+      <input id="codigo" class="code-input" type="text" inputmode="text" autocomplete="off"
+             spellcheck="false" placeholder="ABCD-EFGH" maxlength="9">
+    </div>
+    <button id="btn-conectar" class="btn btn--primary btn--block">Parear</button>
     <button id="toggle-cfg" class="link">Configurar servidor</button>
     <div id="cfg" class="cfg" hidden>
       <label class="cfg-label" for="api-base">URL da API</label>
-      <input id="api-base" class="campo" type="url" placeholder="https://www.sharpen.bet">
-      <button id="btn-salvar-cfg" class="btn btn-ghost btn-sm">Salvar</button>
+      <input id="api-base" class="code-input alt" type="url" placeholder="https://www.sharpen.bet">
+      <button id="btn-salvar-cfg" class="btn btn--ghost btn--sm">Salvar</button>
     </div>
   </section>
 
-  <!-- Estado: conectado -->
-  <section id="tela-conectado" class="tela" hidden>
+  <!-- Estado B: conectado -->
+  <section id="tela-conectado" class="bd tela" hidden>
     <div class="conn">
-      <span class="dot"></span>
-      <div>
-        <div class="conn-titulo">Conectado</div>
-        <div class="conn-sub"><span id="c-casa">—</span> · <span id="c-parceiro">—</span></div>
-      </div>
+      <span class="ck"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></span>
+      <span class="tx">
+        <span class="h">Conectado <span class="pos">✓</span></span>
+        <span class="s"><img id="c-favicon" alt="" onerror="this.style.display='none'"><span id="c-casa">—</span> · <b id="c-parceiro">—</b></span>
+      </span>
     </div>
-    <button id="btn-capturar" class="btn btn-primary btn-big">📸 Capturar região</button>
-    <p id="nota-texto" class="nota" hidden>
-      Esta casa usa <strong>modo texto</strong> (robô de rolagem) — chega na próxima fase.
-    </p>
-    <button id="btn-desconectar" class="btn btn-ghost btn-sm">Desconectar</button>
+    <div class="row">
+      <button id="btn-capturar" class="btn btn--primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"></path></svg>Capturar
+      </button>
+      <button id="btn-desconectar" class="btn btn--ghost">Desconectar</button>
+    </div>
+    <p id="nota-texto" class="nota" hidden>Esta casa usa <b>modo texto</b> (robô de rolagem) — chega na próxima fase.</p>
   </section>
 
   <p id="msg" class="msg"></p>
+
+  <div class="foot"><span class="cnt">by <b>FDC&nbsp;Capital</b></span><span class="ver">v0.1</span></div>
 
   <script src="config.js"></script>
   <script src="popup.js"></script>

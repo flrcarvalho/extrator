@@ -1,16 +1,28 @@
-// Popup: parear (trocar código por token), mostrar estado e disparar a captura.
+// Popup SharpenUp: parear (trocar código por token), mostrar estado, disparar captura.
 const $ = (id) => document.getElementById(id);
 
 const telaConectar = $("tela-conectar");
 const telaConectado = $("tela-conectado");
 const msg = $("msg");
 
+// Domínio da casa p/ o favicon (grayscale, cosmético — some se não carregar).
+const DOMINIOS = {
+  "Superbet": "superbet.com", "Betano": "betano.com", "Bet365": "bet365.com",
+  "Betfair": "betfair.com", "KTO": "kto.com", "Pinnacle": "pinnacle.com",
+  "Betnacional": "betnacional.com", "Lottu": "lottu.com", "Vitória Bet": "vitoriabet.com",
+};
+
 function setMsg(texto, tipo) {
   msg.textContent = texto || "";
   msg.className = "msg" + (tipo ? " " + tipo : "");
 }
 
-// Formata o código enquanto digita: MAIÚSCULO + hífen automático (ABCD-EFGH).
+function setStatusPill(online) {
+  $("status-pill").className = "status " + (online ? "on" : "off");
+  $("status-txt").textContent = online ? "online" : "offline";
+}
+
+// Formata o código: MAIÚSCULO + hífen automático (ABCD-EFGH).
 $("codigo").addEventListener("input", (e) => {
   let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
   if (v.length > 4) v = v.slice(0, 4) + "-" + v.slice(4);
@@ -87,14 +99,20 @@ async function render() {
   if (st.token) {
     telaConectar.hidden = true;
     telaConectado.hidden = false;
+    setStatusPill(true);
     $("c-casa").textContent = st.casa || "—";
     $("c-parceiro").textContent = st.parceiro || "—";
+    const dom = DOMINIOS[st.casa];
+    const fav = $("c-favicon");
+    if (dom) { fav.style.display = ""; fav.src = `https://icons.duckduckgo.com/ip3/${dom}.ico`; }
+    else { fav.style.display = "none"; }
     const texto = st.modo === "texto";
     $("nota-texto").hidden = !texto;
-    $("btn-capturar").hidden = texto;   // modo texto (Betano) = Fase 3
+    $("btn-capturar").hidden = texto;   // modo texto (Betano) = próxima fase
   } else {
     telaConectar.hidden = false;
     telaConectado.hidden = true;
+    setStatusPill(false);
     if (st.lastError) setMsg(st.lastError, "erro");
   }
 }

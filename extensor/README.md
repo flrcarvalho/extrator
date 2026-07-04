@@ -1,12 +1,14 @@
-# Sharpen Capture — extensão de captura
+# SharpenUp — extensão de captura
+
+> _A perninha do Sharpen que sobe seus bilhetes pro dashboard._
 
 Extensão de navegador (Manifest V3) que captura bilhetes das casas e envia para o
 **sharpen.bet** por um **código de pareamento**. Funciona em qualquer Chromium —
 **Octo Browser**, Chrome, Edge, Brave, Opera.
 
-> Marca provisória (nome "Sharpen Capture", ícone azul placeholder). Quando a
-> identidade final chegar, trocar `icons/*.png`, o `name` no `manifest.json` e as
-> variáveis de cor no topo do `popup.css` — o resto acompanha.
+Marca conforme o kit **"SharpenUp — Kit de Marca (Extensão)"** (FDC Capital): lâmina
+do Sharpen + selo ↑, azul `#2E8BFF` / `#7FB2FF`, verde só em confirmação. Fonte do
+ícone em `icons/icon.svg`; paleta no topo do `popup.css`.
 
 ## Como funciona (modelo de pareamento)
 

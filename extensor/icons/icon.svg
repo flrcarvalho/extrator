@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Master do ícone SharpenUp: lâmina do kit + selo ↑. Fonte para regenerar os PNGs. -->
+  <defs>
+    <linearGradient id="tileG" x1="0" y1="0" x2="0" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1B222C"/><stop offset="1" stop-color="#0A0D12"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="31" fill="url(#tileG)"/>
+  <svg x="40" y="28" width="48" height="72" viewBox="40 10 40 100" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="bladeV" x1="60" y1="16" x2="60" y2="104" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#5BA9FF"/><stop offset="1" stop-color="#1E7CF0"/>
+      </linearGradient>
+    </defs>
+    <path d="M60 16 L60 90 L42 104 Z" fill="url(#bladeV)"/>
+    <path d="M60 16 L78 104 L60 90 Z" fill="#333B45"/>
+  </svg>
+  <circle cx="99" cy="30" r="20" fill="#0A0D12"/>
+  <circle cx="99" cy="30" r="17" fill="#2E8BFF"/>
+  <path d="M99 39 V22 M91 30 l8 -8 8 8" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
