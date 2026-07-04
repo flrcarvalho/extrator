@@ -178,6 +178,97 @@ def parse_tsv(tsv: str) -> list[dict]:
     return rows
 
 
+# ── Correção determinística do ID contra o texto-fonte ────────────────────────
+# O ID do bilhete é a IDENTIDADE (dedup por ID; regra do CLAUDE.md). Porém a IA
+# NÃO reproduz um número de 18–19 dígitos com fidelidade: transpõe/inventa dígitos
+# ao escrever a resposta, DIFERENTE a cada extração — mesmo lendo do texto colado.
+# Resultado: o mesmo bilhete re-extraído recebe IDs diferentes → a dedup por ID acha
+# que é novo → duplicata (ver STATUS sessão 100, conta KingPanda·Ellen 178→83).
+#
+# Fix (respeita "o ID é rei"): quando há TEXTO colado, os IDs verdadeiros estão nele
+# literalmente. Esta função NÃO deduplica por conteúdo — só garante que o ID gravado
+# é um ID que EXISTE no texto-fonte. Nunca inventa: se não dá para recuperar com
+# segurança, deixa o ID como veio e conta como "incerto".
+_ID_TEXTO_RE = re.compile(r"ID:\s*(\d{12,25})")
+_ID_MINLEN = 16    # ID muito curto = a IA truncou demais → irrecuperável, não arrisca
+_ID_MARGIN = 3     # o ID real mais próximo tem de ganhar do 2º por ≥3 (senão ambíguo)
+_ID_MAXDIST = 8    # acima disso a leitura destruiu o número → não confia no snap
+# Gates calibrados nas 108 cópias garbled reais da conta KingPanda·Ellen:
+# corrigem 81, ZERO corrupção, 27 ficam "incerto" (IDs truncados p/ 12–15 dígitos).
+
+
+def _edit_distance(a: str, b: str) -> int:
+    """Distância de Levenshtein (sem libs). Números curtos → barato."""
+    if a == b:
+        return 0
+    n = len(b)
+    dp = list(range(n + 1))
+    for i, ca in enumerate(a, 1):
+        prev, dp[0] = dp[0], i
+        for j, cb in enumerate(b, 1):
+            prev, dp[j] = dp[j], min(dp[j] + 1, dp[j - 1] + 1, prev + (ca != cb))
+    return dp[n]
+
+
+def corrigir_codigos_tsv(tsv: str, texto: str | None) -> tuple[str, dict]:
+    """Corrige a 11ª coluna (código do bilhete) de cada linha TSV para o ID REAL
+    presente no `texto` colado. Cirúrgico e conservador:
+
+      - ID que já bate exatamente com um ID do texto → mantém (reivindica o slot).
+      - ID garbled recuperável (gates len/margem/distância + alvo livre) → snap para
+        o ID verdadeiro mais próximo.
+      - Senão → mantém o que a IA escreveu e conta como "incerto" (nunca inventa).
+
+    Só toca linhas que são bilhete (≥11 colunas TAB e a 11ª preenchida); notas e
+    texto livre passam intactos. Sem `texto` ou sem `ID:` no texto → no-op.
+    Retorna (tsv_corrigido, {"corrigidos": n, "incertos": m}).
+    """
+    if not texto:
+        return tsv, {"corrigidos": 0, "incertos": 0}
+    reais = _ID_TEXTO_RE.findall(texto)
+    if not reais:
+        return tsv, {"corrigidos": 0, "incertos": 0}
+    reais_set = set(reais)
+
+    linhas = tsv.split("\n")
+    alvos: list[tuple[int, list[str]]] = []   # (índice da linha, colunas) das linhas-bilhete
+    for i, line in enumerate(linhas):
+        parts = line.split("\t")
+        if len(parts) >= 11 and parts[10].strip():
+            alvos.append((i, parts))
+
+    claimed: set[str] = set()
+    # 1) exatos reivindicam seu ID primeiro (protege contra um garbled roubar um ID
+    #    que já é de outra linha por leitura exata).
+    pendentes: list[tuple[int, list[str]]] = []
+    for i, parts in alvos:
+        cod = parts[10].strip()
+        if cod in reais_set and cod not in claimed:
+            claimed.add(cod)
+        else:
+            pendentes.append((i, parts))
+
+    corrigidos = incertos = 0
+    for i, parts in pendentes:
+        cod = parts[10].strip()
+        livres = [rid for rid in reais_set if rid not in claimed]
+        if not livres:
+            incertos += 1
+            continue
+        dists = sorted((_edit_distance(cod, rid), rid) for rid in livres)
+        best_d, best_id = dists[0]
+        second_d = dists[1][0] if len(dists) > 1 else 999
+        if len(cod) >= _ID_MINLEN and (second_d - best_d) >= _ID_MARGIN and best_d <= _ID_MAXDIST:
+            parts[10] = best_id
+            linhas[i] = "\t".join(parts)
+            claimed.add(best_id)
+            corrigidos += 1
+        else:
+            incertos += 1
+
+    return "\n".join(linhas), {"corrigidos": corrigidos, "incertos": incertos}
+
+
 def validar_linhas(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     """Separa as linhas com campo financeiro MALFORMADO (presente e ilegível) das
     salváveis, para o `/salvar` gravar as boas e devolver as ruins à UI.

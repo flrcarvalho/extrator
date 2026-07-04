@@ -231,3 +231,58 @@ def test_validar_linhas_rejeita_malformada():
     assert {r["campo"] for r in rejeitadas} == {"stake", "odd", "resultado", "data"}
     assert rejeitadas[0]["linha"] == 2   # 1-based na lista parseada
     assert all(("erro" in r and "valor" in r and "resumo" in r) for r in rejeitadas)
+
+
+# ── corrigir_codigos_tsv: correção determinística do ID contra o texto ────────
+_A = "859409392033767424"          # ID real A
+_B = "856187092232609792"          # ID real B (bem diferente de A)
+_TEXTO = f"Bilhete X\nVenceu\n...\nID: {_A}\n\nBilhete Y\nPerdido\n...\nID: {_B}\n"
+
+
+def _linha_tsv(cod):
+    return "\t".join(["20/06/2026", "Futebol", "", "KingPanda", "Ellen [Eu]",
+                      "ML", "Time [a v b]", "25,00", "2,33", "W", cod])
+
+
+def test_corrige_id_exato_mantem():
+    out, st = R.corrigir_codigos_tsv(_linha_tsv(_A), _TEXTO)
+    assert out.split("\t")[10] == _A
+    assert st == {"corrigidos": 0, "incertos": 0}
+
+
+def test_corrige_id_garbled_snap():
+    garb = "859409392033767420"           # 1 dígito off de _A
+    out, st = R.corrigir_codigos_tsv(_linha_tsv(garb), _TEXTO)
+    assert out.split("\t")[10] == _A       # snapou pro ID real
+    assert st == {"corrigidos": 1, "incertos": 0}
+
+
+def test_corrige_id_truncado_fica_incerto():
+    trunc = "8594093920"                   # 10 dígitos → len < 16, não arrisca
+    out, st = R.corrigir_codigos_tsv(_linha_tsv(trunc), _TEXTO)
+    assert out.split("\t")[10] == trunc    # inalterado (nunca inventa)
+    assert st == {"corrigidos": 0, "incertos": 1}
+
+
+def test_corrige_sem_texto_noop():
+    tsv = _linha_tsv("859409392033767420")
+    assert R.corrigir_codigos_tsv(tsv, None) == (tsv, {"corrigidos": 0, "incertos": 0})
+    assert R.corrigir_codigos_tsv(tsv, "texto sem ids") == (tsv, {"corrigidos": 0, "incertos": 0})
+
+
+def test_corrige_nao_toca_notas():
+    tsv = _linha_tsv("859409392033767420") + "\n=== Nota: confira a odd"
+    out, st = R.corrigir_codigos_tsv(tsv, _TEXTO)
+    assert out.split("\n")[1] == "=== Nota: confira a odd"   # nota intacta
+    assert st["corrigidos"] == 1
+
+
+def test_corrige_um_para_um():
+    # um exato (_A, reivindica) + um garbled perto de _B → snap p/ _B (único livre)
+    garb_b = "856187092232609790"          # 1 off de _B
+    tsv = _linha_tsv(_A) + "\n" + _linha_tsv(garb_b)
+    out, st = R.corrigir_codigos_tsv(tsv, _TEXTO)
+    linhas = out.split("\n")
+    assert linhas[0].split("\t")[10] == _A
+    assert linhas[1].split("\t")[10] == _B
+    assert st == {"corrigidos": 1, "incertos": 0}

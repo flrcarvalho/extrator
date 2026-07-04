@@ -38,7 +38,7 @@ from prompts import build_system
 from repository import (
     analisar_extracao,
     arquivar_parceiro, atualizar_bilhete, auto_arquivar, contar_arquivados,
-    casas_com_parceiros, contar_bilhetes, contar_incompletos,
+    casas_com_parceiros, contar_bilhetes, contar_incompletos, corrigir_codigos_tsv,
     criar_parceiro, dashboard_rows, data_valida, deletar_bilhetes,
     export_bilhetes, get_ativos_tipster, get_codigos_existentes,
     get_codigos_resolvidos, limpar_ativos_tipster, list_bilhetes, list_esportes, list_tipsters,
@@ -531,7 +531,7 @@ def _combine_parallel_results(results: list[tuple[int, str, dict]]) -> tuple[str
 
 # ── Stream functions ──────────────────────────────────────────────────────────
 
-async def _stream_sequential(system: list[dict], content: list[dict], modelo: str, xls_skipped: int):
+async def _stream_sequential(system: list[dict], content: list[dict], modelo: str, xls_skipped: int, texto: str | None = None):
     t_start = time.perf_counter()
     try:
         accumulated = ""
@@ -618,13 +618,18 @@ async def _stream_sequential(system: list[dict], content: list[dict], modelo: st
 
         logger.info("seq total: %.1fs | parts=%d | out=%d",
                     time.perf_counter() - t_start, part, total_tokens["output"])
-        yield f"data: {json.dumps({'done': True, 'resultado': accumulated, 'stop_reason': msg.stop_reason, 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens})}\n\n"
+        # Correção determinística do ID contra o texto colado (o ID é a identidade;
+        # a IA não copia números de 18 dígitos com fidelidade). No-op sem texto.
+        accumulated, id_fix = corrigir_codigos_tsv(accumulated, texto)
+        if id_fix["corrigidos"] or id_fix["incertos"]:
+            logger.info("seq id-fix: corrigidos=%d incertos=%d", id_fix["corrigidos"], id_fix["incertos"])
+        yield f"data: {json.dumps({'done': True, 'resultado': accumulated, 'stop_reason': msg.stop_reason, 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens, 'id_fix': id_fix})}\n\n"
     except Exception:
         logger.exception("Erro no stream sequencial")
         yield f"data: {json.dumps({'error': 'Erro ao processar a extração. Tente novamente.'})}\n\n"
 
 
-async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo: str, xls_skipped: int, casa_key: str = ""):
+async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo: str, xls_skipped: int, casa_key: str = "", texto: str | None = None):
     n_chunks = len(chunks)
     t_start = time.perf_counter()
     sem = asyncio.Semaphore(_MAX_CONCURRENT)
@@ -721,7 +726,11 @@ async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo:
         resultado, total_tokens, scroll_overlap_indices = _combine_parallel_results(completed)
         logger.info("par total: %.1fs | chunks=%d | out=%d",
                     time.perf_counter() - t_start, n_chunks, total_tokens["output"])
-        yield f"data: {json.dumps({'done': True, 'resultado': resultado, 'stop_reason': 'end_turn', 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens, 'scroll_overlap_indices': scroll_overlap_indices})}\n\n"
+        # Correção determinística do ID contra o texto colado (ver nota no seq).
+        resultado, id_fix = corrigir_codigos_tsv(resultado, texto)
+        if id_fix["corrigidos"] or id_fix["incertos"]:
+            logger.info("par id-fix: corrigidos=%d incertos=%d", id_fix["corrigidos"], id_fix["incertos"])
+        yield f"data: {json.dumps({'done': True, 'resultado': resultado, 'stop_reason': 'end_turn', 'modelo': modelo, 'xls_skipped': xls_skipped, 'tokens': total_tokens, 'scroll_overlap_indices': scroll_overlap_indices, 'id_fix': id_fix})}\n\n"
     except Exception:
         logger.exception("par-final error")
         yield f"data: {json.dumps({'error': 'Erro ao consolidar a extração. Tente novamente.'})}\n\n"
@@ -978,9 +987,9 @@ async def extrair(
                 len(chunks), use_parallel)
 
     if use_parallel:
-        generator = _stream_parallel(system, chunks, modelo, xls_skipped, casa_key)
+        generator = _stream_parallel(system, chunks, modelo, xls_skipped, casa_key, texto)
     else:
-        generator = _stream_sequential(system, base_content + [instrucao_block], modelo, xls_skipped)
+        generator = _stream_sequential(system, base_content + [instrucao_block], modelo, xls_skipped, texto)
 
     return StreamingResponse(
         generator,
