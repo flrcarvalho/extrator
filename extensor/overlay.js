@@ -98,9 +98,13 @@
     const rect = { x: r.left, y: r.top, width: r.width, height: r.height };
     // Some com o overlay ANTES de mandar, senão ele entra no print. Dois rAF
     // garantem que o navegador repintou sem a moldura antes do captureVisibleTab.
+    // Manda também as dimensões da viewport: o background deriva a escala REAL da
+    // imagem capturada (largura da foto ÷ innerWidth) em vez de confiar no dpr —
+    // robusto a zoom do navegador / escala do Windows (senão o recorte corta).
+    const vw = window.innerWidth, vh = window.innerHeight;
     limpar();
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      chrome.runtime.sendMessage({ type: "CAPTURAR_REGIAO", rect, dpr });
+      chrome.runtime.sendMessage({ type: "CAPTURAR_REGIAO", rect, dpr, vw, vh });
     }));
   }
 

@@ -5,7 +5,7 @@ importScripts("config.js");
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === "CAPTURAR_REGIAO") {
     // Depois do print (ok ou erro), avisa o FAB pra reaparecer.
-    capturarRegiao(msg.rect, msg.dpr, sender.tab)
+    capturarRegiao(msg, sender.tab)
       .then(() => sendResponse({ ok: true }))
       .catch((e) => sendResponse({ ok: false, erro: String(e && e.message || e) }))
       .finally(() => { try { chrome.tabs.sendMessage(sender.tab.id, { type: "FAB_ESTADO", estado: "idle" }); } catch (_) {} });
@@ -19,17 +19,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-async function capturarRegiao(rect, dpr, tab) {
+async function capturarRegiao(msg, tab) {
+  const { rect, dpr, vw, vh } = msg;
   // Print da viewport visível (já sem o overlay, que se escondeu antes de mandar).
   const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
   const bmp = await createImageBitmap(await (await fetch(dataUrl)).blob());
 
-  // captureVisibleTab devolve em pixels físicos (viewport × dpr); a região vem em
-  // px CSS → multiplica por dpr. Clampa nos limites da imagem por segurança.
-  const sx = Math.max(0, Math.round(rect.x * dpr));
-  const sy = Math.max(0, Math.round(rect.y * dpr));
-  const sw = Math.min(bmp.width - sx, Math.round(rect.width * dpr));
-  const sh = Math.min(bmp.height - sy, Math.round(rect.height * dpr));
+  // Escala REAL da foto: largura/altura da imagem ÷ viewport (innerWidth/Height).
+  // A região vem em px CSS → multiplica pela escala real. Isso é exato mesmo se o
+  // dpr do navegador ≠ escala do print (zoom / escala do Windows) — o que antes
+  // cortava a direita/baixo. Fallback no dpr se a viewport não veio.
+  const scaleX = vw ? bmp.width / vw : (dpr || 1);
+  const scaleY = vh ? bmp.height / vh : (dpr || 1);
+  const sx = Math.max(0, Math.round(rect.x * scaleX));
+  const sy = Math.max(0, Math.round(rect.y * scaleY));
+  const sw = Math.min(bmp.width - sx, Math.round(rect.width * scaleX));
+  const sh = Math.min(bmp.height - sy, Math.round(rect.height * scaleY));
   if (sw < 4 || sh < 4) throw new Error("Região muito pequena.");
 
   const canvas = new OffscreenCanvas(sw, sh);
