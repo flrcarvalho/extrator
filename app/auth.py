@@ -50,6 +50,7 @@ if not os.environ.get("SESSION_SECRET"):
 USUARIOS: dict[str, str] = {
     "Feca": os.environ.get("SENHA_FECA_HASH", ""),
     "Diogo": os.environ.get("SENHA_DIOGO_HASH", ""),
+    "Primo": os.environ.get("SENHA_PRIMO_HASH", ""),
     "Lava": os.environ.get("SENHA_LAVA_HASH", ""),
     "Fatuch": os.environ.get("SENHA_FATUCH_HASH", ""),
     "LavaFatuch": os.environ.get("SENHA_LAVAFATUCH_HASH", ""),
@@ -59,11 +60,11 @@ USUARIOS: dict[str, str] = {
 # Hierarquia dono → operadores. Cada DONO (conta completa, par dos outros donos)
 # pode "ver como" os próprios operadores — visualizar e operar a base deles sem
 # deslogar. Donos NÃO se veem entre si (Feca não vê Diogo). Operadores não veem
-# ninguém além de si mesmos (lista vazia). Lava é operador do Feca; o(s)
-# operador(es) do Diogo entram aqui quando forem cadastrados.
+# ninguém além de si mesmos (lista vazia). Lava é operador do Feca; Primo é
+# operador do Diogo (mesmo modelo: Diogo tem base própria + vê a do Primo).
 OPERADORES: dict[str, list[str]] = {
     "Feca": ["Lava"],
-    "Diogo": [],
+    "Diogo": ["Primo"],
     "Fatuch": ["LavaFatuch"],
 }
 
