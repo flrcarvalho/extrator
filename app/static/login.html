@@ -45,22 +45,15 @@ body::before {
   padding: 32px 28px 28px;
   box-shadow: 0 20px 60px rgba(0,0,0,.35);
 }
-.logo { display: block; width: 180px; margin: 0 auto 22px; }
+.logo { display: block; width: 200px; margin: 0 auto 14px; }
 .logo img { width: 100%; height: auto; display: block; }
-.foot {
-  position: fixed; left: 0; right: 0; bottom: 16px; z-index: 1;
+.slogan {
   text-align: center;
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em;
-  color: var(--ink-mute);
+  font-size: 13px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--ink-soft);
+  margin-bottom: 26px;
 }
-h1 {
-  font-size: 16px; font-weight: 700; letter-spacing: -0.02em;
-  text-align: center; margin-bottom: 4px;
-}
-.sub {
-  font-size: 12px; color: var(--ink-mute);
-  text-align: center; margin-bottom: 24px;
-}
+.slogan .dot { color: var(--accent); }
 label {
   display: block; font-size: 11px; font-weight: 600;
   letter-spacing: .04em; text-transform: uppercase;
@@ -93,7 +86,8 @@ button:disabled { opacity: .6; cursor: default; box-shadow: none; }
 </head>
 <body>
   <div class="card">
-    <div class="logo"><img src="/static/brand-sharpen/blade/lockup-dark.svg" alt="Sharpen"></div>
+    <div class="logo"><img src="/static/brand-sharpen/blade/lockup-endorsed.svg" alt="Sharpen — by FDC Capital"></div>
+    <div class="slogan">Sharpen your edge<span class="dot">.</span></div>
     <form id="form">
       <label for="usuario">Usuário</label>
       <input id="usuario" name="usuario" autocomplete="username" autofocus required>
@@ -103,7 +97,6 @@ button:disabled { opacity: .6; cursor: default; box-shadow: none; }
       <div class="erro" id="erro"></div>
     </form>
   </div>
-  <div class="foot">by FDC Capital</div>
 <script>
 const form = document.getElementById('form');
 const btn = document.getElementById('btn');
