@@ -25,6 +25,19 @@ _TTL_SEGUNDOS = 120
 # dono → (instante_monotonico, linhas)
 _cache: dict[str, tuple[float, list[dict]]] = {}
 
+# Normalização mínima de casa no feed ao vivo (Fase 1): a planilha do cliente usa
+# rótulos próprios que divergem do canônico do dashboard (que casa ícone/domínio em
+# `dash/data.js`). Sem isso, "365" apareceria como casa separada e sem ícone. A
+# normalização completa (esporte/tipster/mercado) fica para o import da Fase 2.
+# Chave comparada em minúsculas e sem espaços nas bordas.
+_CASA_CANON: dict[str, str] = {
+    "365": "Bet365",
+}
+
+
+def _norm_casa(casa: str) -> str:
+    return _CASA_CANON.get((casa or "").strip().lower(), casa)
+
 
 async def dashboard_rows_ao_vivo(dono: str, url: str) -> list[dict]:
     """Busca o feed da planilha ao vivo do `dono` e carimba `operador=dono`.
@@ -48,6 +61,7 @@ async def dashboard_rows_ao_vivo(dono: str, url: str) -> list[dict]:
         linhas = payload.get("data") or []
         for linha in linhas:
             linha["operador"] = dono
+            linha["casa"] = _norm_casa(linha.get("casa", ""))
         _cache[dono] = (agora, linhas)
         return linhas
     except Exception as e:

@@ -78,6 +78,15 @@ function getMostFrequentName(names){
   const ents=Object.entries(freq);if(!ents.length)return'';
   return ents.sort((a,b)=>b[1]-a[1])[0][0];
 }
+// Aplica o feed cru: normaliza nomes e SEPARA encerradas (→DADOS, base de todas
+// as métricas) de abertas (→DADOS_ABERTAS, só listagem). Chamado nos 2 caminhos
+// de loadData (cache local e fetch fresco) para o split ser único.
+function aplicarFeed(dados){
+  const norm=normalizeDados(dados);
+  const ENCERRADAS=['W','L','V','HW','HL'];
+  DADOS=norm.filter(r=>ENCERRADAS.includes(r.resultado));
+  DADOS_ABERTAS=norm.filter(r=>r.resultado==='ABERTA');
+}
 function normalizeDados(dados){
   const fields=['tipster','casa','esporte'];
   const canonical={};
@@ -918,7 +927,7 @@ async function loadData(force){
     try{
       const cached=await _idbGetData();
       if(cached&&Array.isArray(cached.data)&&cached.data.length){
-        DADOS=normalizeDados(cached.data);
+        aplicarFeed(cached.data);
         auditCasas(DADOS);
         buildHTML();
         applyAparencia();
@@ -947,7 +956,7 @@ async function loadData(force){
     const res=await fetch(url);
     const json=await res.json();
     if(!json.ok)throw new Error(json.error||'Erro desconhecido');
-    DADOS=normalizeDados(json.data);
+    aplicarFeed(json.data);
     auditCasas(DADOS);
     // builtAt = quando o servidor reconstruiu o cache (fonte de verdade da frescura dos dados)
     window._dataBuiltMs=json.builtAt?Date.parse(json.builtAt):Date.now();

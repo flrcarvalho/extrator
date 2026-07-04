@@ -73,6 +73,26 @@ function filtrarPagina(p){
   return res;
 }
 
+// Apostas abertas que passam pelos MESMOS filtros da página (data/esporte/casa/
+// tipster/operador). Espelha filtrarPagina, mas sobre DADOS_ABERTAS. Sem cache:
+// são poucas (planilhadas antes do encerramento) e não valem a invalidção.
+function filtrarAbertas(p){
+  if(!DADOS_ABERTAS.length)return [];
+  const st=gfs(p);
+  const sp=msGet('sp_'+p),ca=msGet('ca_'+p),ti=msGet('ti_'+p),op=msGet('op_'+p);
+  const lim=st.qd>0?new Date(Date.now()-st.qd*864e5).toISOString().slice(0,10):'';
+  return DADOS_ABERTAS.filter(r=>{
+    if(st.df&&r.data<st.df)return false;
+    if(st.dt&&r.data>st.dt)return false;
+    if(lim&&r.data<lim)return false;
+    if(sp.size>0&&!sp.has(r.esporte))return false;
+    if(ca.size>0&&!ca.has(r.casa))return false;
+    if(ti.size>0&&!ti.has(r.tipster))return false;
+    if(op.size>0&&!op.has(r.operador))return false;
+    return true;
+  });
+}
+
 function setDateF(p,type,val){const st=gfs(p);st.qd=0;st.qt='';st.dayOff=0;st.monthOff=0;if(type==='f')st.df=val;else st.dt=val;rqb(p);_renderPageDebouncedDate(p);}
 
 function setQuick(p,days){

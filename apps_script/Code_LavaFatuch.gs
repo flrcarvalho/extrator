@@ -171,9 +171,9 @@ function getData() {
 
   values.forEach(row => {
 
-    // ── Resultado — única validação obrigatória (aceita "w" minúsculo) ──
-    const resultado = String(_cell(row, COL_RESULTADO - 1)).trim().toUpperCase();
-    if (!["W","L","V","HW","HL"].includes(resultado)) return;
+    // ── Resultado (aceita "w" minúsculo) ────────────────────
+    let resultado = String(_cell(row, COL_RESULTADO - 1)).trim().toUpperCase();
+    const encerrada = ["W","L","V","HW","HL"].includes(resultado);
 
     // ── Stake ───────────────────────────────────────────────
     const stake = _num(_cell(row, COL_STAKE - 1));
@@ -182,12 +182,21 @@ function getData() {
     // ── Odd ─────────────────────────────────────────────────
     const odd = _num(_cell(row, COL_ODD - 1));
 
-    // ── Lucro (P/L R$) — planilha é a fonte de verdade; deriva se faltar ──
-    const rawPL = _cell(row, COL_PL - 1);
-    let lucro = (typeof rawPL === 'number') ? parseFloat(rawPL.toFixed(2))
-                                            : _derivarLucro(stake, odd, resultado);
-    if (lucro === null || isNaN(lucro)) return;
-    lucro = parseFloat(Number(lucro).toFixed(2));
+    // ── Lucro ───────────────────────────────────────────────
+    // Encerrada: P/L R$ da planilha é a fonte de verdade (deriva se faltar).
+    // ABERTA (planilhada antes do encerramento, sem resultado válido): entra no
+    // feed marcada, lucro 0 — o dashboard a LISTA mas NÃO a conta em métrica.
+    let lucro;
+    if (encerrada) {
+      const rawPL = _cell(row, COL_PL - 1);
+      lucro = (typeof rawPL === 'number') ? parseFloat(rawPL.toFixed(2))
+                                          : _derivarLucro(stake, odd, resultado);
+      if (lucro === null || isNaN(lucro)) return;
+      lucro = parseFloat(Number(lucro).toFixed(2));
+    } else {
+      resultado = "ABERTA";
+      lucro = 0;
+    }
 
     // ── Data ────────────────────────────────────────────────
     const rawData = _cell(row, COL_DATA - 1);

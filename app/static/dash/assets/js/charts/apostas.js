@@ -2,19 +2,27 @@
 
 let apostasFiltered=[], apostasSortCol=0, apostasSortAsc=false;
 let apostasColFilters={};
+let apostasTabela=[], apostasAbertasFiltered=[]; // tabela = abertas (topo) + encerradas
 
 const BTBL_ROW_H=68; // altura de linha da tabela de apostas
 
+// Match dos filtros de coluna (texto por coluna) — reusado p/ encerradas e abertas.
+function _apostasColMatch(r){
+  return APOSTAS_COLS.every((col,i)=>{
+    const f=(apostasColFilters[i]||'').toLowerCase().trim();
+    if(!f)return true;
+    const v=col==='lucro'?r.lucro.toFixed(2):col==='stake'?r.stake.toString():col==='odd'?r.odd.toString():(r[col]||'').toString();
+    return v.toLowerCase().includes(f);
+  });
+}
+
 function renderApostas(){
   const baseRows=filtrarPagina('apostas');
-  apostasFiltered=baseRows.filter(r=>{
-    return APOSTAS_COLS.every((col,i)=>{
-      const f=(apostasColFilters[i]||'').toLowerCase().trim();
-      if(!f)return true;
-      const v=col==='lucro'?r.lucro.toFixed(2):col==='stake'?r.stake.toString():col==='odd'?r.odd.toString():(r[col]||'').toString();
-      return v.toLowerCase().includes(f);
-    });
-  });
+  apostasFiltered=baseRows.filter(_apostasColMatch);
+  // Abertas: mesmos filtros da página; NÃO entram nos KPIs (ainda sem resultado).
+  // Ficam no topo da tabela, mais recentes primeiro.
+  apostasAbertasFiltered=filtrarAbertas('apostas').filter(_apostasColMatch)
+    .sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:0);
   apostasFiltered.sort((a,b)=>{
     const col=APOSTAS_COLS[apostasSortCol];
     const av=APOSTAS_NUM.includes(apostasSortCol)?parseFloat(a[col]||0):String(a[col]||'');
@@ -22,6 +30,7 @@ function renderApostas(){
     const res=APOSTAS_NUM.includes(apostasSortCol)?(av-bv):av.localeCompare(bv);
     return apostasSortAsc?res:-res;
   });
+  apostasTabela=apostasAbertasFiltered.concat(apostasFiltered); // abertas no topo
   // KPI
   const pl=apostasFiltered.reduce((a,r)=>a+r.lucro,0);
   const stake=calcTurnover(apostasFiltered);   // turnover exclui Void
@@ -39,7 +48,8 @@ function renderApostas(){
       apostasFiltered.filter(r=>r.resultado==='HW').length?`<span class="res-hw">HW:${apostasFiltered.filter(r=>r.resultado==='HW').length}</span>`:'',
       apostasFiltered.filter(r=>r.resultado==='L').length?`<span class="res-l">L:${apostasFiltered.filter(r=>r.resultado==='L').length}</span>`:'',
       apostasFiltered.filter(r=>r.resultado==='HL').length?`<span class="res-hl">HL:${apostasFiltered.filter(r=>r.resultado==='HL').length}</span>`:'',
-      apostasFiltered.filter(r=>r.resultado==='V').length?`<span class="res-v">V:${apostasFiltered.filter(r=>r.resultado==='V').length}</span>`:''
+      apostasFiltered.filter(r=>r.resultado==='V').length?`<span class="res-v">V:${apostasFiltered.filter(r=>r.resultado==='V').length}</span>`:'',
+      apostasAbertasFiltered.length?`<span style="color:var(--warn)">Abertas:${apostasAbertasFiltered.length}</span>`:''
     ].filter(Boolean).join('');
     const activeTips=[...new Set(apostasFiltered.map(r=>r.tipster).filter(Boolean))];
     const row1=[
@@ -61,7 +71,8 @@ function renderApostas(){
   // Contador e sort arrows no header da tabela
   const counter=document.getElementById('apostasCounter');
   if(counter){
-    counter.textContent=`${apostasFiltered.length.toLocaleString('pt-BR')} de ${baseRows.length.toLocaleString('pt-BR')} apostas`;
+    counter.textContent=`${apostasFiltered.length.toLocaleString('pt-BR')} de ${baseRows.length.toLocaleString('pt-BR')} apostas`
+      +(apostasAbertasFiltered.length?` · ${apostasAbertasFiltered.length.toLocaleString('pt-BR')} aberta${apostasAbertasFiltered.length>1?'s':''}`:'');
   }
   document.querySelectorAll('.btbl-th.sortable').forEach(th=>{
     const ci=parseInt(th.dataset.col);
@@ -78,7 +89,7 @@ function renderApostas(){
 function renderApostasVirt(){
   const cont=document.getElementById('apostasCont');
   if(!cont)return;
-  const rows=apostasFiltered;
+  const rows=apostasTabela;
   const total=rows.length;
   const wrapper=document.getElementById('apostasCardWrap');
   if(!wrapper)return;
@@ -89,7 +100,7 @@ function renderApostasVirt(){
   const endIdx=Math.min(total,Math.ceil((scrollTop+contH)/BTBL_ROW_H)+buf);
   const topPad=startIdx*BTBL_ROW_H;
   const botPad=Math.max(0,(total-endIdx)*BTBL_ROW_H);
-  const RES_SHORT={W:'W',HW:'½W',L:'L',HL:'½L',V:'V'};
+  const RES_SHORT={W:'W',HW:'½W',L:'L',HL:'½L',V:'V',ABERTA:'Aberta'};
   const lines=rows.slice(startIdx,endIdx).map(r=>{
     const d=r.data.slice(0,10);
     const [yr,mo,dy]=d.split('-');
@@ -117,7 +128,7 @@ function renderApostasVirt(){
       <div class="btbl-cell" style="display:flex;align-items:center;justify-content:center">
         <span class="bet-res-pill ${resClass}">${resLabel}</span>
       </div>
-      <div class="btbl-cell btbl-pl">${fmtPL(r.lucro)}</div>
+      <div class="btbl-cell btbl-pl">${r.resultado==='ABERTA'?'<span style="color:var(--ink-mute)">—</span>':fmtPL(r.lucro)}</div>
     </div>`;
   }).join('');
   wrapper.innerHTML=

@@ -173,6 +173,11 @@ function sportCell(nome){
 }
 
 let DADOS=[], charts={};
+// Apostas AINDA ABERTAS (sem resultado — planilhadas antes do encerramento).
+// Ficam FORA de DADOS de propósito: o dashboard é de apostas encerradas, então
+// elas não entram em nenhuma métrica/gráfico; aparecem só na lista de Apostas,
+// marcadas como "Aberta". Preenchido por aplicarFeed() junto com DADOS.
+let DADOS_ABERTAS=[];
 
 // Theme
 
