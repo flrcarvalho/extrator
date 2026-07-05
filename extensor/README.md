@@ -28,6 +28,9 @@ cada uma numa casa. O código carrega dono + casa + parceiro + modo.
 
 - **Superbet** (e demais) → modo **print** (moldura fixa + Snap). ✅
 - **Betano** → modo **texto** (robô rola a página, colhe e deduplica os bilhetes). ✅
+  Para de rolar ao passar da **janela de look-back** (padrão 30 dias, ajustável no
+  popup) — não vai até o começo da conta todo dia. O backend ignora o que já foi
+  resolvido (dedup por ID), então a janela folgada é segura.
 
 ## Instalar (modo desenvolvedor / unpacked)
 

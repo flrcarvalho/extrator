@@ -30,6 +30,12 @@ $("codigo").addEventListener("input", (e) => {
 });
 $("codigo").addEventListener("keydown", (e) => { if (e.key === "Enter") conectar(); });
 
+$("lookback").addEventListener("change", (e) => {
+  const n = Math.max(1, Math.min(365, Number(e.target.value) || 30));
+  e.target.value = n;
+  chrome.storage.local.set({ lookbackDias: n });
+});
+
 $("btn-conectar").addEventListener("click", conectar);
 $("btn-desconectar").addEventListener("click", desconectar);
 $("btn-capturar").addEventListener("click", capturar);
@@ -117,8 +123,13 @@ async function render() {
     else { fav.style.display = "none"; }
     const texto = st.modo === "texto";
     $("nota-texto").hidden = !texto;
+    $("janela-wrap").hidden = !texto;
     $("btn-capturar").hidden = false;   // vale nos dois modos
     $("cap-label").textContent = texto ? "Copiar bilhetes" : "Capturar";
+    if (texto) {
+      const { lookbackDias } = await chrome.storage.local.get("lookbackDias");
+      $("lookback").value = lookbackDias || 30;
+    }
   } else {
     telaConectar.hidden = false;
     telaConectado.hidden = true;

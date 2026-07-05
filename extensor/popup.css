@@ -103,6 +103,12 @@ body {
 .nota { margin: 13px 0 0; color: var(--ink-soft); font-size: 12px; line-height: 1.45;
   background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 10px; }
 .nota b { color: var(--ink); }
+.janela { display: flex; align-items: center; gap: 7px; margin-top: 10px;
+  font-size: 12px; color: var(--ink-soft); }
+.janela input { width: 54px; background: #0A0D12; border: 1px solid var(--line);
+  border-radius: 7px; padding: 6px 8px; color: var(--ink); font-family: var(--font-mono);
+  font-size: 13px; text-align: center; outline: none; }
+.janela input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46,139,255,.16); }
 
 /* ── Mensagem + rodapé ─────────────────────────────────────────────────────── */
 .msg { margin: 0; padding: 0 17px; min-height: 15px; font-size: 12px; }

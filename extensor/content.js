@@ -281,6 +281,25 @@
     return best;
   }
 
+  // Datas em pt-BR: "28/06/2026", "28/06/26", "28 de jun. de 2026", "28 de junho de 2026".
+  const _MESES = { jan: 0, fev: 1, mar: 2, abr: 3, mai: 4, jun: 5, jul: 6, ago: 7, set: 8, out: 9, nov: 10, dez: 11 };
+  function parseDatas(txt) {
+    const out = [];
+    let m;
+    const re1 = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g;
+    while ((m = re1.exec(txt))) {
+      let y = +m[3]; if (y < 100) y += 2000;
+      const ts = Date.UTC(y, +m[2] - 1, +m[1]);
+      if (!isNaN(ts)) out.push(ts);
+    }
+    const re2 = /(\d{1,2})\s+de\s+([a-zç]{3,})\.?\s+de\s+(\d{4})/g;
+    while ((m = re2.exec(txt))) {
+      const mes = _MESES[m[2].slice(0, 3)];
+      if (mes !== undefined) out.push(Date.UTC(+m[3], mes, +m[1]));
+    }
+    return out;
+  }
+
   async function iniciarRobo() {
     if (roboRodando) return;
     roboRodando = true;
@@ -288,12 +307,26 @@
     let parar = false;
     painel.btnParar.onclick = () => { parar = true; };
 
+    // Look-back: para de rolar ao passar de N dias atrás (janela configurável).
+    // Lê a data da APOSTA do texto (a Betano ordena por ela, do topo=recente pro
+    // fundo=antigo). Defensivo: se não reconhecer nenhuma data, `passou` fica false
+    // → rola até o fim (comportamento seguro). Custo real: ver dedup por ID no
+    // backend — token escala com bilhetes novos, não com o histórico.
+    const { lookbackDias } = await chrome.storage.local.get("lookbackDias");
+    const N = Math.max(1, Number(lookbackDias) || 30);
+    const cutoff = Date.now() - N * 86400000;
+    const pisoSanidade = cutoff - 730 * 86400000;   // ignora datas antigas demais (rodapés etc.)
+    let passou = false;
+
     const cont = acharScroll();
     const vistos = new Set(), blocos = [];
     const push = (t) => {
       t = (t || "").trim();
       const k = t.replace(/\s+/g, " ").toLowerCase();
-      if (k.length >= 20 && !vistos.has(k)) { vistos.add(k); blocos.push(t); }
+      if (k.length >= 20 && !vistos.has(k)) {
+        vistos.add(k); blocos.push(t);
+        for (const ts of parseDatas(k)) { if (ts < cutoff && ts > pisoSanidade) passou = true; }
+      }
     };
     const coletar = () => {
       const raiz = esDoc(cont) ? document.body : cont;
@@ -313,6 +346,7 @@
     while (!parar && voltas < 400) {
       voltas++;
       coletar();
+      if (passou && voltas >= 2) break;   // passou da janela de N dias → chega (já colheu a borda)
       const top = sTop(cont), max = sMax(cont);
       if (top >= max - 2) { coletar(); break; }
       sTo(cont, top + sClient(cont) * 0.8);
