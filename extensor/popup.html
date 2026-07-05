@@ -31,7 +31,9 @@
              spellcheck="false" placeholder="ABCD-EFGH" maxlength="9">
     </div>
     <button id="btn-conectar" class="btn btn--primary btn--block">Parear</button>
-    <button id="toggle-cfg" class="link">Configurar servidor</button>
+    <!-- Config de servidor: só p/ dev/teste (default = www.sharpen.bet). Escondido do
+         usuário final; reabilitar tirando o hidden se precisar apontar p/ um preview. -->
+    <button id="toggle-cfg" class="link" hidden>Configurar servidor</button>
     <div id="cfg" class="cfg" hidden>
       <label class="cfg-label" for="api-base">URL da API</label>
       <input id="api-base" class="code-input alt" type="url" placeholder="https://www.sharpen.bet">
@@ -63,7 +65,7 @@
 
   <p id="msg" class="msg"></p>
 
-  <div class="foot"><span class="cnt">by <b>FDC&nbsp;Capital</b></span><span class="ver">v0.1</span></div>
+  <div class="foot"><span class="cnt">by <b>FDC&nbsp;Capital</b></span><span class="ver">v0.2.0</span></div>
 
   <script src="config.js"></script>
   <script src="popup.js"></script>

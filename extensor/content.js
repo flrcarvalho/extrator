@@ -424,13 +424,15 @@
     const evs = t.events || [];
     L.push("Seleções (" + evs.length + "):");
     for (const e of evs) {
-      const nome = Array.isArray(e.name) ? e.name.join(" ") : (e.name || "");
+      const nome = Array.isArray(e.name) ? e.name.join(" — ") : (e.name || "");
       const mkt = (e.market && e.market.name) || "";
-      const sel = (e.odd && e.odd.name) || "";
+      let sel = (e.odd && e.odd.name) || "";
+      if (sel && sel === mkt) sel = "";   // evita duplicação (mercado == seleção)
       const oc = e.odd && e.odd.coefficient;
       const dt = _dbr(e.date);
-      L.push("  • " + (dt ? dt + " · " : "") + nome + (mkt ? " · " + mkt : "") +
-             (sel ? " — " + sel : "") + (oc != null ? " @ " + _odd(oc) : ""));
+      const desc = [mkt, sel].filter(Boolean).join(" — ");
+      L.push("  • " + (dt ? dt + " · " : "") + nome + (desc ? " · " + desc : "") +
+             (oc != null ? " @ " + _odd(oc) : ""));
     }
     return L.join("\n");
   }

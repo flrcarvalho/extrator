@@ -114,11 +114,19 @@ async function capturar() {
   }
 }
 
+// Re-renderiza quando o estado de conexão muda no storage (ex.: o background
+// remove o token ao expirar a sessão → o popup sai de "Conectado" na hora, sem
+// ficar mostrando estado velho). Não re-renderiza em writes de lookback/stopId.
+chrome.storage.onChanged.addListener((ch, area) => {
+  if (area === "local" && ("token" in ch || "casa" in ch || "modo" in ch || "lastError" in ch)) render();
+});
+
 async function render() {
   const st = await chrome.storage.local.get(["token", "casa", "parceiro", "modo", "lastError"]);
   if (st.token) {
     telaConectar.hidden = true;
     telaConectado.hidden = false;
+    setMsg("", "");                 // conectado é auto-explicativo; sem erro velho
     setStatusPill(true);
     $("c-casa").textContent = st.casa || "—";
     $("c-parceiro").textContent = st.parceiro || "—";
