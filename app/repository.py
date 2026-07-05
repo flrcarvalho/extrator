@@ -193,6 +193,11 @@ def parse_tsv(tsv: str) -> list[dict]:
 # é um ID que EXISTE no texto-fonte. Nunca inventa: se não dá para recuperar com
 # segurança, deixa o ID como veio e conta como "incerto".
 _ID_TEXTO_RE = re.compile(r"ID:\s*(\d{12,25})")
+# Superbet: o código vem exato do DOM no marcador [Código: XXXX-XXXXXX] (alfanumérico,
+# ~11 chars). Só entra no conjunto de IDs reais para VALIDAR (claim exato); o gate
+# _ID_MINLEN=16 abaixo bloqueia naturalmente o snap por edit-distance nesses códigos
+# curtos — logo, código Superbet errado vira "incerto", nunca é corrompido por snap.
+_ID_SUPERBET_RE = re.compile(r"\[Código:\s*([0-9A-Za-z]{3,6}-[0-9A-Za-z]{4,8})\]")
 _ID_MINLEN = 16    # ID muito curto = a IA truncou demais → irrecuperável, não arrisca
 _ID_MARGIN = 3     # o ID real mais próximo tem de ganhar do 2º por ≥3 (senão ambíguo)
 _ID_MAXDIST = 8    # acima disso a leitura destruiu o número → não confia no snap
@@ -228,7 +233,9 @@ def corrigir_codigos_tsv(tsv: str, texto: str | None) -> tuple[str, dict]:
     """
     if not texto:
         return tsv, {"corrigidos": 0, "incertos": 0}
-    reais = _ID_TEXTO_RE.findall(texto)
+    # Betano (ID: numérico) + Superbet ([Código: alfanumérico]). Numa extração o texto
+    # é de uma casa só, então os dois nunca se misturam no mesmo colar.
+    reais = _ID_TEXTO_RE.findall(texto) + _ID_SUPERBET_RE.findall(texto)
     if not reais:
         return tsv, {"corrigidos": 0, "incertos": 0}
     reais_set = set(reais)
