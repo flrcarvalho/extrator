@@ -18,27 +18,20 @@
   const get = () => chrome.storage.local.get(["token", "modo", "frameAtivo", "frameRect", "frameCount"]);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // Sessão da API da Superbet, capturada pelo sb_inject.js (mundo MAIN) → habilita
-  // o modo API (sem clique). urlBase = URL de /tickets sem a query string.
-  let sbSession = null;
+  // Tickets da Superbet capturados pelo sb_inject.js (mundo MAIN) — as RESPOSTAS
+  // JSON que a própria página recebe da API. O robô só rola a lista p/ a página
+  // paginar; a extensão lê o dado exato do site, sem clicar e sem requisição nova.
+  const sbTickets = [];
+  const sbTicketSeen = new Set();
   window.addEventListener("message", (ev) => {
     const d = ev.data;
-    if (d && d.__sharpenupSB && d.sessionId && d.url) {
-      sbSession = { sessionId: d.sessionId, urlBase: String(d.url) };   // URL completa
+    if (d && d.__sharpenupSBData && Array.isArray(d.tickets)) {
+      for (const t of d.tickets) {
+        const c = t && t.ticketId;
+        if (c && !sbTicketSeen.has(c)) { sbTicketSeen.add(c); sbTickets.push(t); }
+      }
     }
   });
-  // Fallback sem corrida de timing: o sb_inject também grava a sessão num atributo
-  // do DOM; lê de lá se o postMessage não chegou.
-  function lerSbSessionDoDOM() {
-    try {
-      const a = document.documentElement.getAttribute("data-sharpenup-sb");
-      if (a) {
-        const d = JSON.parse(decodeURIComponent(a));
-        if (d && d.sessionId && d.url) return { sessionId: d.sessionId, urlBase: String(d.url) };
-      }
-    } catch (e) {}
-    return null;
-  }
 
   function bladeSVG(w, h) {
     return '<svg viewBox="40 10 40 100" width="' + w + '" height="' + h + '" style="pointer-events:none">' +
@@ -345,22 +338,10 @@
 
     let blocos;
     if ((cfg.casa || "").toLowerCase() === "superbet") {
-      // Dá um tempinho pra capturar a sessão (a página busca /tickets no load).
-      // Tenta o postMessage E o atributo do DOM (robusto a timing).
-      for (let i = 0; i < 12 && !sbSession; i++) { sbSession = sbSession || lerSbSessionDoDOM(); if (sbSession) break; await sleep(200); }
-      // Modo API (sem clique) se capturamos a sessão; senão cai no clique/DOM.
-      if (sbSession) {
-        try {
-          blocos = await roboSuperbetAPI(ctx, sbSession);
-          if (!blocos.length) { console.log("[SharpenUp] API vazia → modo clique"); blocos = await roboSuperbet(ctx); }
-        } catch (e) {
-          console.log("[SharpenUp] API erro:", e && e.message, "→ modo clique");
-          toastLocal("API indisponível — usando modo clique.", false);
-          blocos = await roboSuperbet(ctx);
-        }
-      } else {
-        blocos = await roboSuperbet(ctx);
-      }
+      // Modo passivo (rola + lê o JSON que a página recebe). Se nada foi capturado
+      // (sb_inject inativo), cai no modo clique/DOM.
+      blocos = await roboSuperbetPassive(ctx);
+      if (!blocos.length) { console.log("[SharpenUp] nada capturado da API → modo clique"); blocos = await roboSuperbet(ctx); }
     } else {
       blocos = await roboScroll(ctx);   // Betano + genéricos
     }
@@ -454,45 +435,54 @@
     return L.join("\n");
   }
 
-  // Monta a URL de cada página a partir da URL EXATA que a página usou (mesmos
-  // host/path/params), só forçando status=finished e trocando o cursor lastId.
-  function _sbUrl(fullUrl, lastId) {
-    const u = new URL(fullUrl);
-    u.searchParams.set("status", "finished");
-    if (!u.searchParams.get("type")) u.searchParams.set("type", "sports");
-    if (!u.searchParams.get("locale")) u.searchParams.set("locale", "pt-BR");
-    if (!u.searchParams.get("count")) u.searchParams.set("count", "20");
-    if (lastId) u.searchParams.set("lastId", lastId); else u.searchParams.delete("lastId");
-    return u.toString();
-  }
+  // Modo passivo: rola a lista p/ a página paginar (lazy-load) e vai consumindo os
+  // tickets que o sb_inject captura das RESPOSTAS da API (JSON exato do site). Sem
+  // clique. Para no stopId (copiar dele pra cima) ou na janela de dias.
+  async function roboSuperbetPassive(ctx) {
+    const cont = document.querySelector(".sb-my-bets__items") || acharScroll();
+    const blocos = [], usados = new Set();
+    let travado = false;
 
-  async function roboSuperbetAPI(ctx, sess) {
-    let lastId = "", blocos = [], vistos = new Set(), travado = false, paginas = 0;
-    while (!ctx.parar() && !travado && paginas < 300) {
-      paginas++;
-      const url = _sbUrl(sess.urlBase, lastId);
-      const r = await fetch(url, { headers: { sessionId: sess.sessionId }, credentials: "omit" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      let arr = await r.json();
-      if (!Array.isArray(arr)) arr = arr.data || arr.tickets || [];
-      console.log("[SharpenUp] API pág", paginas, "· itens:", arr.length, "·", url);
-      if (!arr.length) break;
-      let novos = 0;
-      for (const t of arr) {
+    const processar = () => {
+      for (const t of sbTickets) {
         const cod = (t.ticketId || "").toUpperCase();
-        if (!cod || vistos.has(cod)) continue;
-        if (ctx.stopId && cod === ctx.stopId) { travado = true; break; }   // chegou no último já extraído
-        vistos.add(cod); novos++;
-        lastId = t.ticketId;   // cursor da próxima página
+        if (!cod || usados.has(cod)) continue;
+        if (ctx.stopId && cod === ctx.stopId) { travado = true; return; }   // último já extraído
+        usados.add(cod);
         const dt = t.dateReceived ? Date.parse(t.dateReceived) : NaN;
         const passou = !isNaN(dt) && dt < ctx.cutoff && dt > ctx.pisoSanidade;
         blocos.push(formatTicket(t));
         ctx.painel.contador.textContent = blocos.length + " bilhete" + (blocos.length === 1 ? "" : "s");
-        if (passou) { travado = true; break; }   // passou da janela de dias → para
+        if (passou) { travado = true; return; }   // passou da janela → para
       }
-      if (!novos) break;   // nada novo nesta página → fim (evita loop)
-      await sleep(120);
+    };
+
+    // Pede ao sb_inject o que ele já capturou (a 1ª página vem no load da página,
+    // antes deste content script estar pronto pra ouvir).
+    try { window.postMessage({ __sharpenupSBReq: true }, "*"); } catch (e) {}
+    await sleep(250);
+    processar();                 // o que já veio no load da página
+    sTo(cont, 0); await sleep(450);
+    let voltas = 0, semNovo = 0, ultTotal = -1, ultMax = -1;
+    while (!ctx.parar() && !travado && voltas < 800) {
+      voltas++;
+      processar();
+      if (travado) break;
+      const top = sTop(cont), max = sMax(cont);
+      const cresceu = sbTickets.length > ultTotal || max > ultMax + 4;
+      ultTotal = sbTickets.length; ultMax = max;
+      if (top >= max - 4) {                 // no fundo → espera a página paginar (lazy-load)
+        sTo(cont, max);
+        if (cresceu) semNovo = 0; else if (++semNovo >= 5) break;
+        await sleep(700);
+      } else {
+        semNovo = 0;
+        sTo(cont, top + sClient(cont) * 0.85);
+        await sleep(450);
+      }
     }
+    processar();
+    console.log("[SharpenUp] passivo: " + blocos.length + " bilhete(s) da API");
     return blocos;
   }
 
