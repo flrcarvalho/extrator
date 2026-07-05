@@ -1089,7 +1089,7 @@ table.pm-ativas td.c-merc { color:var(--ink); }
   display: flex; gap: 10px; flex-wrap: wrap;
 }
 .token-bar span span { color: var(--ink-soft); }
-.analysis-boxes { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.analysis-boxes { flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
 .analysis-box {
   display: flex; flex-direction: column; flex: 1;
 }
@@ -1155,7 +1155,9 @@ td.c-res.res-HL { color: var(--warn); }
 /* ── Rail Análise IA / Confiança (4.4) — resumo da extração ──
    Padrão do modelo "Planilhador (Modelo)": pill de estado + 3 KPIs
    (Itens · Duplicadas · Confiança) + notas com tarja (info/warn/ok) + rodapé.
-   Só tokens (sem cor literal — check-tokens §paleta). Convive ACIMA dos cards. */
+   Só tokens (sem cor literal — check-tokens §paleta). Convive ACIMA dos cards.
+   Rola dentro de si quando as notas são longas (não empurra os cards da fila para
+   fora da dobra); quando há card na fila, cede metade da altura para eles. */
 .rail-pill {
   font-family: var(--font-mono);
   font-size: 9.5px; font-weight: 600; letter-spacing: .04em;
@@ -1170,7 +1172,10 @@ td.c-res.res-HL { color: var(--warn); }
 @keyframes railpulse { 0%{transform:scale(.7);opacity:.7} 70%{transform:scale(1.6);opacity:0} 100%{opacity:0} }
 @media (prefers-reduced-motion: reduce) { .rail-pill.run .rp-dot { animation: none; } }
 
-.rail-summary { flex-shrink: 0; display: flex; flex-direction: column; }
+.rail-summary { flex: 0 1 auto; overflow-y: auto; display: flex; flex-direction: column; }
+/* Havendo card(s) na fila, o resumo cede espaço para eles sempre aparecerem
+   (miniaturas + spinner). Sem card, o resumo pode usar a coluna inteira. */
+.right-panel:has(.extract-card) .rail-summary { max-height: 50%; }
 .rail-sum {
   padding: 16px 18px; border-bottom: 1px solid var(--line);
   display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
