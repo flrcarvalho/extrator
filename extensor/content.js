@@ -416,12 +416,6 @@
     const win = t.win || {};
     const stake = pay.stake != null ? pay.stake : pay.total;
     const evs = t.events || [];
-    // DIAG temporário: loga a estrutura do 1º evento "Criar Aposta" (mercado/odd
-    // vazios) p/ mapear onde ficam os sub-mercados. Removido depois de mapeado.
-    if (!window.__suDiag) {
-      const ce = evs.find((e) => !((e.market && e.market.name) || (e.odd && e.odd.name)));
-      if (ce) { window.__suDiag = 1; console.log("[SharpenUp][DIAG] " + t.ticketId + " event:", JSON.stringify(ce)); }
-    }
     const cashout = !!win.isCashedOut;
     const L = [];
     L.push("[Código: " + (t.ticketId || "") + "]");
@@ -446,9 +440,19 @@
       const mkt = (e.market && e.market.name) || "";
       let sel = (e.odd && e.odd.name) || "";
       if (sel && sel === mkt) sel = "";   // evita duplicação (mercado == seleção)
+      let desc = [mkt, sel].filter(Boolean).join(" — ");
+      // Criar Aposta / bet-builder: mercado/odd vazios no topo → as sub-seleções ficam
+      // em eventComponents (cada uma: market.name + oddComponent.name).
+      const comps = Array.isArray(e.eventComponents) ? e.eventComponents : [];
+      if (!desc && comps.length) {
+        desc = comps.map((c) => {
+          const cm = (c.market && c.market.name) || "";
+          const cs = (c.oddComponent && c.oddComponent.name) || "";
+          return [cm, cs].filter(Boolean).join(": ");
+        }).filter(Boolean).join(" + ");
+      }
       const oc = e.odd && e.odd.coefficient;
       const dt = _dbr(e.date);
-      const desc = [mkt, sel].filter(Boolean).join(" — ");
       L.push("  • " + (dt ? dt + " · " : "") + nome + (desc ? " · " + desc : "") +
              (oc != null ? " @ " + _odd(oc) : ""));
     }
