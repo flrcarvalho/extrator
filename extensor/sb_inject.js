@@ -24,7 +24,7 @@
     const w = function (...a) {
       try {
         const url = (a[0] && a[0].url) || a[0];
-        if (/\/tickets\//.test(String(url))) {
+        if (/\/user\/\d+\/tickets/.test(String(url))) {
           let sid = "";
           const hh = (a[1] && a[1].headers) || (a[0] && a[0].headers);
           if (hh) {
@@ -52,7 +52,7 @@
       return osh.apply(this, arguments);
     };
     const sendW = function () {
-      try { if (/\/tickets\//.test(String(this.__suU))) envia(this.__suU, this.__suSid); } catch (e) {}
+      try { if (/\/user\/\d+\/tickets/.test(String(this.__suU))) envia(this.__suU, this.__suSid); } catch (e) {}
       return os.apply(this, arguments);
     };
     sendW.__suWrapped = true;

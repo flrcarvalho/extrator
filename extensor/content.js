@@ -24,7 +24,7 @@
   window.addEventListener("message", (ev) => {
     const d = ev.data;
     if (d && d.__sharpenupSB && d.sessionId && d.url) {
-      sbSession = { sessionId: d.sessionId, urlBase: String(d.url).split("?")[0] };
+      sbSession = { sessionId: d.sessionId, urlBase: String(d.url) };   // URL completa
     }
   });
   // Fallback sem corrida de timing: o sb_inject também grava a sessão num atributo
@@ -34,7 +34,7 @@
       const a = document.documentElement.getAttribute("data-sharpenup-sb");
       if (a) {
         const d = JSON.parse(decodeURIComponent(a));
-        if (d && d.sessionId && d.url) return { sessionId: d.sessionId, urlBase: String(d.url).split("?")[0] };
+        if (d && d.sessionId && d.url) return { sessionId: d.sessionId, urlBase: String(d.url) };
       }
     } catch (e) {}
     return null;
@@ -350,8 +350,14 @@
       for (let i = 0; i < 12 && !sbSession; i++) { sbSession = sbSession || lerSbSessionDoDOM(); if (sbSession) break; await sleep(200); }
       // Modo API (sem clique) se capturamos a sessão; senão cai no clique/DOM.
       if (sbSession) {
-        try { blocos = await roboSuperbetAPI(ctx, sbSession); }
-        catch (e) { toastLocal("API indisponível — usando modo clique.", false); blocos = await roboSuperbet(ctx); }
+        try {
+          blocos = await roboSuperbetAPI(ctx, sbSession);
+          if (!blocos.length) { console.log("[SharpenUp] API vazia → modo clique"); blocos = await roboSuperbet(ctx); }
+        } catch (e) {
+          console.log("[SharpenUp] API erro:", e && e.message, "→ modo clique");
+          toastLocal("API indisponível — usando modo clique.", false);
+          blocos = await roboSuperbet(ctx);
+        }
       } else {
         blocos = await roboSuperbet(ctx);
       }
@@ -448,23 +454,35 @@
     return L.join("\n");
   }
 
+  // Monta a URL de cada página a partir da URL EXATA que a página usou (mesmos
+  // host/path/params), só forçando status=finished e trocando o cursor lastId.
+  function _sbUrl(fullUrl, lastId) {
+    const u = new URL(fullUrl);
+    u.searchParams.set("status", "finished");
+    if (!u.searchParams.get("type")) u.searchParams.set("type", "sports");
+    if (!u.searchParams.get("locale")) u.searchParams.set("locale", "pt-BR");
+    if (!u.searchParams.get("count")) u.searchParams.set("count", "20");
+    if (lastId) u.searchParams.set("lastId", lastId); else u.searchParams.delete("lastId");
+    return u.toString();
+  }
+
   async function roboSuperbetAPI(ctx, sess) {
-    const base = sess.urlBase;
     let lastId = "", blocos = [], vistos = new Set(), travado = false, paginas = 0;
-    while (!ctx.parar() && !travado && paginas < 200) {
+    while (!ctx.parar() && !travado && paginas < 300) {
       paginas++;
-      const url = base + "?locale=pt-BR&count=20&status=finished&type=sports" +
-                  (lastId ? "&lastId=" + encodeURIComponent(lastId) : "");
+      const url = _sbUrl(sess.urlBase, lastId);
       const r = await fetch(url, { headers: { sessionId: sess.sessionId }, credentials: "omit" });
       if (!r.ok) throw new Error("HTTP " + r.status);
       let arr = await r.json();
       if (!Array.isArray(arr)) arr = arr.data || arr.tickets || [];
+      console.log("[SharpenUp] API pág", paginas, "· itens:", arr.length, "·", url);
       if (!arr.length) break;
+      let novos = 0;
       for (const t of arr) {
         const cod = (t.ticketId || "").toUpperCase();
         if (!cod || vistos.has(cod)) continue;
         if (ctx.stopId && cod === ctx.stopId) { travado = true; break; }   // chegou no último já extraído
-        vistos.add(cod);
+        vistos.add(cod); novos++;
         lastId = t.ticketId;   // cursor da próxima página
         const dt = t.dateReceived ? Date.parse(t.dateReceived) : NaN;
         const passou = !isNaN(dt) && dt < ctx.cutoff && dt > ctx.pisoSanidade;
@@ -472,8 +490,8 @@
         ctx.painel.contador.textContent = blocos.length + " bilhete" + (blocos.length === 1 ? "" : "s");
         if (passou) { travado = true; break; }   // passou da janela de dias → para
       }
-      if (arr.length < 20) break;   // última página
-      await sleep(120);             // respiro entre páginas
+      if (!novos) break;   // nada novo nesta página → fim (evita loop)
+      await sleep(120);
     }
     return blocos;
   }
