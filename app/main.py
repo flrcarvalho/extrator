@@ -782,15 +782,20 @@ async def _stream_parallel(system: list[dict], chunks: list[list[dict]], modelo:
 
     await asyncio.gather(*tasks, return_exceptions=True)
     try:
-        # Regras de ordenação por casa:
+        # Regras de ordenação por casa (a grade exibe o último inserido no topo →
+        # p/ a bet mais nova ficar no topo, o TSV tem de ser salvo do mais ANTIGO p/ o
+        # mais novo, i.e. inverter quando a entrada vem newest-first):
         # - Pinnacle XLS: texto pré-invertido pelo parser → chunk 0 = mais antigo → reverse=False
-        # - Superbet: usuário cola na ordem certa → chunk 0 = primeira bet → reverse=False
-        # - Todo o resto: scroll de cima p/ baixo = mais recentes primeiro → reverse=True
+        # - Superbet PRINT: usuário cola na ordem certa → reverse=False
+        # - Superbet TEXTO (scanner) e todo o resto: entrada newest-first → reverse=True
         is_xls_mode = any(
             isinstance(b, dict) and b.get("type") == "text" and "=== Aposta ID" in b.get("text", "")
             for b in chunks[0]
         )
-        reverse_chunks = not (is_xls_mode or casa_key.upper() == "SUPERBET")
+        superbet_print = casa_key.upper() == "SUPERBET" and any(
+            isinstance(b, dict) and b.get("type") == "image" for b in chunks[0]
+        )
+        reverse_chunks = not (is_xls_mode or superbet_print)
         completed.sort(key=lambda x: x[0], reverse=reverse_chunks)
         resultado, total_tokens, scroll_overlap_indices = _combine_parallel_results(completed)
         logger.info("par total: %.1fs | chunks=%d | out=%d",
