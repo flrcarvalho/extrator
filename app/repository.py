@@ -445,6 +445,31 @@ async def upsert_bilhetes(
     id_per_row: list[int | None] = []           # db_id por posição de row
 
     async with pool.acquire() as conn:
+        # Rede de segurança (camada 2): índice dos bilhetes que JÁ estão no banco COM
+        # código, por (casa, parceiro, stake, odd). Serve para avisar quando uma linha
+        # que chega SEM código bater com um bilhete já salvo COM código nesta conta —
+        # sinal de re-extração que perdeu o ID. A dedup por código não pega (a linha
+        # nova não tem código) e a assinatura de conteúdo inclui `data`, que muda ao
+        # reprocessar em outro dia. Aqui NÃO apaga nem mescla: só sinaliza (`alertas`).
+        coded_por_conta: dict[tuple[str, str, float, str], list[str]] = {}
+        contas_sem_cod = {
+            (row.get("casa", ""), row.get("parceiro", ""))
+            for row in rows if not row.get("codigo_bilhete", "").strip()
+        }
+        for casa_k, parc_k in contas_sem_cod:
+            recs = await conn.fetch(
+                """SELECT codigo_bilhete, stake, odd FROM bilhetes
+                   WHERE dono = $1 AND casa = $2 AND parceiro = $3
+                     AND codigo_bilhete IS NOT NULL AND btrim(codigo_bilhete) <> ''""",
+                dono, casa_k, parc_k,
+            )
+            for rr in recs:
+                st = _num(rr["stake"])
+                if st <= 0:
+                    continue
+                k = (casa_k, parc_k, round(st, 2), _norm_odd(rr["odd"] or ""))
+                coded_por_conta.setdefault(k, []).append(rr["codigo_bilhete"])
+
         for i, row in enumerate(rows):
             codigo = row.get("codigo_bilhete", "").strip()
 
@@ -466,6 +491,21 @@ async def upsert_bilhetes(
                             "se da mesma imagem são apostas distintas (ok); "
                             "se de imagens diferentes pode ser duplicata de scroll — "
                             "verifique e delete se necessário."
+                        )
+
+                # Camada 2: a linha chega SEM código mas bate stake+odd com um bilhete
+                # já salvo COM código nesta conta? Provável re-extração que perdeu o ID
+                # (a dedup por código não pega). Só avisa — não apaga nem mescla.
+                st = _num(row.get("stake"))
+                if st > 0:
+                    k = (row.get("casa", ""), row.get("parceiro", ""),
+                         round(st, 2), _norm_odd(row.get("odd") or ""))
+                    coincid = coded_por_conta.get(k)
+                    if coincid:
+                        alertas.append(
+                            f"Bilhete {i + 1} sem ID visível bate stake+odd com um "
+                            f"bilhete já salvo COM ID (código {coincid[0]}) — provável "
+                            "re-extração que perdeu o ID. Confira e delete este se for repetido."
                         )
             else:
                 sig = _assinatura(row)
