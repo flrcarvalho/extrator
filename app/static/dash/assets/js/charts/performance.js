@@ -209,7 +209,7 @@ function renderCasa(rows){
 let _casaEnts=null,_casaDays=null,_casaAllDays=null;
 let _casaSort={k:'pl',dir:1};
 let _casaDrillEscHandler=null;
-let _casaDrillBaseName=null,_casaDrillBaseRows=[],_casaDrillPeriodSt={qd:0,qt:''};
+let _casaDrillBaseName=null,_casaDrillBaseRows=[],_casaDrillPeriodSt={qd:0,qt:'',df:'',dt:''};
 
 function _mkCasaCard(name,pl,roi,stake,wr,bets,sparkSVG,avgStake,avgOdd){
   const plSign=pl>=0?'+':'−';
@@ -258,10 +258,18 @@ function _renderCasaCards(){
 window.casaSortBy=function(k){_casaSort.k=k;_casaSort.dir=1;_renderCasaCards();};
 window.casaSortDir=function(){_casaSort.dir*=-1;_renderCasaCards();};
 
-// ── Bookie drill-down ────────────────────────────────────────────────────────
-function _sliceCasaDrillRows(){
-  const st=_casaDrillPeriodSt;
-  if(!st.qd&&!st.qt)return _casaDrillBaseRows;
+// ── Período herdado do painel (compartilhado pelos 3 drills) ─────────────────
+// O drill abre já recortado pelo período ativo da aba de origem (gfs(p)).
+// Quando qt é um deslocamento (Hoje/MTD com setinha ≠ 0), o chip padrão do
+// drill apontaria pro dia/mês corrente — então o qt é descartado e o intervalo
+// concreto fica só em df/dt (vira o chip herdado custom).
+function _seedDrillFromPage(p){
+  const st=gfs(p);
+  const shifted=(st.qt==='hoje'&&(st.dayOff||0)!==0)||(st.qt==='mtd'&&(st.monthOff||0)!==0);
+  return{qd:st.qd||0,qt:shifted?'':(st.qt||''),df:st.df||'',dt:st.dt||''};
+}
+
+function _sliceByPeriod(rows,st){
   const today=new Date().toISOString().slice(0,10);
   let df='',dt='';
   if(st.qt==='hoje'){df=dt=today;}
@@ -269,29 +277,55 @@ function _sliceCasaDrillRows(){
   else if(st.qt==='mtd'){df=_mtdStart();dt=today;}
   else if(st.qt==='ytd'){df=new Date().getFullYear()+'-01-01';dt=today;}
   else if(st.qd>0){df=new Date(Date.now()-st.qd*864e5).toISOString().slice(0,10);}
-  return _casaDrillBaseRows.filter(r=>{
+  else{df=st.df||'';dt=st.dt||'';}
+  if(!df&&!dt)return rows;
+  return rows.filter(r=>{
     if(df&&r.data<df)return false;
     if(dt&&r.data>dt)return false;
     return true;
   });
 }
 
-function _updateCasaDrillChips(){
-  const st=_casaDrillPeriodSt;
-  const bar=document.getElementById('casaDrillPeriodBar');
+function _rangeLabel(st){
+  const cy=String(new Date().getFullYear());
+  const f=d=>{const p=d.split('-');return p[2]+'/'+p[1]+(p[0]!==cy?'/'+p[0].slice(2):'');};
+  if(st.df&&st.dt)return st.df===st.dt?f(st.df):f(st.df)+' → '+f(st.dt);
+  return st.df?'desde '+f(st.df):'até '+f(st.dt);
+}
+
+// Intervalo custom = herdado sem chip padrão equivalente (só df/dt)
+function _isCustomRange(st){return !!st&&!st.qt&&!st.qd&&!!(st.df||st.dt);}
+
+function _updateDrillPeriodBar(barId,st,inh){
+  const bar=document.getElementById(barId);
   if(!bar)return;
   bar.querySelectorAll('.qbtn').forEach(b=>{
     let a=false;
-    if(b.dataset.all)a=(st.qd===0&&!st.qt);
+    if(b.dataset.inherit){
+      const show=_isCustomRange(inh);
+      b.style.display=show?'':'none';
+      if(show){
+        b.textContent=_rangeLabel(inh);
+        a=(!st.qt&&!st.qd&&st.df===inh.df&&st.dt===inh.dt);
+      }
+    }
+    else if(b.dataset.all)a=(st.qd===0&&!st.qt&&!st.df&&!st.dt);
     else if(b.dataset.days)a=(st.qd===parseInt(b.dataset.days));
     else if(b.dataset.qt)a=(st.qt===b.dataset.qt);
     b.classList.toggle('active',a);
   });
 }
 
-window.setDrillCasaQuick=function(d){_casaDrillPeriodSt={qd:d,qt:''};_updateCasaDrillChips();renderCasaDrill(_sliceCasaDrillRows());};
-window.setDrillCasaType=function(qt){_casaDrillPeriodSt={qd:0,qt:qt};_updateCasaDrillChips();renderCasaDrill(_sliceCasaDrillRows());};
-window.setDrillCasaAll=function(){_casaDrillPeriodSt={qd:0,qt:''};_updateCasaDrillChips();renderCasaDrill(_sliceCasaDrillRows());};
+// ── Bookie drill-down ────────────────────────────────────────────────────────
+let _casaDrillInheritSt=null;
+function _sliceCasaDrillRows(){return _sliceByPeriod(_casaDrillBaseRows,_casaDrillPeriodSt);}
+
+function _updateCasaDrillChips(){_updateDrillPeriodBar('casaDrillPeriodBar',_casaDrillPeriodSt,_casaDrillInheritSt);}
+
+window.setDrillCasaQuick=function(d){_casaDrillPeriodSt={qd:d,qt:'',df:'',dt:''};_updateCasaDrillChips();renderCasaDrill(_sliceCasaDrillRows());};
+window.setDrillCasaType=function(qt){_casaDrillPeriodSt={qd:0,qt:qt,df:'',dt:''};_updateCasaDrillChips();renderCasaDrill(_sliceCasaDrillRows());};
+window.setDrillCasaAll=function(){_casaDrillPeriodSt={qd:0,qt:'',df:'',dt:''};_updateCasaDrillChips();renderCasaDrill(_sliceCasaDrillRows());};
+window.setDrillCasaInherit=function(){if(!_casaDrillInheritSt)return;_casaDrillPeriodSt={..._casaDrillInheritSt};_updateCasaDrillChips();renderCasaDrill(_sliceCasaDrillRows());};
 
 // Singleton tooltip para linha "Outros"
 let _outrosTip=null;
@@ -507,7 +541,8 @@ function openCasaDrill(nome){
     if(sp.size>0&&!sp.has(r.esporte))return false;
     return true;
   });
-  _casaDrillPeriodSt={qd:0,qt:''};
+  _casaDrillPeriodSt=_seedDrillFromPage('casas');
+  _casaDrillInheritSt={..._casaDrillPeriodSt};
   _updateCasaDrillChips();
 
   overlay.style.display='flex';
@@ -573,41 +608,16 @@ window.saveCasaDrill=async function(){
 
 // ── Sport drill-down ─────────────────────────────────────────────────────────
 let _sportDrillEscHandler=null;
-let _sportDrillBaseName=null,_sportDrillBaseRows=[],_sportDrillPeriodSt={qd:0,qt:''};
+let _sportDrillBaseName=null,_sportDrillBaseRows=[],_sportDrillPeriodSt={qd:0,qt:'',df:'',dt:''},_sportDrillInheritSt=null;
 
-function _sliceSportDrillRows(){
-  const st=_sportDrillPeriodSt;
-  if(!st.qd&&!st.qt)return _sportDrillBaseRows;
-  const today=new Date().toISOString().slice(0,10);
-  let df='',dt='';
-  if(st.qt==='hoje'){df=dt=today;}
-  else if(st.qt==='wtd'){df=_wtdStart();dt=today;}
-  else if(st.qt==='mtd'){df=_mtdStart();dt=today;}
-  else if(st.qt==='ytd'){df=new Date().getFullYear()+'-01-01';dt=today;}
-  else if(st.qd>0){df=new Date(Date.now()-st.qd*864e5).toISOString().slice(0,10);}
-  return _sportDrillBaseRows.filter(r=>{
-    if(df&&r.data<df)return false;
-    if(dt&&r.data>dt)return false;
-    return true;
-  });
-}
+function _sliceSportDrillRows(){return _sliceByPeriod(_sportDrillBaseRows,_sportDrillPeriodSt);}
 
-function _updateSportDrillChips(){
-  const st=_sportDrillPeriodSt;
-  const bar=document.getElementById('sportDrillPeriodBar');
-  if(!bar)return;
-  bar.querySelectorAll('.qbtn').forEach(b=>{
-    let a=false;
-    if(b.dataset.all)a=(st.qd===0&&!st.qt);
-    else if(b.dataset.days)a=(st.qd===parseInt(b.dataset.days));
-    else if(b.dataset.qt)a=(st.qt===b.dataset.qt);
-    b.classList.toggle('active',a);
-  });
-}
+function _updateSportDrillChips(){_updateDrillPeriodBar('sportDrillPeriodBar',_sportDrillPeriodSt,_sportDrillInheritSt);}
 
-window.setDrillSportQuick=function(d){_sportDrillPeriodSt={qd:d,qt:''};_updateSportDrillChips();renderSportDrill(_sliceSportDrillRows());};
-window.setDrillSportType=function(qt){_sportDrillPeriodSt={qd:0,qt:qt};_updateSportDrillChips();renderSportDrill(_sliceSportDrillRows());};
-window.setDrillSportAll=function(){_sportDrillPeriodSt={qd:0,qt:''};_updateSportDrillChips();renderSportDrill(_sliceSportDrillRows());};
+window.setDrillSportQuick=function(d){_sportDrillPeriodSt={qd:d,qt:'',df:'',dt:''};_updateSportDrillChips();renderSportDrill(_sliceSportDrillRows());};
+window.setDrillSportType=function(qt){_sportDrillPeriodSt={qd:0,qt:qt,df:'',dt:''};_updateSportDrillChips();renderSportDrill(_sliceSportDrillRows());};
+window.setDrillSportAll=function(){_sportDrillPeriodSt={qd:0,qt:'',df:'',dt:''};_updateSportDrillChips();renderSportDrill(_sliceSportDrillRows());};
+window.setDrillSportInherit=function(){if(!_sportDrillInheritSt)return;_sportDrillPeriodSt={..._sportDrillInheritSt};_updateSportDrillChips();renderSportDrill(_sliceSportDrillRows());};
 
 function renderSportDrill(rows){
   const pl=rows.reduce((a,r)=>a+r.lucro,0);
@@ -741,7 +751,8 @@ function openSportDrill(sport){
     if(ca.size>0&&!ca.has(r.casa))return false;
     return true;
   });
-  _sportDrillPeriodSt={qd:0,qt:''};
+  _sportDrillPeriodSt=_seedDrillFromPage('sports');
+  _sportDrillInheritSt={..._sportDrillPeriodSt};
   _updateSportDrillChips();
 
   overlay.style.display='flex';
@@ -876,37 +887,11 @@ window.tipsterSortDir=function(){_tipsterSort.dir*=-1;_renderTipCards();};
 
 // ── T-6: drill-down popup ────────────────────────────────────────────────────
 let _drillEscHandler=null;
-let _drillBaseName=null,_drillBaseRows=[],_drillPeriodSt={qd:0,qt:''};
+let _drillBaseName=null,_drillBaseRows=[],_drillPeriodSt={qd:0,qt:'',df:'',dt:''},_drillInheritSt=null;
 
-function _sliceDrillRows(){
-  const st=_drillPeriodSt;
-  if(!st.qd&&!st.qt)return _drillBaseRows;
-  const today=new Date().toISOString().slice(0,10);
-  let df='',dt='';
-  if(st.qt==='hoje'){df=dt=today;}
-  else if(st.qt==='wtd'){df=_wtdStart();dt=today;}
-  else if(st.qt==='mtd'){df=_mtdStart();dt=today;}
-  else if(st.qt==='ytd'){df=new Date().getFullYear()+'-01-01';dt=today;}
-  else if(st.qd>0){df=new Date(Date.now()-st.qd*864e5).toISOString().slice(0,10);}
-  return _drillBaseRows.filter(r=>{
-    if(df&&r.data<df)return false;
-    if(dt&&r.data>dt)return false;
-    return true;
-  });
-}
+function _sliceDrillRows(){return _sliceByPeriod(_drillBaseRows,_drillPeriodSt);}
 
-function _updateDrillChips(){
-  const st=_drillPeriodSt;
-  const bar=document.getElementById('tipsterDrillPeriodBar');
-  if(!bar)return;
-  bar.querySelectorAll('.qbtn').forEach(b=>{
-    let a=false;
-    if(b.dataset.all)a=(st.qd===0&&!st.qt);
-    else if(b.dataset.days)a=(st.qd===parseInt(b.dataset.days));
-    else if(b.dataset.qt)a=(st.qt===b.dataset.qt);
-    b.classList.toggle('active',a);
-  });
-}
+function _updateDrillChips(){_updateDrillPeriodBar('tipsterDrillPeriodBar',_drillPeriodSt,_drillInheritSt);}
 
 function renderTipsterDrill(rows){
   const nome=_drillBaseName;
@@ -1084,7 +1069,8 @@ function openTipsterDrill(nome){
     if(ca.size>0&&!ca.has(r.casa))return false;
     return true;
   });
-  _drillPeriodSt={qd:0,qt:''};
+  _drillPeriodSt=_seedDrillFromPage('tipsters');
+  _drillInheritSt={..._drillPeriodSt};
   _updateDrillChips();
 
   overlay.style.display='flex';
@@ -1100,9 +1086,10 @@ function openTipsterDrill(nome){
 }
 window.openTipsterDrill=openTipsterDrill;
 
-window.setDrillQuick=function(days){_drillPeriodSt={qd:days,qt:''};_updateDrillChips();renderTipsterDrill(_sliceDrillRows());};
-window.setDrillType=function(qt){_drillPeriodSt={qd:0,qt:qt};_updateDrillChips();renderTipsterDrill(_sliceDrillRows());};
-window.setDrillAll=function(){_drillPeriodSt={qd:0,qt:''};_updateDrillChips();renderTipsterDrill(_sliceDrillRows());};
+window.setDrillQuick=function(days){_drillPeriodSt={qd:days,qt:'',df:'',dt:''};_updateDrillChips();renderTipsterDrill(_sliceDrillRows());};
+window.setDrillType=function(qt){_drillPeriodSt={qd:0,qt:qt,df:'',dt:''};_updateDrillChips();renderTipsterDrill(_sliceDrillRows());};
+window.setDrillAll=function(){_drillPeriodSt={qd:0,qt:'',df:'',dt:''};_updateDrillChips();renderTipsterDrill(_sliceDrillRows());};
+window.setDrillInherit=function(){if(!_drillInheritSt)return;_drillPeriodSt={..._drillInheritSt};_updateDrillChips();renderTipsterDrill(_sliceDrillRows());};
 
 function closeTipsterDrill(e){
   if(e&&e.target!==document.getElementById('tipsterDrillOverlay'))return;

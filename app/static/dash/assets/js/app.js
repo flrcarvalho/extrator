@@ -731,6 +731,7 @@ function buildHTML(){
           <button class="no-export" onclick="closeTipsterDrill()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--fdc-steel);border:1px solid var(--line);color:var(--ink-soft);border-radius:8px;cursor:pointer;font-size:15px;flex-shrink:0" title="Fechar">✕</button>
         </div>
         <div id="tipsterDrillPeriodBar" class="no-export" style="padding:.6rem 1.5rem;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          <button class="qbtn" data-inherit="1" style="display:none" onclick="setDrillInherit()" title="Período filtrado no painel"></button>
           <button class="qbtn" data-qt="hoje" onclick="setDrillType('hoje')">Hoje</button>
           <button class="qbtn" data-qt="wtd" onclick="setDrillType('wtd')">WTD</button>
           <button class="qbtn" data-qt="mtd" onclick="setDrillType('mtd')">MTD</button>
@@ -765,6 +766,7 @@ function buildHTML(){
           <button class="no-export" onclick="closeCasaDrill()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--fdc-steel);border:1px solid var(--line);color:var(--ink-soft);border-radius:8px;cursor:pointer;font-size:15px;flex-shrink:0" title="Fechar">✕</button>
         </div>
         <div id="casaDrillPeriodBar" class="no-export" style="padding:.6rem 1.5rem;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          <button class="qbtn" data-inherit="1" style="display:none" onclick="setDrillCasaInherit()" title="Período filtrado no painel"></button>
           <button class="qbtn" data-qt="hoje" onclick="setDrillCasaType('hoje')">Hoje</button>
           <button class="qbtn" data-qt="wtd" onclick="setDrillCasaType('wtd')">WTD</button>
           <button class="qbtn" data-qt="mtd" onclick="setDrillCasaType('mtd')">MTD</button>
@@ -799,6 +801,7 @@ function buildHTML(){
           <button class="no-export" onclick="closeSportDrill()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--fdc-steel);border:1px solid var(--line);color:var(--ink-soft);border-radius:8px;cursor:pointer;font-size:15px;flex-shrink:0" title="Fechar">✕</button>
         </div>
         <div id="sportDrillPeriodBar" class="no-export" style="padding:.6rem 1.5rem;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          <button class="qbtn" data-inherit="1" style="display:none" onclick="setDrillSportInherit()" title="Período filtrado no painel"></button>
           <button class="qbtn" data-qt="hoje" onclick="setDrillSportType('hoje')">Hoje</button>
           <button class="qbtn" data-qt="wtd" onclick="setDrillSportType('wtd')">WTD</button>
           <button class="qbtn" data-qt="mtd" onclick="setDrillSportType('mtd')">MTD</button>
