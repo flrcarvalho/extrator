@@ -1410,7 +1410,7 @@ async def exportar_csv(dono: str = Depends(dono_efetivo)):
         for r in rows:
             w.writerow({k: ("" if v is None else str(v)) for k, v in r.items()})
     from datetime import datetime as _dt
-    nome = f"planilhador_base_{dono}_{_dt.now().strftime('%Y-%m-%d_%H%M')}.csv"
+    nome = f"sharpen_base_{dono}_{_dt.now().strftime('%Y-%m-%d_%H%M')}.csv"
     return StreamingResponse(
         iter([buf.getvalue().encode("utf-8")]),
         media_type="text/csv; charset=utf-8",

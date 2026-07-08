@@ -137,7 +137,7 @@ body::before {
     </div>
     <nav class="sidebar-nav">
       <div class="nav-group">Operação</div>
-      <div class="nav-item" data-key="plan:extracao" onclick="location.hash='plan'" title="Extração de bilhetes"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="13" height="13" rx="1"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13"/></svg>Planilhador</div>
+      <div class="nav-item" data-key="plan:extracao" onclick="location.hash='plan'" title="Extração de bilhetes"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="13" height="13" rx="1"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13"/></svg>Extração e Captura</div>
       <div class="nav-item" data-key="plan:contas" onclick="location.hash='plan/contas'" title="Gestão de contas e parceiros"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8 1.7l6 3-6 3-6-3z"/><path d="M2 4.7v6.6l6 3 6-3V4.7"/></svg>Contas &amp; Parceiros</div>
       <div class="nav-group">Análise</div>
       <div class="nav-item" data-key="dash:overview" onclick="location.hash='dash/overview'"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Visão Geral</div>
@@ -165,7 +165,7 @@ body::before {
   <!-- Conteúdo: os 2 apps carregados como iframes (mesma origem → chamada cruzada OK).
        O Planilhador carrega já; o Dashboard é lazy (só no 1º clique em Análise). -->
   <main class="host-main">
-    <iframe id="fr-plan" class="app-frame" src="/" title="Planilhador"></iframe>
+    <iframe id="fr-plan" class="app-frame" src="/" title="Extração e Captura"></iframe>
     <iframe id="fr-dash" class="app-frame" title="Dashboard"></iframe>
   </main>
 

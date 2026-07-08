@@ -11,7 +11,7 @@
   else { location.replace('/app'); }
 })();
 </script>
-<title>Sharpen — Planilhador</title>
+<title>Sharpen — Extração e Captura</title>
 <meta name="theme-color" content="#0A0D12">
 <link rel="icon" type="image/svg+xml" href="/static/favicon/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon/favicon-32.png">
@@ -1303,7 +1303,7 @@ td.c-res.res-HL { color: var(--warn); }
        Operação→Planilhador é a página atual (ativo); os demais grupos abrem o Dashboard. -->
   <nav class="sidebar-nav">
     <div class="nav-group">Operação</div>
-    <div class="nav-item active" id="nav-planilhador" onclick="mostrarView('extracao')" title="Extração de bilhetes"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="13" height="13" rx="1"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13"/></svg>Planilhador</div>
+    <div class="nav-item active" id="nav-planilhador" onclick="mostrarView('extracao')" title="Extração de bilhetes"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="13" height="13" rx="1"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13"/></svg>Extração e Captura</div>
     <div class="nav-item" id="nav-contas" onclick="mostrarView('contas')" title="Gestão de contas e parceiros"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8 1.7l6 3-6 3-6-3z"/><path d="M2 4.7v6.6l6 3 6-3V4.7"/></svg>Contas &amp; Parceiros</div>
     <div class="nav-group">Análise</div>
     <a class="nav-item" href="/dashboard/#overview"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Visão Geral</a>
@@ -1332,7 +1332,7 @@ td.c-res.res-HL { color: var(--warn); }
   <!-- Pagehead padrão (igual ao Dashboard/modelo): título azul em gradiente +
        eyebrow mono. Sempre visível no topo do conteúdo. -->
   <div class="pagehead">
-    <h1 class="pagehead-title">Planilhador</h1>
+    <h1 class="pagehead-title">Extração e Captura</h1>
     <div class="pagehead-eyebrow">Operação · extração de bilhetes</div>
   </div>
 
@@ -2151,7 +2151,7 @@ function mostrarView(v) {
     if (eyebrow) eyebrow.textContent = 'Operação · gestão de contas';
     navP && navP.classList.remove('active'); navC && navC.classList.add('active');
   } else {
-    if (title) title.textContent = 'Planilhador';
+    if (title) title.textContent = 'Extração e Captura';
     if (eyebrow) eyebrow.textContent = 'Operação · extração de bilhetes';
     navC && navC.classList.remove('active'); navP && navP.classList.add('active');
     if (!parceiroSelecionado) mostrarEmptyState();   // sem conta ativa → hub

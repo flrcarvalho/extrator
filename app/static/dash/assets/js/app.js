@@ -443,7 +443,7 @@ function buildHTML(){
       </div>
       <nav class="sidebar-nav">
         <div class="nav-group">Operação</div>
-        <a class="nav-item" href="/" style="text-decoration:none" title="Abrir o Planilhador — extração e edição de bilhetes"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="13" height="13" rx="1"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13"/></svg>Planilhador</a>
+        <a class="nav-item" href="/" style="text-decoration:none" title="Abrir a Extração e Captura — leitura e edição de bilhetes"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="13" height="13" rx="1"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13"/></svg>Extração e Captura</a>
         <div class="nav-group">Análise</div>
         ${[
           ['overview','Visão Geral','<rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>'],
