@@ -575,12 +575,35 @@
     return L.join("\n");
   }
 
-  // Acha um botão/link VISÍVEL cujo rótulo contém a frase (case/acento-insensível no
-  // que dá). Usado p/ "CARREGAR MAIS…" e "FILTRAR".
+  // Acha o elemento clicável VISÍVEL cujo rótulo contém a frase (menor texto = o mais
+  // específico). Botões/links primeiro; se não achar, um elemento com o texto exato e
+  // sobe pro ancestral clicável. Usado p/ "CARREGAR MAIS…" e "FILTRAR".
   const _normBtn = (s) => (s || "").replace(/\s+/g, " ").trim().toLowerCase();
-  const _acharBotao = (frase) =>
-    [...document.querySelectorAll("button, a, [role=button], .btn, input[type=button], input[type=submit]")]
-      .find((b) => b.offsetParent !== null && _normBtn(b.textContent || b.value).includes(frase));
+  const _acharBotao = (frase) => {
+    let best = null, bestLen = Infinity;
+    for (const b of document.querySelectorAll("button, a, [role=button], .btn, input[type=button], input[type=submit]")) {
+      if (b.offsetParent === null) continue;
+      const t = _normBtn(b.textContent || b.value);
+      if (t.includes(frase) && t.length < bestLen) { best = b; bestLen = t.length; }
+    }
+    if (best) return best;
+    for (const el of document.querySelectorAll("div, span, p, li")) {
+      if (el.offsetParent === null) continue;
+      const t = _normBtn(el.textContent);
+      if (t === frase || t.replace(/[.\s…]+$/, "") === frase) return el.closest("button, a, [role=button], .btn") || el;
+    }
+    return null;
+  };
+  // Clique robusto: Angular não checa isTrusted, mas alguns handlers querem a sequência
+  // pointer/mouse completa. Dispara tudo + o .click() nativo.
+  function _clicarForte(el) {
+    try { el.scrollIntoView({ block: "center" }); } catch (e) {}
+    const o = { bubbles: true, cancelable: true, view: window };
+    for (const tipo of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+      try { el.dispatchEvent(new MouseEvent(tipo, o)); } catch (e) {}
+    }
+    try { el.click(); } catch (e) {}
+  }
 
   // Modo passivo (dado vem do be_inject: exato, com id). A BETesporte pagina por BOTÃO
   // "CARREGAR MAIS…" (não scroll infinito) → o robô CLICA o botão até ele sumir, e vai
@@ -617,25 +640,20 @@
       if (filtrar) { try { filtrar.click(); } catch (e) {} await sleep(1500); processar(); }
     }
 
-    // Pagina clicando "CARREGAR MAIS…" até o botão sumir ou parar de trazer novos.
+    // Pagina clicando "CARREGAR MAIS…". Termina quando parar de trazer bilhetes novos por
+    // algumas voltas — INDEPENDENTE do botão continuar na tela (a BETesporte às vezes o
+    // mantém no fim). Isso garante que o robô ENCERRA sozinho e envia (não fica infinito).
     let voltas = 0, semNovo = 0, ultTotal = -1;
     while (!ctx.parar() && !travado && voltas < 300) {
       voltas++;
       processar();
       if (travado) break;
       const mais = _acharBotao("carregar mais");
-      if (mais) {
-        try { mais.scrollIntoView({ block: "center" }); } catch (e) {}
-        try { mais.click(); } catch (e) {}
-        await sleep(1000);
-      } else {
-        // Sem botão: pode estar carregando ainda, ou é o fim. Rola pro fundo e espera 1x.
-        try { window.scrollTo(0, document.documentElement.scrollHeight); } catch (e) {}
-        await sleep(700);
-      }
+      if (mais) { _clicarForte(mais); await sleep(1100); }
+      else { try { window.scrollTo(0, document.documentElement.scrollHeight); } catch (e) {} await sleep(700); }
       processar();
       if (beTickets.length > ultTotal) { ultTotal = beTickets.length; semNovo = 0; }
-      else if (++semNovo >= 3 && !_acharBotao("carregar mais")) break;   // estabilizou e sem botão → fim
+      else if (++semNovo >= 4) break;   // 4 voltas sem bilhete novo → fim (envia o que já tem)
     }
     processar();
     console.log("[SharpenUp] BETesporte: " + blocos.length + " bilhete(s) · beTickets capturados=" + beTickets.length);
