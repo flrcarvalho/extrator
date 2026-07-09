@@ -54,16 +54,6 @@ $("b365-teto").addEventListener("change", (e) => {
 $("btn-conectar").addEventListener("click", conectar);
 $("btn-desconectar").addEventListener("click", desconectar);
 $("btn-capturar").addEventListener("click", capturar);
-$("toggle-cfg").addEventListener("click", async () => {
-  const cfg = $("cfg");
-  cfg.hidden = !cfg.hidden;
-  if (!cfg.hidden) $("api-base").value = await getApiBase();
-});
-$("btn-salvar-cfg").addEventListener("click", async () => {
-  const v = $("api-base").value.trim().replace(/\/+$/, "");
-  await chrome.storage.local.set({ apiBase: v || "" });
-  setMsg("Servidor salvo.", "info");
-});
 
 async function conectar() {
   const codigo = $("codigo").value.trim().toUpperCase();
@@ -110,9 +100,14 @@ async function capturar() {
     }
     // Garante o content script presente (abas abertas antes de instalar não o têm).
     try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }); } catch (_) {}
-    const { modo } = await chrome.storage.local.get("modo");
+    const { modo, casa } = await chrome.storage.local.get(["modo", "casa"]);
     if (modo === "texto") {
-      // Betano: dispara o robô (rola + colhe + envia texto).
+      // Interceptor de API no mundo MAIN (be/sb_inject): o content_script declarativo só
+      // roda em page LOAD. Se a aba já estava aberta antes de recarregar a extensão, injeta
+      // agora (idempotente — guarda interna). Sem isso o robô roda mas capta zero.
+      const inj = casa === "BETesporte" ? "be_inject.js" : (casa === "Superbet" ? "sb_inject.js" : null);
+      if (inj) { try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [inj], world: "MAIN" }); } catch (_) {} }
+      // Dispara o robô (rola/pagina + colhe + envia texto).
       try { await chrome.tabs.sendMessage(tab.id, { type: "START_ROBOT" }); } catch (_) {}
     } else {
       // Print: liga o modo moldura — desenhar 1x → Snap várias vezes.

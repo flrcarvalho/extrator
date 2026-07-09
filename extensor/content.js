@@ -575,11 +575,19 @@
     return L.join("\n");
   }
 
-  // Modo passivo (espelho do roboSuperbetPassive): rola a lista p/ a página paginar
-  // (lazy-load) e vai consumindo os itens que o be_inject captura das RESPOSTAS da API.
-  // Sem clique. Para no stopId (copiar dele pra cima) ou na janela de dias.
+  // Acha um botão/link VISÍVEL cujo rótulo contém a frase (case/acento-insensível no
+  // que dá). Usado p/ "CARREGAR MAIS…" e "FILTRAR".
+  const _normBtn = (s) => (s || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const _acharBotao = (frase) =>
+    [...document.querySelectorAll("button, a, [role=button], .btn, input[type=button], input[type=submit]")]
+      .find((b) => b.offsetParent !== null && _normBtn(b.textContent || b.value).includes(frase));
+
+  // Modo passivo (dado vem do be_inject: exato, com id). A BETesporte pagina por BOTÃO
+  // "CARREGAR MAIS…" (não scroll infinito) → o robô CLICA o botão até ele sumir, e vai
+  // consumindo o que a API entrega a cada página. Se a aba já estava aberta antes da
+  // extensão, o be_inject pode ter perdido a 1ª página → o robô força um refetch clicando
+  // "FILTRAR". Para no stopId (copiar dele pra cima) ou na janela de dias.
   async function roboBetesportePassive(ctx) {
-    const cont = acharScroll();
     const blocos = [], usados = new Set();
     let travado = false;
 
@@ -599,20 +607,35 @@
 
     // Pede ao be_inject o que ele já capturou (a 1ª página vem no load da página).
     try { window.postMessage({ __sharpenupBEReq: true }, "*"); } catch (e) {}
-    await sleep(250);
+    await sleep(350);
     processar();
 
-    // Rola JANELA + container até o fim até a página parar de trazer bilhetes novos.
-    let semNovo = 0, ultTotal = -1, voltas = 0;
-    while (!ctx.parar() && !travado && voltas < 500) {
+    // be_inject perdeu a 1ª página (aba aberta antes da extensão)? Força um refetch
+    // clicando "FILTRAR" (recarrega a lista com o filtro atual → a API dispara de novo).
+    if (!blocos.length && beTickets.length === 0) {
+      const filtrar = _acharBotao("filtrar");
+      if (filtrar) { try { filtrar.click(); } catch (e) {} await sleep(1500); processar(); }
+    }
+
+    // Pagina clicando "CARREGAR MAIS…" até o botão sumir ou parar de trazer novos.
+    let voltas = 0, semNovo = 0, ultTotal = -1;
+    while (!ctx.parar() && !travado && voltas < 300) {
       voltas++;
-      try { window.scrollTo(0, document.documentElement.scrollHeight); } catch (e) {}
-      try { if (cont && cont !== document.scrollingElement && cont !== document.documentElement) cont.scrollTop = cont.scrollHeight; } catch (e) {}
-      await sleep(700);
       processar();
       if (travado) break;
+      const mais = _acharBotao("carregar mais");
+      if (mais) {
+        try { mais.scrollIntoView({ block: "center" }); } catch (e) {}
+        try { mais.click(); } catch (e) {}
+        await sleep(1000);
+      } else {
+        // Sem botão: pode estar carregando ainda, ou é o fim. Rola pro fundo e espera 1x.
+        try { window.scrollTo(0, document.documentElement.scrollHeight); } catch (e) {}
+        await sleep(700);
+      }
+      processar();
       if (beTickets.length > ultTotal) { ultTotal = beTickets.length; semNovo = 0; }
-      else if (++semNovo >= 5) break;   // 5 rolagens sem nada novo → fim da lista
+      else if (++semNovo >= 3 && !_acharBotao("carregar mais")) break;   // estabilizou e sem botão → fim
     }
     processar();
     console.log("[SharpenUp] BETesporte: " + blocos.length + " bilhete(s) · beTickets capturados=" + beTickets.length);

@@ -17,6 +17,9 @@
 }
 
 * { box-sizing: border-box; }
+/* `hidden` tem de vencer os `display:flex` de .bd/.cfg/.row (senão as duas telas —
+   parear e conectado — aparecem juntas e o Desconectar parece morto). */
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   width: 322px;
