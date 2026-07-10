@@ -50,7 +50,9 @@ Anatomia de um bilhete:
 
 ## 3. ID do bilhete (deduplicação)
 
-- A Bet365 **não expõe ID de bilhete** no recorte → dedup por **assinatura derivada** = `data + Aposta (stake) + Retorno Obtido + confronto(s)`.
+- A Bet365 **não expõe ID de bilhete** no recorte → sem código, a dedup cai na **assinatura de conteúdo**.
+- **Assinatura real (fonte da verdade: `app/repository.py::_assinatura`, ramo sem código):** `casa | parceiro | data | aposta (categoria) | descrição | odd` (odd normalizada a 2 casas). **Stake e Retorno Obtido NÃO entram.** Se este arquivo divergir do código, **o código vence** — atualize o texto aqui.
+- ⚠️ **Consequência (limitação conhecida):** como a `descrição` (nomes lidos por OCR) e a `data` (informada por fora) compõem a identidade, qualquer variação nesses campos entre dois envios do MESMO bilhete gera **linha nova em vez de dedup** — um erro de OCR no nome é, ao mesmo tempo, um dado errado E uma duplicata. Reprocessar em outro dia também duplica (a `data` muda). Mitigações: fidelidade de nome (§12) + rede de segurança por `(casa, parceiro, stake, odd)` em `upsert_bilhetes` (avisa, não funde).
 - Contagem = nº de cabeçalhos verdes (1 cabeçalho = 1 bilhete = 1 linha).
 
 ---
@@ -199,6 +201,8 @@ Barras de progresso com número (stat ao vivo) · placares e scoreboards ao vivo
   - ⚠️ O tachado/strikethrough **NÃO significa "ignorar"** — é o oposto: é o nome que deve ser preservado na Descrição.
   - ⚠️ O nome em negrito no topo é visualmente mais chamativo mas é o **substituto** — não usar.
 (As tags `Anulado` / `½ Ganho` / `½ Perdido` / `½ Anulado` **não** são ruído — são sinais de resultado, ver §5.)
+
+> ⚠️ **Fidelidade de nome (a dedup depende disto):** transcreva nomes de jogador, time e confronto **exatamente como aparecem**, letra por letra — não normalize, não traduza, não "corrija" a grafia. A identidade do bilhete Bet365 é reconstruída da descrição (§3); um único caractere trocado por OCR gera uma **duplicata** (e um dado errado). Na dúvida entre duas leituras, prefira a que está visualmente mais nítida; nunca invente.
 
 ---
 
