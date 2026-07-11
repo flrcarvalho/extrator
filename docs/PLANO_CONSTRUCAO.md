@@ -1,5 +1,10 @@
 # PLANO DE CONSTRUÇÃO — Scanner de Bets (FDC Capital)
 
+> ⚠️ **DOCUMENTO HISTÓRICO / DESATUALIZADO** — plano original de jun/2026. Referências vencidas
+> (cita Haiku como padrão, `MASTER_TSV.md`, `erros.jsonl`, `REGRAS_PENDENTES.md` que não existem mais).
+> As Fases 0–4 foram concluídas. Frentes ainda vivas dele estão consolidadas em `../Ideias/README.md §4`.
+> Mantido só como registro. Fonte de verdade atual: `../STATUS.md` + `AUDITORIA_2026.md`.
+
 ## 1. O que o sistema é
 
 Um sistema web que lê bilhetes de apostas (print da casa) e tips (Telegram), extrai para TSV no padrão FDC Capital, organizado por Casa + Parceiro, com sugestão automática de tipster vinda dos grupos do Telegram.

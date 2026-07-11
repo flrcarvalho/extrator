@@ -8,7 +8,7 @@
 
 ## Contexto — por que esta frente existe
 
-O Feca quer transformar o Sharpen de app multi-tenant **provisionado à mão** em produto de verdade: **página de cadastro no site, login via Google (Gmail) ou Telegram, base cadastral, e depois método de pagamento/assinatura.** Não estava no `PLANO_CONSTRUCAO.md` original (aquele era a máquina de extração).
+O Feca quer transformar o Sharpen de app multi-tenant **provisionado à mão** em produto de verdade: **página de cadastro no site, login via Google (Gmail) ou Telegram, base cadastral, e depois método de pagamento/assinatura.** Não estava no `docs/PLANO_CONSTRUCAO.md` original (aquele era a máquina de extração).
 
 ### Estado atual do auth (lido em 08/07/2026)
 - Login por **cookie assinado HMAC-SHA256** (`app/auth.py`) — sem sessão em banco, sem JWT lib, sem OAuth. Token = `base64url({"u":usuario,"exp":ts}).hmac`. Validade 30 dias. Segredo `SESSION_SECRET` (env Railway).
@@ -109,7 +109,7 @@ As funções de `auth.py` passam a ler do cache: `verificar_credenciais` (+ exig
 ---
 
 ## Frentes pendentes do PLANO original (contexto, não parte desta frente)
-Do `PLANO_CONSTRUCAO.md` (8 fases; 0–4 feitas): **Fase 5 Telegram→tipster automático** (maior lacuna; tipster ainda é carimbado à mão), **Bet365 ponta-a-ponta** (pausada), **parser determinístico por casa** (custo ~R$0, IA fallback), Fase 6 inspetor/eval automatizado, fixes estruturais de dedup (Betano sem-código) e data-guarda Superbet. Ver `STATUS.md`.
+Do `docs/PLANO_CONSTRUCAO.md` (8 fases; 0–4 feitas): **Fase 5 Telegram→tipster automático** (maior lacuna; tipster ainda é carimbado à mão), **Bet365 ponta-a-ponta** (pausada), **parser determinístico por casa** (custo ~R$0, IA fallback), Fase 6 inspetor/eval automatizado, fixes estruturais de dedup (Betano sem-código) e data-guarda Superbet. Ver `STATUS.md`.
 
 ---
 

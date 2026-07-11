@@ -6,7 +6,7 @@ allowed-tools: Bash(git:*), Bash(python tools/audit_casas.py:*), Bash(cp:*), Bas
 
 # Cadastrar nova casa: $ARGUMENTS
 
-Siga `GUIA_NOVA_CASA.md`. Uma etapa por vez: propor -> aguardar confirmacao -> executar.
+Siga `docs/GUIA_NOVA_CASA.md`. Uma etapa por vez: propor -> aguardar confirmacao -> executar.
 Tudo em pt-BR. Terminal = PowerShell (sem heredoc bash).
 
 **Pre-requisito:** ao menos 3 bilhetes reais ja fornecidos pelo usuario (W simples, L simples, Multipla).
