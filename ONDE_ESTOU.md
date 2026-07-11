@@ -46,13 +46,19 @@ parte já foi consertada).
 
 ## 4. O que está ABERTO — por prioridade
 
+### ✅ Qualidade de descrição — pivotada pra frente (decisão do Feca, 11/07)
+- **Decisão:** não fazer arqueologia do passado (as descrições antigas "sobreviveram até aqui"). O que
+  importa, com multi-usuário chegando, é a descrição **beirar a perfeição na hora que é gerada**.
+- **Entregue:** checador determinístico de conformidade (`app/descricao_check.py`, regras do
+  `MASTER_DESCRICAO`) + golden set (`golden_set/descricoes.jsonl`) + backtest no CI + **aviso ao vivo**
+  no rail de extração (toda extração nova se auto-denuncia quando a descrição foge do padrão). Suíte 65→77.
+- **Sobra opcional** (sem pressa, não é prioridade): `scripts/medir_descricoes_colapsadas.py` pra medir o
+  passivo antigo, e re-extrair lotes afetados **se/quando** você quiser — nunca deletar às cegas.
+
 ### 🔴 Curto prazo / operacional (o que dói na rotina)
-1. **Limpeza de duplicatas Bet365** — só DEPOIS das descrições estarem completas. Caminho: re-extrair os
-   lotes afetados (código já corrigido), **nunca deletar às cegas**. Régua: stake+odd+descrição os três.
-2. **Medir na base** quantas linhas de marcador/props estão sem sufixo/confronto (contaminam a dedup).
-3. **Teste ao vivo do Betfair com a conta Duka** — validar velocidade e datas do fix da sessão 121.
-4. **`CASA_BETANO.md` desatualizada** — ainda descreve scraping, mas a Betano virou ingestão por API. Reescrever §2/§3/§12.
-5. **Fix estrutural de dedup**: garantir que a extração da Betano sempre capture o ID visível (raiz do problema de duplicata).
+1. **Teste ao vivo do Betfair com a conta Duka** — validar velocidade e datas do fix da sessão 121.
+2. **`CASA_BETANO.md` desatualizada** — ainda descreve scraping, mas a Betano virou ingestão por API. Reescrever §2/§3/§12.
+3. **Fix estrutural de dedup**: garantir que a extração da Betano sempre capture o ID visível (raiz do problema de duplicata).
 
 ### 🟡 Médio prazo / dívida técnica que vale pagar
 6. **Polymarket**: separar `entry_odd` de `realized_odd` (hoje a odd muda de significado conforme o resultado — distorce o dashboard).
@@ -73,11 +79,13 @@ parte já foi consertada).
 
 ---
 
-## 5. Próximos 3 passos que eu recomendo (quando você quiser)
+## 5. Próximos passos (estado em 11/07)
 
-1. **Fechar a recuperação pós-SharpenUp**: rodar `scripts/medir_descricoes_colapsadas.py` (já pronto) p/ medir o colapso na base → completar descrições → limpar duplicatas Bet365 por re-extração. (itens 1–2 acima)
+1. ~~Fechar a recuperação (faxina do passado)~~ ✅ **pivotado** — em vez de arqueologia, foi entregue a **qualidade de descrição indo pra frente** (checador + golden + backtest no CI + aviso ao vivo). A limpeza do passivo antigo fica como opcional sem pressa.
 2. ~~Métricas quant~~ ✅ **fechado** — nomes técnicos mantidos + explicação no tooltip (sua decisão de 11/07).
-3. **Arrancar a Fase 1 do SaaS multiusuário** (tabela `usuarios`): destrava o cadastro self-service e a assinatura de tipsters. É mudança de **auth** — merece sessão dedicada com você olhando o 1º login pós-deploy.
+3. **Fase 1 do SaaS multiusuário** (tabela `usuarios`) → **na canteira** (Próximos Passos): é mudança de **auth**, projeto grande; sessão dedicada com você olhando o 1º login pós-deploy. Ver `Ideias/README.md §1.1`.
+
+**Sempre melhorando (contínuo):** conforme aparecer descrição fraca no rail de avisos, é só adicionar o caso ao `golden_set/descricoes.jsonl` e, se for regra nova, ao `app/descricao_check.py` — o backtest cresce e a qualidade sobe sozinha.
 
 ---
 
