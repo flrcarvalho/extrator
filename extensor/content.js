@@ -638,21 +638,37 @@
 
     L.push("[Código: " + (t.BetId != null ? t.BetId : "") + "]");
     L.push("Data: " + _dbr(t.PlacedAt));
-    let tipo = _TIPO_BN[t.Type] || (t.Accumulator && t.Accumulator !== "Single" ? t.Accumulator : (t.Type || ""));
+    let tipo = _TIPO_BN[t.Type];
+    if (!tipo) {
+      const acc = t.Accumulator || "";
+      // "3-fold" etc. serve; o placeholder cru "{number}-fold" da API não → usa a contagem de pernas.
+      if (acc && acc !== "Single" && acc.indexOf("{") < 0) tipo = acc;
+      else if (legItems.length > 1) tipo = legItems.length + "-seleções";
+      else tipo = t.Type || "";
+    }
     if (criarAposta) tipo = (tipo ? tipo + " " : "") + "(Criar Aposta)";
     if (tipo) L.push("Tipo: " + tipo);
     L.push("Stake: " + _brl(stake));
 
-    // Resultado bruto — a IA/CASA_BETANO aplica a regra final.
+    // Resultado bruto — a IA/CASA_BETANO aplica a regra final. Status do bilhete:
+    //   2=Ganho→W · 3=Perdido→L · 0=Devolvido/Anulado→V · 6=Cash Out (regra financeira §7).
+    // Cashout (Status 6, confirmado): sacado = stake → V (odd exibida) · ≠ stake → W
+    // (Odd = Cashout÷Stake; cobre o parcial: retorno<stake vira W com odd<1, preserva o recuperado).
+    const cashout = (t.Status === 6) || !!t.IsCreditCashout;
+    const cashoutEqStake = cashout && ret != null && stake != null && Math.abs(ret - stake) < 0.005;
     let stTxt;
-    if (t.Status === 2) stTxt = "Ganho → W";
+    if (cashoutEqStake) stTxt = "Cash Out (sacado = stake) → V";
+    else if (cashout) stTxt = "Cash Out (sacado ≠ stake) → W";
+    else if (t.Status === 2) stTxt = "Ganho → W";
     else if (t.Status === 3) stTxt = "Perdido → L";
     else if (t.Status === 0) stTxt = "Devolvido/Anulado → V";
     else stTxt = t.Status + " (a conferir — não liquidar automaticamente)";
     L.push("Status: " + stTxt + (t.Return != null ? (" · Retorno " + t.Return) : ""));
+    if (cashout && t.Return != null) L.push("Cash Out: " + t.Return);   // sinal explícito p/ o pipeline
 
-    // Odd total: W = Return÷Stake (boost, §11); senão a odd combinada estrutural.
-    const oddW = (t.Status === 2 && ret != null && stake > 0);
+    // Odd total: W (Ganho OU cashout≠stake) = Return÷Stake (respeita boost, §11); L/V/cashout=stake
+    // = odd combinada estrutural (DecimalOdds; já é o produto das pernas nas múltiplas).
+    const oddW = ret != null && stake > 0 && (t.Status === 2 || (cashout && !cashoutEqStake));
     const oddTot = oddW ? (ret / stake)
                  : (typeof t.DecimalOdds === "number" ? t.DecimalOdds : _oddNum(t.Odds));
     L.push("Odd total: " + _odd(oddTot) + (oddW ? " (= Retorno ÷ Stake)" : ""));
