@@ -93,6 +93,11 @@ confirmar no `../STATUS.md`. 🟢
 
 ---
 
+## 4b. Polymarket — sessão em andamento (11/07)
+- ✅ Odd unificada = 1/preço (retorno/investimento) + KPIs renomeados (Saldo em Aberto/Disponível/Total) — 🟢 feito
+- ✅ Confiabilidade de saldo (RPCs caem → "—", não R$0) — 🟢 feito
+- ⏳ **Persistir posições ativas** (ativas viram bilhete aberto na tabela Apostas; fim da seção "Posições Ativas") — 🟢 plano pronto em `../docs/PLANO_POLY_PERSISTIR_ATIVAS.md`
+
 ## 5. Extensão de captura (SharpenUp) — `../extensor/`
 No ar; pareia por código com o dashboard. Submetida à Chrome Web Store (análise pendente).
 - Instalar nos perfis Octo após aprovação — 🟢
