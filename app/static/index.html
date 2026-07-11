@@ -2772,8 +2772,8 @@ function renderDashPoly(d) {
     if (es && es.style.display !== 'none') renderPainelLista();
   }
   setTxt('pm-k-portfolio', fmtUSD(d.portfolio)); setTxt('pm-k-portfolio-sub', fmtBRLsub(d.portfolio, cot));
-  setTxt('pm-k-cash', fmtUSD(d.cash)); setTxt('pm-k-cash-sub', fmtBRLsub(d.cash, cot));
-  setTxt('pm-k-total', fmtUSD(d.total)); setTxt('pm-k-total-sub', fmtBRLsub(d.total, cot));
+  setTxt('pm-k-cash', d.cash == null ? '—' : fmtUSD(d.cash)); setTxt('pm-k-cash-sub', d.cash == null ? 'saldo indisponível' : fmtBRLsub(d.cash, cot));
+  setTxt('pm-k-total', d.total == null ? '—' : fmtUSD(d.total)); setTxt('pm-k-total-sub', d.total == null ? '' : fmtBRLsub(d.total, cot));
   setTxt('pm-ativas-status', d.ativas.length + (d.ativas.length === 1 ? ' ativa' : ' ativas'));
   if (!d.ativas.length) {
     body.innerHTML = '<tr><td colspan="10" class="pm-empty">Nenhuma posição ativa.</td></tr>';

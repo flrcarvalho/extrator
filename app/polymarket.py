@@ -566,11 +566,19 @@ _POLYGON_RPCS = [
     "https://polygon-bor-rpc.publicnode.com",
     "https://polygon.llamarpc.com",
     "https://rpc.ankr.com/polygon",
+    "https://polygon-rpc.com",
+    "https://polygon.drpc.org",
+    "https://1rpc.io/matic",
 ]
 
 
-async def _rpc_balance(client: httpx.AsyncClient, token: str, wallet: str) -> float:
-    """Saldo ERC-20 (balanceOf) on-chain, em unidades (6 casas). Tenta os RPCs em ordem."""
+async def _rpc_balance(client: httpx.AsyncClient, token: str, wallet: str) -> float | None:
+    """Saldo ERC-20 (balanceOf) on-chain, em unidades (6 casas). Tenta os RPCs em ordem.
+
+    Devolve `None` quando TODOS os RPCs falham — distinto de `0.0` (saldo genuinamente
+    zero). Sem essa distinção, uma queda dos RPCs públicos mostrava "cash = R$0" como se
+    a carteira estivesse vazia (achado #47). O chamador trata o None como "indisponível".
+    """
     data = "0x70a08231" + wallet.replace("0x", "").lower().rjust(64, "0")
     payload = {"jsonrpc": "2.0", "method": "eth_call",
                "params": [{"to": token, "data": data}, "latest"], "id": 1}
@@ -582,7 +590,7 @@ async def _rpc_balance(client: httpx.AsyncClient, token: str, wallet: str) -> fl
                 return int(res, 16) / 1e6
         except Exception:
             continue
-    return 0.0
+    return None
 
 
 async def _portfolio(client: httpx.AsyncClient, wallet: str) -> float:
@@ -635,7 +643,10 @@ async def coletar_dashboard(wallet: str) -> dict:
 
         pusd = await _rpc_balance(client, _PUSD, proxy)
         usdce = await _rpc_balance(client, _USDC_E, proxy)
-        cash = pusd + usdce
+        # Ao menos um RPC respondeu → cash confiável. Nenhum respondeu → indisponível
+        # (None), NÃO zero — senão "cash R$0" mente sobre a carteira (#47).
+        saldo_ok = (pusd is not None) or (usdce is not None)
+        cash = (pusd or 0.0) + (usdce or 0.0)
         portfolio = await _portfolio(client, wallet)
         if portfolio <= 0:
             portfolio = sum(_f(p, "currentValue") for p in ativas_raw)
@@ -685,8 +696,11 @@ async def coletar_dashboard(wallet: str) -> dict:
     return {
         "count": len(ativas),
         "portfolio": round(portfolio, 2),
-        "cash": round(cash, 2),
-        "total": round(total, 2),
+        # Saldo indisponível → cash/total viram None (a UI mostra "—", não R$0).
+        # Portfólio segue vindo do Worker /value (não depende dos RPCs).
+        "cash": round(cash, 2) if saldo_ok else None,
+        "total": round(total, 2) if saldo_ok else None,
+        "saldo_indisponivel": not saldo_ok,
         "cotacao": round(hoje, 4) if hoje else None,
         "ativas": ativas,
     }
