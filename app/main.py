@@ -1275,8 +1275,11 @@ async def extrair(
         raise HTTPException(400, f"Modelo não permitido. Opções: {ALLOWED_MODELS}")
 
     casa_key = _display_to_key(casa)
-    if not (CASAS_DIR / f"CASA_{casa_key}.md").exists():
-        raise HTTPException(400, f"Casa desconhecida: {casa}")
+    if not casa_key.strip():
+        raise HTTPException(400, "Casa não informada.")
+    # Modo cego (Fase 2 worldwide): casa sem CASA_*.md NÃO é mais rejeitada —
+    # a extração roda só com os masters globais e o sistema aprende pelo uso.
+    # (build_system já lida com a ausência do manual.)
 
     base_content: list[dict] = []
 

@@ -41,11 +41,19 @@ def build_system(casa: str) -> list[dict]:
             block["cache_control"] = {"type": "ephemeral"}
         blocks.append(block)
 
-    blocks.append({
-        "type": "text",
-        "text": _read(CASAS_DIR / f"CASA_{casa}.md"),
-        "cache_control": {"type": "ephemeral"},
-    })
+    casa_path = CASAS_DIR / f"CASA_{casa}.md"
+    if casa_path.exists():
+        blocks.append({
+            "type": "text",
+            "text": _read(casa_path),
+            "cache_control": {"type": "ephemeral"},
+        })
+        modo = "casa"
+    else:
+        # Modo cego (Fase 2 worldwide): casa sem manual → só os 6 masters globais.
+        # A extração zero-shot mapeia os rótulos direto pela taxonomia (§3); o
+        # breakpoint de cache do 6º master já cobre esse caso.
+        modo = "cego"
 
-    logger.info("build_system(%s): %.1fms", casa, (time.perf_counter() - t0) * 1000)
+    logger.info("build_system(%s): %s, %.1fms", casa, modo, (time.perf_counter() - t0) * 1000)
     return blocks
