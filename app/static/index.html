@@ -618,11 +618,15 @@ html.embedded .sidebar { display: none; }
 .btn-sm { padding: 5px 12px; font-size: 11px; }
 .btn-danger { color: var(--neg); border-color: rgba(var(--neg-rgb),.25); }
 .btn-danger:hover { background: rgba(var(--neg-rgb),.08); border-color: var(--neg); }
-/* Wordmark SharpenUp no botão Conectar: cinza (desconectado) → cor cheia (conectado),
-   espelhando a convenção de estado do pill da extensão (.status off/on). */
-#btn-conectar-ext .su-lockup { height: 15px; width: auto; vertical-align: middle;
-  margin-left: 6px; position: relative; top: -1px;
-  filter: grayscale(1) opacity(.6); transition: filter .18s ease; }
+/* Botão Conectar: o wordmark SharpenUp é o herói; "Conectar" é rótulo de apoio.
+   Wordmark cinza (desconectado) → cor cheia (conectado), espelhando o pill (.status off/on). */
+#btn-conectar-ext { display: inline-flex; align-items: center; gap: 9px; }
+#ext-btn-label { font-size: 12px; font-weight: 600; color: var(--ink-mute);
+  letter-spacing: .01em; transition: color .18s ease; }
+#btn-conectar-ext:hover #ext-btn-label { color: var(--ink-soft); }
+#btn-conectar-ext .su-lockup { height: 20px; width: auto; display: block;
+  filter: grayscale(1) opacity(.8); transition: filter .18s ease; }
+#btn-conectar-ext.su-on #ext-btn-label { color: var(--ink); }
 #btn-conectar-ext.su-on .su-lockup { filter: none; }
 .status-msg { font-size: 12px; color: var(--ink-mute); font-family: var(--font-mono); }
 .status-msg.ok   { color: var(--pos); }
