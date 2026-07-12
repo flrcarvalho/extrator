@@ -163,15 +163,22 @@ gols), e **regra de atribuição**. O truque do Feca: o tipster manda 1u, a stak
 aposta **199** em cada uma para **marcar** que aquela aposta é daquele tipster. O sistema aprende:
 apostas under/over gols com stake 199 na casa X → **sugere** aquele tipster no preenchimento.
 
-### Custo — reenquadrado
+### Custo — reenquadrado (corrigido pela estrutura real da tabela)
 
-O casamento roda sobre **campos que a IA já extraiu** (stake, casa, mercado) → é um **motor de
-regras determinístico, custo ≈ zero**. O corte não é "grátis vs pago", é:
+**Descoberta (2026-07-11):** a tabela `bilhetes` **não tem coluna de mercado/categoria**. Os campos
+são `casa, parceiro, data, esporte, tipster, aposta, descricao, stake, odd, resultado,
+codigo_bilhete, confianca…`. **`stake` e `casa` são estruturados** (match exato, grátis); **"mercado"
+(under/over gols) só existe como texto livre** em `aposta`/`descricao` — há um heurístico em
+`repository.py` que *infere* categoria e cai em "Outros ⚠️" quando não tem certeza (reusável).
 
-- **Camada A (determinística, sempre):** `stake exato` + `casa ∈ conjunto` + `mercado ∈ conjunto`
-  [+ faixa de odd] → sugere tipster.
-- **Camada B (IA, opt-in):** só quando é preciso **inferir mercado a partir do texto livre** da
-  descrição (fuzzy). Aí sim custa e é o "2º passo" opcional.
+Isso move o corte "grátis vs pago" — mas **não quebra o v1 grátis**, porque o watermark
+`stake exato + casa` já discrimina sozinho (ex. NBA: `401 + Bet365`):
+
+- **Camada A (determinística, sempre, custo ≈ zero):** `stake exato` + `casa ∈ conjunto`
+  [+ faixa de odd] → sugere tipster. **É o núcleo do v1.**
+- **Camada B (heurístico/IA, opt-in):** filtro por **mercado**, que exige classificar o texto livre
+  de `aposta`/`descricao`. Refinamento **opcional**, não pré-requisito — começa reusando o
+  heurístico de categoria existente; só vira IA se precisar de fuzzy. É o "2º passo" que custa.
 
 ### Regras decididas
 
@@ -249,7 +256,7 @@ entre `{início do evento}` e `{bilhete casado registrado}`, com delay-fixo só 
 - Data da unidade = **data resolvida** por default, **preferência do cliente**, indiferente na
   prática.
 - P2 = **combo de sinais**, **stake exato**, **sempre sugestão** (popup por tipster), chatbot
-  **beta**.
+  **beta**. v1 grátis = `stake + casa` (estruturados); **mercado é texto livre** → Camada B opcional.
 - P3 = Telegram **viável via MTProto**; atribuição nativa; métricas de **adesão** e **deixado na
   mesa**; **só existe** sob a Invariante #0.
 - Senha compartilhada = problema de **auth**, não de Telegram (ver SaaS).

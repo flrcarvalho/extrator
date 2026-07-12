@@ -2,7 +2,7 @@
 
 > Índice mestre de **tudo que é plano, estudo ou ideia futura** do Sharpen/Planilhador.
 > Cada frente aponta para o documento-fonte (que continua onde está) e traz status + horizonte.
-> Atualizado em **2026-07-10** (sessão 122). Quando uma frente sair do papel, atualize a linha aqui.
+> Atualizado em **2026-07-11**. Quando uma frente sair do papel, atualize a linha aqui.
 
 Horizontes: **🟢 curto** (próximas sessões) · **🟡 médio** (semanas) · **🔵 longo** (mês+ / condicional)
 
@@ -20,7 +20,7 @@ Ponto de convergência limpo: qualquer login novo só precisa produzir um `usuar
 |---|---|---|
 | 1 | Tabela `usuarios` no Postgres + mover identidade dos dicts de `auth.py` p/ o banco | 🟢 **próximo passo** |
 | 2 | Cadastro self-service ("aberto com aprovação") | 🟢 |
-| 3 | Login Google / Telegram | 🟡 |
+| 3 | Login Google / Telegram (o Telegram conecta com **1.3 Perfil de Tipster**) | 🟡 |
 | 4 | Pagamento / assinatura (gate `assinatura_ativa` + webhook) | 🟡 |
 
 ### 1.2 Assinatura de tipsters — `Estudo_Assinatura_Tipsters_Sharpen.pdf` + `Modelo_Financeiro_Rota_propag_Sharpen.pdf`
@@ -45,7 +45,10 @@ Dar ao tipster existência real no Sharpen (hoje é só texto livre). Três face
 P1 resultado em unidades no tempo (escada de stake, view derivada), P2 atribuição por watermark
 (stake exato tipo 199/401), P3 Telegram como fonte (MTProto + casamento tip↔bilhete). Invariante #0:
 anti-repasse (o Sharpen nunca surfa tip fresca). **Passo zero:** tabela `tipsters` + backfill. Plano
-sem código ainda. Curto/médio/longo conforme a faceta.
+sem código ainda.
+- **Horizontes:** P1 🟢 (backend pronto; UI trava no formato "u" via `/nova-ui`) · P2 🟡 · P3 🔵.
+  **Ordem:** cadastro de tipster → P1 → P2 → Telegram. Onboarding: tipster nasce sozinho e incompleto
+  (sinal `(i)` + lista de pendências no login).
 
 ---
 
@@ -86,7 +89,9 @@ Da auditoria visual da casca (`../docs/AUDITORIA_VISUAL_CASCA_2026-06-30.md`, ho
 Fases 0–4 (repo, núcleo de extração, Postgres, Scanner UI, extensão de captura) ✅ concluídas.
 **O documento tem referências vencidas** (cita Haiku como padrão, `MASTER_TSV.md`, arquivos que não
 existem) — vale ler só como histórico. Frentes ainda vivas dele:
-- **Fase 5: Telegram → tipster automático** — 🟡 **maior lacuna aberta** (tipster ainda carimbado à mão)
+- **Fase 5: Telegram → tipster automático** — consolidada em **§1.3 Perfil de Tipster / P3**
+  (`../docs/PLANO_TIPSTER.md`); segue sendo a maior lacuna de atribuição, agora com plano e a
+  pré-condição anti-repasse — 🔵
 - Fase 6 (inspetor/eval automatizado) — 🔵 · Fase 7 (scraper leve, opcional) — 🔵
 
 ### 4.2 Extração híbrida — custo ~zero
@@ -128,6 +133,7 @@ Betano determinística na 120b). **Restam:**
 | Documento | Caminho | Papel |
 |---|---|---|
 | SaaS multiusuário | `../PLANO_MULTIUSUARIO_2026.md` | plano ativo |
+| Perfil de Tipster (unidades/atribuição/Telegram) | `../docs/PLANO_TIPSTER.md` | plano ativo |
 | Migração planilha→Postgres | `../PLANO_UNIFICACAO_2026.md` | plano ativo |
 | Casca unificada | `../docs/PLANO_CASCA_UNIFICADA.md` | plano ativo (polimento) |
 | ADR-001 / ADR-002 | `../docs/ADR-00*.md` | decisões com gate |
@@ -138,4 +144,4 @@ Betano determinística na 120b). **Restam:**
 
 ---
 
-_Página viva. Última atualização: 2026-07-10._
+_Página viva. Última atualização: 2026-07-11._
