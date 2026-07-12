@@ -274,7 +274,8 @@ _SLUG_SPORT = {
     "uclq": "Futebol", "laliga": "Futebol", "seriea": "Futebol", "bundesliga": "Futebol",
     "ligue1": "Futebol", "eredivisie": "Futebol", "mls": "Futebol", "fif": "Futebol",
     "fifwc": "Futebol", "wc": "Futebol", "copa": "Futebol", "brasileirao": "Futebol",
-    "libertadores": "Futebol", "soccer": "Futebol",
+    "libertadores": "Futebol", "soccer": "Futebol", "nwsl": "Futebol",
+    "efl": "Futebol", "usl": "Futebol", "concacaf": "Futebol", "uwcl": "Futebol",
     # mma
     "ufc": "MMA", "mma": "MMA", "bellator": "MMA", "pfl": "MMA",
     # dardos / f1 / golf / vôlei / rugby / snooker (snooker → Outro no _norm_esporte)
@@ -345,6 +346,12 @@ def _detes_raw(title: str, slug: str = "") -> str:
         return "Vôlei"
     if re.search(r"\brugby\b", s):
         return "Rugby"
+    # Rede de segurança por mercado (quando o slug falta/é desconhecido): termos que só
+    # existem num esporte. Escanteio = Futebol; kills = E-Sports (LoL/CS/Dota).
+    if re.search(r"\bcorners?\b|escanteio", s):
+        return "Futebol"
+    if re.search(r"\bkills?\b", s):
+        return "E-Sports"
     return "Outro"
 
 
@@ -434,6 +441,12 @@ def _reconciliar_redeems(fechados: list, activity: list, active_cids: set) -> li
             "_splitId": cid,
             "_splitTotal": 1,
             "title": meta.get("title") or meta.get("market") or "",
+            # A activity carrega eventSlug/slug (prefixo da liga = sinal FORTE de esporte).
+            # Preservá-los faz a vitória reconciliada (que some de /positions) detectar o
+            # esporte tão bem quanto o caminho normal — senão cai tudo em 'Outro' porque o
+            # regex de título en-US não pega nome de time/torneio (corners, ITF, kills…).
+            "eventSlug": meta.get("eventSlug") or "",
+            "slug": meta.get("slug") or "",
             "asset": meta.get("asset") or "",
             "avgPrice": avg_price,
             "initialValue": total_bought,

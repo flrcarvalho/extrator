@@ -110,3 +110,35 @@ def test_data_compra_iso_cai_no_buy_cache_para_compra_unica():
 def test_data_compra_iso_fallback_startdate_sem_buy():
     pos = {"conditionId": "Z", "startDate": "2026-02-20T10:00:00Z"}
     assert polymarket._data_compra_iso(pos, {}) == "2026-02-20"
+
+
+# ── Esporte de vitórias reconciliadas (achado: caíam todas em 'Outro') ───────
+
+def test_reconciliar_redeems_preserva_eventslug_e_detecta_esporte():
+    # A vitória resgatada some de /positions e é recuperada da activity. Antes o
+    # eventSlug era descartado → o título en-US ("O/U 1.5 Rounds") não casava nada →
+    # 'Outro'. Agora o slug ufc-… é preservado e a detecção acha MMA.
+    activity = [
+        {"type": "TRADE", "side": "BUY", "conditionId": "R1", "size": 10, "price": 0.5,
+         "timestamp": 100, "title": "O/U 1.5 Rounds",
+         "eventSlug": "ufc-abc-2026-07-11", "slug": "ufc-abc-totals-1pt5"},
+        {"type": "REDEEM", "conditionId": "R1", "size": 20, "timestamp": 200,
+         "title": "O/U 1.5 Rounds", "eventSlug": "ufc-abc-2026-07-11", "slug": "ufc-abc-totals-1pt5"},
+    ]
+    extras = polymarket._reconciliar_redeems([], activity, set())
+    assert len(extras) == 1
+    assert extras[0]["eventSlug"] == "ufc-abc-2026-07-11"
+    assert polymarket._detes_raw(extras[0]["title"], extras[0]["eventSlug"]) == "MMA"
+
+
+def test_detes_slug_nwsl_e_futebol():
+    assert polymarket._detes_raw("Will Orlando Pride win?", "nwsl-pri-bay-2026-05-29") == "Futebol"
+
+
+def test_detes_fallback_corners_sem_slug_e_futebol():
+    # Rede de segurança de título: "Corners" só existe em futebol (o caso do Feca).
+    assert polymarket._detes_raw("Spain vs. Belgium: O/U 3.5 Corners", "") == "Futebol"
+
+
+def test_detes_fallback_kills_sem_slug_e_esports():
+    assert polymarket._detes_raw("Total Kills Over/Under 30.5 in Game 2?", "") == "E-Sports"
