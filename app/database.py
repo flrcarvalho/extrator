@@ -126,6 +126,23 @@ CREATE TABLE IF NOT EXISTS uso_tokens (
     custo_usd    REAL NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS uso_tokens_dono_criado ON uso_tokens (dono, criado_em);
+
+-- Correções do usuário (Fase 1 do plano worldwide). Cada vez que alguém edita um
+-- campo de um bilhete, registramos rótulo→antigo→novo. É a SEMENTE do cache
+-- aprendido (Fase 3): por casa, o que a extração errou e o humano corrigiu.
+-- Append-only; nunca altera o bilhete. Ver docs/PLANO_EXTRACAO_WORLDWIDE.md.
+CREATE TABLE IF NOT EXISTS correcoes (
+    id             BIGSERIAL PRIMARY KEY,
+    bilhete_id     BIGINT,
+    dono           TEXT NOT NULL,
+    casa           TEXT,
+    campo          TEXT NOT NULL,
+    valor_anterior TEXT,
+    valor_novo     TEXT,
+    descricao      TEXT,
+    criado_em      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS correcoes_casa_campo ON correcoes (casa, campo);
 """
 
 

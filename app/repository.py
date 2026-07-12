@@ -1102,6 +1102,33 @@ async def arquivar_parceiro(parceiro_id: int, dono: str) -> bool:
     return result.split()[-1] == "1"
 
 
+def _correcoes_diff(antes, safe: dict) -> list[tuple]:
+    """Pares (campo, antigo, novo) dos campos que de fato mudaram. Puro/testável.
+    `antes` = valores atuais (Record ou dict); `safe` = valores novos já filtrados.
+    None e string vazia contam como iguais (não é correção)."""
+    out = []
+    for campo, novo in safe.items():
+        antigo = antes.get(campo)
+        if (antigo or "") == (novo or ""):
+            continue
+        out.append((campo, antigo, novo))
+    return out
+
+
+async def _registrar_correcoes(conn, bilhete_id: int, dono: str, antes, safe: dict) -> None:
+    """Grava em `correcoes` cada campo alterado (semente do cache aprendido — Fase 3).
+    NUNCA falha a edição: qualquer erro aqui é engolido e logado."""
+    try:
+        casa, desc = antes.get("casa"), antes.get("descricao")
+        for campo, antigo, novo in _correcoes_diff(antes, safe):
+            await conn.execute(
+                "INSERT INTO correcoes (bilhete_id, dono, casa, campo, "
+                "valor_anterior, valor_novo, descricao) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+                bilhete_id, dono, casa, campo, antigo, novo, desc)
+    except Exception:
+        logger.exception("registro de correção falhou (não-fatal)")
+
+
 async def atualizar_bilhete(bilhete_id: int, campos: dict, dono: str) -> bool:
     _EDITAVEIS = {"data", "esporte", "tipster", "casa", "parceiro",
                   "aposta", "descricao", "stake", "odd", "resultado"}
@@ -1123,8 +1150,19 @@ async def atualizar_bilhete(bilhete_id: int, campos: dict, dono: str) -> bool:
            f"WHERE id = ${id_ph} AND dono = ${len(params)}")
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # snapshot ANTES do update, p/ registrar a correção (rótulo→antigo→novo).
+        # Defensivo: se o snapshot falhar, a edição segue normalmente.
+        antes = None
+        try:
+            antes = await conn.fetchrow(
+                "SELECT * FROM bilhetes WHERE id = $1 AND dono = $2", bilhete_id, dono)
+        except Exception:
+            logger.exception("snapshot p/ correção falhou (não-fatal)")
         result = await conn.execute(sql, *params)
-    return result.split()[-1] == "1"
+        ok = result.split()[-1] == "1"
+        if ok and antes is not None:
+            await _registrar_correcoes(conn, bilhete_id, dono, antes, safe)
+    return ok
 
 
 async def set_tipster_bulk(ids: list[int], tipster: str, dono: str) -> int:
