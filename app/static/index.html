@@ -357,8 +357,6 @@ html.embedded .sidebar { display: none; }
 
 /* Criador de conta + ações */
 .painel-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.painel-newform { display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
-.painel-newform.open { display: flex; }
 .painel-hint { font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em; color: var(--ink-mute); }
 .painel-empty { font-family: var(--font-mono); font-size: 12px; color: var(--ink-mute); padding: 6px 0; }
 
@@ -530,20 +528,6 @@ html.embedded .sidebar { display: none; }
   letter-spacing: .04em; cursor: pointer; transition: border-color .12s, color .12s, background .12s;
 }
 .acct-new-toggle:hover { border-color: rgba(var(--accent-rgb),.5); color: var(--accent); background: var(--elevated); }
-.acct-new-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-.acct-new-form[hidden] { display: none; }
-.acct-new-casa, .acct-new-nome {
-  width: 100%; padding: 8px 10px; border-radius: var(--r-sm);
-  background: var(--field); border: 1px solid var(--line); color: var(--ink);
-  font-family: var(--font-mono); font-size: 12px; outline: none;
-}
-.acct-new-casa:focus, .acct-new-nome:focus { border-color: var(--accent); }
-.acct-new-confirm {
-  width: 100%; padding: 8px 10px; border-radius: var(--r-sm);
-  background: var(--accent); border: 1px solid transparent; color: #fff;
-  font-family: var(--font-sans); font-size: 12px; font-weight: 700; cursor: pointer; transition: box-shadow .12s;
-}
-.acct-new-confirm:hover { box-shadow: var(--glow); }
 
 /* ── Partner body: two columns ── */
 .partner-body {
@@ -2398,32 +2382,10 @@ function renderAcctTree() {
 function abrirAcctPop(open) {
   const wrap = document.getElementById('acctSelWrap');
   if (!wrap) return;
-  if (open) { renderAcctTree(); popularCasasNova(); fecharFormNovaConta(); wrap.classList.add('open'); const s = document.getElementById('acct-search'); if (s) { s.value = ''; s.focus(); } }
+  if (open) { renderAcctTree(); wrap.classList.add('open'); const s = document.getElementById('acct-search'); if (s) { s.value = ''; s.focus(); } }
   else wrap.classList.remove('open');
 }
 
-// ── 4.2.c — criar conta nova pelo dropdown (reusa POST /parceiros; substitui o
-// "+ Novo parceiro" da árvore antiga da sidebar) ──
-function popularCasasNova() {
-  const sel = document.getElementById('acctNewCasa');
-  if (!sel) return;
-  const atual = sel.value;
-  // casas existentes + a opção de cadastrar uma casa nova (modo cego — Fase 2)
-  sel.innerHTML = (casasCarregadas || []).map(c => `<option value="${esc(c)}">${esc(NOMES[c] || c)}</option>`).join('')
-    + '<option value="__nova__">+ nova casa…</option>';
-  if (atual) sel.value = atual;
-}
-// Ao escolher "+ nova casa", revela os campos de nome e URL (p/ o favicon).
-function onCasaNovaSelChange() {
-  const sel = document.getElementById('acctNewCasa');
-  const txt = document.getElementById('acctNewCasaTxt');
-  const url = document.getElementById('acctNewCasaUrl');
-  if (!sel || !txt) return;
-  const nova = sel.value === '__nova__';
-  txt.hidden = !nova;
-  if (url) url.hidden = !nova;
-  if (nova) { txt.value = ''; if (url) url.value = ''; txt.focus(); }
-}
 // Extrai o domínio de uma URL/entrada livre (p/ o favicon via faviconUrl).
 //  "https://www.OioiOi.com/sports?x=1" → "oioioi.com" · "x.bet.br" → "x.bet.br"
 function _dominioFromUrl(u) {
@@ -2431,77 +2393,6 @@ function _dominioFromUrl(u) {
   return u.trim().toLowerCase()
     .replace(/^https?:\/\//, '').replace(/^www\./, '')
     .split('/')[0].split('?')[0].split('#')[0].trim();
-}
-function fecharFormNovaConta() {
-  const form = document.getElementById('acctNewForm');
-  if (form) form.hidden = true;
-}
-function abrirFormNovaConta() {
-  const form = document.getElementById('acctNewForm');
-  if (!form) return;
-  form.hidden = false;
-  popularCasasNova();
-  const casaTxt = document.getElementById('acctNewCasaTxt');
-  if (casaTxt) { casaTxt.value = ''; casaTxt.hidden = true; }
-  const casaUrl = document.getElementById('acctNewCasaUrl');
-  if (casaUrl) { casaUrl.value = ''; casaUrl.hidden = true; }
-  const parc = document.getElementById('acctNewParceiro');
-  const forn = document.getElementById('acctNewForn');
-  if (parc) { parc.value = ''; parc.focus(); }
-  if (forn) forn.value = '';
-}
-async function criarContaNova() {
-  const casaSel = document.getElementById('acctNewCasa');
-  const casaTxt = document.getElementById('acctNewCasaTxt');
-  const parcInp = document.getElementById('acctNewParceiro');
-  const fornInp = document.getElementById('acctNewForn');
-  // casa nova (texto livre) quando a opção "+ nova casa" está selecionada
-  const casa = (casaSel && casaSel.value === '__nova__')
-    ? ((casaTxt && casaTxt.value) || '').trim()
-    : (casaSel && casaSel.value);
-  const parceiro = ((parcInp && parcInp.value) || '').trim();
-  const forn = ((fornInp && fornInp.value) || '').trim();
-  // Modelo canônico "Parceiro [Fornecedor]"; sem fornecedor fica só o parceiro (nunca "Parceiro []").
-  const nome = forn ? `${parceiro} [${forn}]` : parceiro;
-  if (!casa) { alert('Selecione a casa.'); return; }
-  if (!parceiro) { if (parcInp) parcInp.focus(); return; }
-  try {
-    const r = await fetch('/parceiros', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ casa, nome }),
-    });
-    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.detail || 'Erro ao criar conta'); return; }
-    const p = await r.json();
-    // Casa nova (Fase 2): passa a existir pelo uso — inclui na lista carregada
-    // para aparecer no dropdown/árvore sem esperar o próximo carregarCasas().
-    if (!(casasCarregadas || []).includes(p.casa)) {
-      casasCarregadas = [...(casasCarregadas || []), p.casa].sort((a, b) => a.localeCompare(b));
-    }
-    // Casa nova com URL → guarda o domínio p/ o favicon (chip padrão em todo o sistema).
-    if (casaSel && casaSel.value === '__nova__') {
-      const dom = _dominioFromUrl((document.getElementById('acctNewCasaUrl') || {}).value || '');
-      if (dom) {
-        DOMINIOS[p.casa] = dom;   // já aplica no render desta sessão
-        fetch('/casas/meta', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ casa: p.casa, dominio: dom }),
-        }).catch(() => {});       // persistência em 2º plano; não bloqueia a UI
-      }
-    }
-    // Mesma reconciliação de cache do fluxo antigo (reusar nome arquivado reativa via ON CONFLICT).
-    const idx = (parceirosCache[casa] || []).findIndex(x => x.id === p.id);
-    if (idx >= 0) parceirosCache[casa][idx] = p;
-    else parceirosCache[casa] = [...(parceirosCache[casa] || []), p];
-    parceirosArquivadosCache[casa] = (parceirosArquivadosCache[casa] || []).filter(x => x.id !== p.id);
-    if (parcInp) parcInp.value = '';
-    if (fornInp) fornInp.value = '';
-    // Parceiro novo nasce ativo — garante a aba certa antes de selecionar.
-    acctPopAba = 'ativas';
-    document.querySelectorAll('.acct-tabs button').forEach(x => x.classList.toggle('on', x.dataset.aba === 'ativas'));
-    selecionarParceiro(p);
-    abrirAcctPop(false);
-  } catch { alert('Erro de rede.'); }
 }
 // ── Modal "Nova conta" (unifica dropdown + painel; substitui os forms inline) ──
 let _ncOrigem = 'dropdown';
@@ -2870,34 +2761,7 @@ async function renderPainelAtividade() {
     '</tbody></table></div>';
 }
 
-function painelToggleForm(force) {
-  const f = document.getElementById('painel-newform');
-  if (!f) return;
-  const open = force === undefined ? !f.classList.contains('open') : !!force;
-  f.classList.toggle('open', open);
-  if (open) { const n = document.getElementById('painel-new-parceiro'); if (n) n.focus(); }
-}
 
-async function painelCriarConta() {
-  const casaEl = document.getElementById('painel-new-casa');
-  const parcEl = document.getElementById('painel-new-parceiro');
-  const fornEl = document.getElementById('painel-new-forn');
-  const casa = casaEl ? casaEl.value : '';
-  const parceiro = (parcEl ? parcEl.value : '').trim();
-  const forn = (fornEl ? fornEl.value : '').trim();
-  // Modelo canônico "Parceiro [Fornecedor]"; sem fornecedor fica só o parceiro (nunca "Parceiro []").
-  const nome = forn ? `${parceiro} [${forn}]` : parceiro;
-  if (!casa || !parceiro) return;
-  try {
-    const r = await fetch('/parceiros', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ casa, nome }),
-    });
-    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.detail || 'Erro ao criar.'); return; }
-    await carregarParceiros(casa);   // recarrega o cache da casa (ativas + arquivadas)
-    renderCasaList();                // mantém a árvore/badges da sidebar em sincronia
-    renderPainelContas();            // re-renderiza o painel com o novo total
-  } catch { alert('Erro de rede.'); }
-}
 
 function mostrarEmptyState() {
   document.getElementById('empty-state').style.display = '';
