@@ -16,40 +16,41 @@
 // gera linha no extrato) ficava por interpolação. Este JSON traz `settledDate` de TODO
 // bilhete, perda inclusive → data de resolução exata e fim do upload duplo.
 (function () {
-  const RX = /\/activity\/sportsbook/i;   // endpoint da LISTA de bilhetes resolvidos
+  // Casamento FROUXO por URL ("sportsbook") — o `open` pode receber a URL relativa
+  // (ex.: "sportsbook") e o DevTools só mostra a resolvida (/activity/sportsbook). A
+  // seletividade real vem da FORMA do JSON: só aceita respostas com `bets[]`.
+  const RX = /sportsbook/i;
   const all = [];
   const seen = new Set();
   let fimReal = false;
-  let respostas = 0;   // quantas respostas de /activity/sportsbook o hook viu (diagnóstico)
+  let respostas = 0;   // respostas com URL "sportsbook" que o hook viu (diagnóstico)
   const LOG = (...a) => { try { console.log("[SharpenUp bf_inject]", ...a); } catch (e) {} };
-  LOG("hook instalado em", location.href);
+  LOG("hook instalado em", location.href, "· frame top?", window.top === window);
 
   // SEMPRE responde (mesmo com 0 bets) → o content script sabe que o hook está VIVO e
-  // quantas respostas foram vistas. É o autodiagnóstico do "0 coletado" (sem console):
-  // hook:true = injeção OK; respostas>0 = viu a API; bets>0 = leu os bilhetes.
+  // quantas respostas foram vistas. Posta na PRÓPRIA janela E na do TOPO (a lista pode
+  // rodar num iframe; o content.js/robô só vivem no frame de topo). hook:true = injeção OK;
+  // respostas>0 = viu a API; bets>0 = leu os bilhetes.
   function enviar() {
-    try {
-      window.postMessage({ __sharpenupBFData: true, hook: true, bets: all, fim: fimReal, respostas: respostas }, "*");
-    } catch (e) {}
+    const msg = { __sharpenupBFData: true, hook: true, bets: all, fim: fimReal, respostas: respostas };
+    try { window.postMessage(msg, "*"); } catch (e) {}
+    try { if (window.top && window.top !== window) window.top.postMessage(msg, "*"); } catch (e) {}
   }
 
   function forward(url, text) {
-    if (!RX.test(String(url))) return;
+    if (!RX.test(String(url)) || typeof text !== "string") return;
+    let j;
+    try { j = JSON.parse(text); } catch (e) { return; }   // não é JSON → não é a lista
+    if (!j || !Array.isArray(j.bets)) return;              // forma errada → ignora (seletividade real)
     respostas++;
-    LOG("resposta capturada:", String(url).slice(0, 120), "· bytes:", (text || "").length);
-    if (typeof text !== "string") { enviar(); return; }
-    try {
-      const j = JSON.parse(text);
-      const arr = Array.isArray(j && j.bets) ? j.bets : [];
-      LOG("bets no JSON:", arr.length, "· moreAvailable:", j && j.moreAvailable);
-      for (const t of arr) {
-        const c = t && t.betId;
-        if (c && !seen.has(c)) { seen.add(c); all.push(t); }
-      }
-      // moreAvailable === false → não há próxima página → fim autoritativo da lista.
-      if (j && j.moreAvailable === false) fimReal = true;
-      LOG("total acumulado:", all.length, "· fim:", fimReal);
-    } catch (e) { LOG("erro ao parsear JSON:", e && e.message); }
+    LOG("resposta de bilhetes:", String(url).slice(0, 120), "· bets:", j.bets.length, "· moreAvailable:", j.moreAvailable);
+    for (const t of j.bets) {
+      const c = t && t.betId;
+      if (c && !seen.has(c)) { seen.add(c); all.push(t); }
+    }
+    // moreAvailable === false → não há próxima página → fim autoritativo da lista.
+    if (j.moreAvailable === false) fimReal = true;
+    LOG("total acumulado:", all.length, "· fim:", fimReal);
     enviar();
   }
 

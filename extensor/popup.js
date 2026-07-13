@@ -160,7 +160,9 @@ async function capturar() {
                 : casa === "Superbet" ? "sb_inject.js"
                 : casa === "Betano" ? "bn_inject.js"
                 : casa === "Betfair" ? "bf_inject.js" : null;
-      if (inj) { try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [inj], world: "MAIN" }); } catch (_) {} }
+      // allFrames: a lista de bilhetes pode rodar num iframe (ex.: Betfair) → injeta o
+      // interceptor em TODOS os frames, não só no topo.
+      if (inj) { try { await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: [inj], world: "MAIN" }); } catch (_) {} }
       // Dispara o robô (rola/pagina + colhe + envia texto).
       try { await chrome.tabs.sendMessage(tab.id, { type: "START_ROBOT" }); } catch (_) {}
     } else {
