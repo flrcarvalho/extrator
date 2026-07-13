@@ -27,7 +27,7 @@ function renderKPI(rows){
     {l:'P/L Bruto',v:fmtPL(lucro),c:lucro>=0?'pos':'neg',s:'antes de custos',accent:''},
     {l:'Custo de Contas',v:costConta>0?fmtPL(-costConta):fmtR(0),c:costConta>0?'neg':'neu',s:'total aquisição',accent:''},
     {l:'Custo de Tipsters',v:costTipster>0?fmtPL(-costTipster):fmtR(0),c:costTipster>0?'neg':'neu',s:'assinaturas / serviços',accent:''},
-    {l:'P/L Líquido',v:fmtPL(lucroLiq),c:lucroLiq>=0?'pos':'neg',s:'resultado final',accent:''},
+    {l:'P/L Líquido',v:fmtPL(lucroLiq),c:lucroLiq>=0?'pos':'neg',s:'resultado final',accent:'hero'},
   ];
   // ── Andar 2: Turnover → ROI → Odd Média → Win Rate ──────────────────────
   const row2=[
@@ -39,7 +39,7 @@ function renderKPI(rows){
   const divider=`<div style="grid-column:1/-1;height:1px;background:var(--line-2);margin:2px 0;opacity:.6"></div>`;
   document.getElementById('kpiGrid').innerHTML=
     `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:stretch;margin-bottom:1.25rem">`+
-    row1.map(k=>`<div class="kpi"><div class="kpi-label"><span class="kpi-pipe"></span> ${k.l}</div><div class="kpi-val ${k.c}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('')+
+    row1.map(k=>`<div class="kpi ${k.accent||''}"><div class="kpi-label"><span class="kpi-pipe"></span> ${k.l}</div><div class="kpi-val ${k.c}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('')+
     row2.map(k=>`<div class="kpi"><div class="kpi-label"><span class="kpi-pipe"></span> ${k.l}</div><div class="kpi-val ${k.c}">${k.v}</div>${k.bar!==undefined?`<div class="wrc"><div class="t"><div class="f" style="width:${Math.min(100,Math.max(0,k.bar)).toFixed(1)}%"></div></div></div>`:''}<div class="kpi-sub">${k.s}</div></div>`).join('')+
     `</div>`;
 }
