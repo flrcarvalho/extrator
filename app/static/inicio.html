@@ -232,24 +232,34 @@ function el(id){return document.getElementById(id);}
 // Top N positivos / negativos de um mapa {chave: pl}.
 function ranked(map,pos,n){const arr=Object.entries(map).map(([k,v])=>({k,v}));return pos?arr.filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,n):arr.filter(x=>x.v<0).sort((a,b)=>a.v-b.v).slice(0,n);}
 // Favicon de casa — MESMO mecanismo do resto do app (Google S2 + fallback inicial).
-// ⚠️ FONTE DA VERDADE do domínio: dash/assets/js/data.js (HOUSE_DOMAIN/CASA_ICONS).
-//    Cópia espelhada aqui porque o inicio.html é um iframe standalone e carregar
-//    data.js colide (esc/SPORT_*/MESES já definidos inline). Ao criar/renomear casa
-//    lá, replicar aqui — NÃO deixar esta virar uma segunda fonte da verdade.
+// ⚠️ FONTE DA VERDADE do domínio: index.html `DOMINIOS` (mapa VIVO, chaveado pelo
+//    nome de exibição que /casas devolve). Espelhado aqui verbatim porque o inicio.html
+//    é um iframe standalone. Ao criar/renomear casa em index.html, replicar aqui —
+//    NÃO deixar esta virar uma segunda fonte da verdade. Todos verificados no S2 (auditoria s140).
 const CASA_DOMAIN={
-  '7K':'7k.bet.br','Bateu':'bateu.bet.br','Bet365':'bet365.com','Betano':'betano.com',
-  'Betao':'betao.bet.br','Betão':'betao.bet.br','Betboom':'betboom.bet.br','Faz1bet':'faz1.bet.br',
-  'Polymarket':'polymarket.com','Betboo':'betboo.com','Betbra':'betbra.bet.br','BETesporte':'betesporte.bet.br',
-  'Betfair':'betfair.com','Betfast':'betfast.bet.br','Betfusion':'betfusion.bet.br','BetMGM':'betmgm.bet.br',
-  'Betnacional':'betnacional.com','Betpontobet':'betpontobet.bet.br','Bolsa de Aposta':'bolsadeaposta.bet.br',
-  'Casa de Apostas':'casadeapostas.com','Donald Bet':'donald.bet.br','Esportes da Sorte':'esportesdasorte.com',
-  'Esportiva':'esportiva.bet.br','Estrela Bet':'estrelabet.com','Fulltbet':'fulltbet.bet.br','KTO':'kto.com',
-  'Lance de Sorte':'lancedesorte.bet.br','Liderbet':'lider.bet.br','MatchBook':'matchbook.com','MultiBet':'multi.bet.br',
-  'Novibet':'novibet.com','Pinnacle':'pinnacle.com','PixBet':'pixbet.com','Rei do Pitaco':'reidopitaco.com.br',
-  'SportingBet':'sportingbet.com','Superbet':'superbet.com','Tivo':'tivo.bet.br'
+  // globais / .com
+  'Bet365':'bet365.com','Betano':'betano.com','Betfair':'betfair.com','Pinnacle':'pinnacle.com',
+  'Superbet':'superbet.com','Betnacional':'betnacional.com','KTO':'kto.com','Casa de Apostas':'casadeapostas.com',
+  'Estrela Bet':'estrelabet.com','MatchBook':'matchbook.com','Novibet':'novibet.com','Esportes da Sorte':'esportesdasorte.com',
+  'PixBet':'pixbet.com','Polymarket':'polymarket.com','Betboo':'betboo.com','SportingBet':'sportingbet.com',
+  // reguladas BR / .bet.br
+  '7K':'7k.bet.br','Bateu':'bateu.bet.br','Betbra':'betbra.bet.br','Betpontobet':'betpontobet.bet.br',
+  'Bolsa de Aposta':'bolsadeaposta.bet.br','BETesporte':'betesporte.bet.br','Betfast':'betfast.bet.br',
+  'BetMGM':'betmgm.bet.br','Donald Bet':'donald.bet.br','Esportiva':'esportiva.bet.br','Faz1Bet':'faz1.bet.br',
+  'Fulltbet':'fulltbet.bet.br','Lance de Sorte':'lancedesorte.bet.br','MultiBet':'multi.bet.br',
+  'Betao':'betao.bet.br','Betão':'betao.bet.br','Betboom':'betboom.bet.br','Betfusion':'betfusion.bet.br',
+  'Liderbet':'lider.bet.br','Tivo':'tivo.bet.br',
+  // só no Planilhador (faltavam aqui → caíam no globo)
+  'KingPanda':'kingpanda.bet.br','Lottu':'lottu.bet.br','Jogo de Ouro':'jogodeouro.bet.br','Vitória Bet':'vitoriabet.bet',
+  'Rei do Pitaco':'pitaco.bet.br',
+  // grafias das bases importadas (o DB guarda ESTES rótulos exatos)
+  'BetBra':'betbra.bet.br','Aposta Ganha':'apostaganha.bet.br','Esportiva Bet':'esportiva.bet.br',
+  'Multibet':'multi.bet.br','Faz1be':'faz1.bet.br','Pagol':'pagol.bet.br'
 };
 function casaFavicon(casa){
-  const dom=CASA_DOMAIN[casa]||(casa||'').toLowerCase().replace(/\s+/g,'')+'.com';
+  // Fallback só para casa NOVA fora do mapa: sem acento e sem espaço + .com (melhor palpite).
+  const fb=(casa||'').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'')+'.com';
+  const dom=CASA_DOMAIN[casa]||fb;
   const init=esc((casa||'?').charAt(0).toUpperCase());
   return '<span class="casa-chip" data-casa="'+esc(casa||'')+'" data-initial="'+init+'"><img src="https://www.google.com/s2/favicons?sz=128&domain='+encodeURIComponent(dom)+'" alt="" loading="lazy" onerror="this.remove()"></span>';
 }

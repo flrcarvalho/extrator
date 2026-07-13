@@ -53,10 +53,15 @@ const CASA_ICONS={
   'Novibet':'https://www.google.com/s2/favicons?sz=128&domain=novibet.com',
   'Pinnacle':'https://www.google.com/s2/favicons?sz=128&domain=pinnacle.com',
   'PixBet':'https://www.google.com/s2/favicons?sz=128&domain=pixbet.com',
-  'Rei do Pitaco':'https://www.google.com/s2/favicons?sz=128&domain=reidopitaco.com.br',
+  'Rei do Pitaco':'https://www.google.com/s2/favicons?sz=128&domain=pitaco.bet.br',
   'SportingBet':'https://www.google.com/s2/favicons?sz=128&domain=sportingbet.com',
   'Superbet':'https://www.google.com/s2/favicons?sz=128&domain=superbet.com',
   'Tivo':'https://www.google.com/s2/favicons?sz=128&domain=tivo.bet.br',
+  // Casas só do Planilhador (antes faltavam aqui → favicon quebrado no dashboard):
+  'Vitória Bet':'https://www.google.com/s2/favicons?sz=128&domain=vitoriabet.bet',
+  'KingPanda':'https://www.google.com/s2/favicons?sz=128&domain=kingpanda.bet.br',
+  'Lottu':'https://www.google.com/s2/favicons?sz=128&domain=lottu.bet.br',
+  'Jogo de Ouro':'https://www.google.com/s2/favicons?sz=128&domain=jogodeouro.bet.br',
 };
 // Mapa de domínios para chips de casa (favicon via favicon())
 // Para produção offline/nítida: substituir favicon() por assets/casas/NOME.png
@@ -94,10 +99,15 @@ const HOUSE_DOMAIN={
   'Novibet':'novibet.com',
   'Pinnacle':'pinnacle.com',
   'PixBet':'pixbet.com',
-  'Rei do Pitaco':'reidopitaco.com.br',
+  'Rei do Pitaco':'pitaco.bet.br',
   'SportingBet':'sportingbet.com',
   'Superbet':'superbet.com',
   'Tivo':'tivo.bet.br',
+  // Casas só do Planilhador (antes faltavam aqui → casaDomain() devolvia '' → favicon quebrado):
+  'Vitória Bet':'vitoriabet.bet',
+  'KingPanda':'kingpanda.bet.br',
+  'Lottu':'lottu.bet.br',
+  'Jogo de Ouro':'jogodeouro.bet.br',
 };
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const MESES_CURTOS=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
