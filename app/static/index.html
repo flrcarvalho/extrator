@@ -578,7 +578,9 @@ html.embedded .sidebar { display: none; }
 .ktiles { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 10px; }
 @media (max-width: 1120px) { .ktiles { grid-template-columns: repeat(2, 1fr); } }
 .tile { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 13px 14px; display: flex; flex-direction: column; min-height: 66px; }
-.tile .lab { font-family: var(--font-mono); font-size: var(--text-xxs); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .lab { font-family: var(--font-mono); font-size: var(--text-xxs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-mute); display: flex; align-items: center; }
+/* Tarja azul antes do label — padrão de KPI da marca (SHELL_SPEC §3), igual à Visão Geral. */
+.tile .lab::before { content: ""; width: 4px; height: 13px; background: var(--accent); border-radius: 2px; margin-right: 8px; flex: none; }
 .tile .val { font-family: var(--font-mono); font-size: 16px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; margin-top: auto; padding-top: 10px; white-space: nowrap; }
 .tile .val.pos { color: var(--pos); }
 .tile .val.neg { color: var(--neg); }
@@ -954,7 +956,10 @@ html.embedded .sidebar { display: none; }
 }
 /* Scroll: header+linhas rolam juntos na horizontal; header gruda no topo na vertical. */
 .btbl-scroll { flex: 1; min-height: 0; overflow: auto; }
-.btbl-inner { min-width: 100%; width: max-content; }
+/* width:100% (não max-content): a coluna elástica Aposta/Evento fica limitada à
+   largura visível e trunca (ellipsis) em vez de esticar a tabela numa múltipla longa.
+   Colunas fixas somando mais que a largura → overflow-x rola no .btbl-scroll. */
+.btbl-inner { min-width: 100%; }
 .btbl-hdr-row {
   height: 36px; position: sticky; top: 0; z-index: 2;
   background: var(--surface-2); border-bottom: 1px solid var(--line);
@@ -1665,21 +1670,21 @@ td.c-res.res-HL { color: var(--warn); }
           </div>
           <input type="file" id="file-input" multiple accept="image/*,application/pdf,.csv,text/csv,.xls,.xlsx">
 
+          <!-- Barra de ação alinhada à esquerda: Processar · Limpar · SharpenUp · Captura -->
           <div class="actions cap__bar">
+            <button class="btn btn-primary" id="btn-extrair" disabled><span class="ai-glifo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3 L12 16.5 L6.5 21 Z"/><path d="M12 3 L17.5 21 L12 16.5 Z"/></svg></span>Processar Bilhetes</button>
+            <button class="btn btn-ghost" id="btn-limpar">Limpar</button>
+            <button class="btn btn-ghost btn-sm" id="btn-cancelar" style="display:none">✕ Cancelar</button>
+            <button class="btn btn-ghost btn-sm" id="btn-limpar-imgs" style="display:none">Limpar imagens</button>
             <button class="btn btn-ghost" id="btn-conectar-ext" title="Gera um código para conectar o SharpenUp a esta conta"><span id="ext-btn-label">Conectar</span><span class="su-mark" aria-label="SharpenUp"><span class="su-tile"><svg viewBox="40 10 40 100" aria-hidden="true"><defs><linearGradient id="suBladeMk" x1="60" y1="16" x2="60" y2="104" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5BA9FF"/><stop offset="1" stop-color="#1E7CF0"/></linearGradient></defs><path d="M60 16 L60 90 L42 104 Z" fill="url(#suBladeMk)"/><path d="M60 16 L78 104 L60 90 Z" fill="#333B45"/></svg><span class="su-up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></span></span><span class="su-wm">Sharpen<span class="su-u">Up</span></span></span></button>
             <button class="btn btn-ghost btn-danger" id="btn-desconectar-ext" style="display:none">Desconectar</button>
-            <span id="img-count" style="display:none;font-size:11px;color:var(--ink-soft);font-family:var(--font-mono)"></span>
-            <span id="ext-status" style="font-size:11px;color:var(--ink-soft)"></span>
-            <span class="status-msg" id="status-msg"></span>
-            <span class="cap__sp"></span>
             <label class="data-ref-label" title="Data em que os prints foram capturados (usada para resolver Hoje/Ontem/Amanhã)">
               <span>Captura</span>
               <input type="date" id="data-ref" class="data-ref-input">
             </label>
-            <button class="btn btn-ghost btn-sm" id="btn-cancelar" style="display:none">✕ Cancelar</button>
-            <button class="btn btn-ghost btn-sm" id="btn-limpar-imgs" style="display:none">Limpar imagens</button>
-            <button class="btn btn-ghost" id="btn-limpar">Limpar</button>
-            <button class="btn btn-primary" id="btn-extrair" disabled><span class="ai-glifo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3 L12 16.5 L6.5 21 Z"/><path d="M12 3 L17.5 21 L12 16.5 Z"/></svg></span>Processar Bilhetes</button>
+            <span id="img-count" style="display:none;font-size:11px;color:var(--ink-soft);font-family:var(--font-mono)"></span>
+            <span id="ext-status" style="font-size:11px;color:var(--ink-soft)"></span>
+            <span class="status-msg" id="status-msg"></span>
           </div>
         </div>
 
