@@ -1020,6 +1020,17 @@ async def app_shell(request: Request):
     return HTMLResponse(content=content, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
+@app.get("/inicio")
+async def inicio_page(request: Request):
+    # Home pós-login (SPEC "Pagina Inicio"): carregada como iframe da casca (/app).
+    # Todos os números vêm dos mesmos endpoints dos dashboards (/dashboard/data,
+    # /bilhetes, /parceiros, /incompletos) + histórico RAIO-X em localStorage.
+    if not usuario_do_request(request):
+        return RedirectResponse("/login", status_code=303)
+    content = (Path(__file__).parent / "static" / "inicio.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=content, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+
+
 # ── Autenticação ──────────────────────────────────────────────────────────────
 
 @app.get("/login")

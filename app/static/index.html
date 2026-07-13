@@ -502,13 +502,29 @@ html.embedded .sidebar { display: none; }
 .acct-tabs { display: flex; gap: 4px; padding: 0 2px 8px; }
 .acct-tabs button { flex: 1; font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 7px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-soft); cursor: pointer; }
 .acct-tabs button.on { background: var(--accent); color: #fff; border-color: transparent; }
-.acct-hgroup { padding: 9px 8px 4px; display: flex; align-items: center; gap: 9px; }
-.acct-hgroup .ctx-hchip { width: 20px; height: 20px; }
-.acct-hgroup .nm { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); }
-.acct-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer; font-size: 13px; color: var(--ink-soft); }
-.acct-row:hover { background: var(--surface-2); color: var(--ink); }
-.acct-row.sel { background: rgba(var(--accent-rgb),.10); color: var(--ink); }
-.acct-row > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* SPEC "Seletor de Conta": casa é MOLDURA (grupo não clicável), parceiro é BOTÃO.
+   Dois níveis tipográficos SEMPRE: grupo = mono pequeno uppercase apagado;
+   conta = sans maior semibold acesa. A distância de peso elimina a ambiguidade. */
+.acct-grp { margin: 6px 4px 2px; border: 1px solid var(--line-2); border-radius: var(--r-md); overflow: hidden; background: var(--surface-2); }
+/* Banda-header do grupo (casa): sem hover, sem cursor, sem foco — não é clicável. */
+.acct-gh { display: flex; align-items: center; gap: 9px; padding: 8px 12px; background: rgba(255,255,255,.025); border-bottom: 1px solid var(--line-2); user-select: none; }
+.acct-gh .ctx-hchip { width: 20px; height: 20px; border-radius: 5px; }
+.acct-gh .acct-gname { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-mute); }
+.acct-gh .acct-gcount { margin-left: auto; font-family: var(--font-mono); font-size: 9px; color: var(--ink-mute); letter-spacing: .06em; }
+/* Linha da conta (parceiro): alvo ≥ 40px, focável, hover azul com borda-esquerda. */
+.acct-acct { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 10px 12px 10px 14px; cursor: pointer; border-left: 2px solid transparent; transition: background .14s, border-color .14s; position: relative; }
+.acct-acct + .acct-acct { border-top: 1px solid var(--line-2); }
+.acct-acct .acct-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pos); flex: none; }
+.acct-acct .acct-who { flex: 1; min-width: 0; }
+.acct-acct .acct-u { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-acct .acct-o { font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-acct .acct-chev { color: var(--ink-mute); flex: none; opacity: 0; transition: opacity .14s; }
+.acct-acct:hover { background: rgba(var(--accent-rgb),.07); border-left-color: var(--accent); }
+.acct-acct:focus-visible { outline: none; background: rgba(var(--accent-rgb),.07); border-left-color: var(--accent); }
+.acct-acct:hover .acct-chev { opacity: 1; }
+.acct-acct.sel { background: rgba(var(--accent-rgb),.10); border-left-color: var(--accent); }
+.acct-acct.sel .acct-u { color: var(--accent-2); }
+.acct-acct.sel .acct-chev { opacity: 1; color: var(--accent-2); }
 /* Badges de incompletos na árvore do dropdown (restaurados da antiga sidebar):
    azul = sem tipster · âmbar = apostas abertas (sem resultado). */
 .acct-badges { display: flex; align-items: center; gap: 5px; flex: none; }
@@ -2460,9 +2476,17 @@ function renderAcctTree() {
     let parceiros = (fonte[casa] || []);
     if (q) parceiros = parceiros.filter(p => (p.nome || '').toLowerCase().includes(q) || nomeCasa.toLowerCase().includes(q));
     if (!parceiros.length) return;
-    html += '<div class="acct-hgroup"><span class="ctx-hchip"><img data-casa="' + casa + '" src="' + faviconUrl(casa) + '" alt=""></span><span class="nm">' + nomeCasa + '</span></div>';
+    const n = parceiros.length;
+    // Moldura do grupo (casa): banda-header não clicável + contagem de contas.
+    html += '<div class="acct-grp">'
+      + '<div class="acct-gh"><span class="ctx-hchip"><img data-casa="' + casa + '" src="' + faviconUrl(casa) + '" alt=""></span>'
+      + '<span class="acct-gname">' + esc(nomeCasa) + '</span>'
+      + '<span class="acct-gcount">' + n + (n === 1 ? ' conta' : ' contas') + '</span></div>';
     parceiros.forEach(p => {
       const isSel = parceiroSelecionado && parceiroSelecionado.id === p.id;
+      // Conta = nome de exibição; operador = "[Fornecedor]" embutido no nome (repository.py).
+      const conta = _painelParseConta(p.nome);
+      const forn  = _painelParseForn(p.nome);
       // Badges de incompletos (restaurados da sidebar antiga): azul=sem tipster, âmbar=abertas.
       const semt = (semTipsterPorParceiro[casa] || {})[p.nome] || 0;
       const abr  = abertasDe(casa, p.nome);
@@ -2473,10 +2497,24 @@ function renderAcctTree() {
           + (abr  > 0 ? '<span class="acct-badge open" title="Apostas abertas (sem resultado)">' + (abr > 99 ? '99+' : abr) + '</span>' : '')
           + '</span>';
       }
-      html += '<div class="acct-row' + (isSel ? ' sel' : '') + '" data-casa="' + casa + '" data-id="' + p.id + '"><span>' + (p.nome || '—') + '</span>' + badges + '</div>';
+      const sub  = forn ? '<div class="acct-o">operador · ' + esc(forn) + '</div>' : '';
+      // Selecionada → check no lugar do chevron; senão chevron › (aparece no hover via CSS).
+      const tail = isSel
+        ? '<svg class="acct-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>'
+        : '<svg class="acct-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>';
+      html += '<div class="acct-acct' + (isSel ? ' sel' : '') + '" tabindex="0" role="button" data-casa="' + casa + '" data-id="' + p.id + '">'
+        + '<span class="acct-dot"></span>'
+        + '<div class="acct-who"><div class="acct-u">' + esc(conta || '—') + '</div>' + sub + '</div>'
+        + badges + tail + '</div>';
     });
+    html += '</div>';
   });
   tree.innerHTML = html || '<div class="acct-empty">Nenhuma conta nesta aba</div>';
+}
+// Parte "Conta" do nome "Conta [Fornecedor]" (ou o nome inteiro se não houver fornecedor).
+function _painelParseConta(nome) {
+  const m = /^(.+?)\s*\[(.+?)\]$/.exec(nome || '');
+  return m ? m[1].trim() : (nome || '').trim();
 }
 function abrirAcctPop(open) {
   const wrap = document.getElementById('acctSelWrap');
@@ -2644,12 +2682,22 @@ async function ncCriarConta() {
     document.querySelectorAll('.acct-tabs button').forEach(x => x.classList.toggle('on', x === b));
     renderAcctTree();
   }));
-  document.getElementById('acctTree').addEventListener('click', e => {
-    const row = e.target.closest('.acct-row');
+  function _acctPick(row) {
     if (!row) return;
     const fonte = acctPopAba === 'ativas' ? parceirosCache : parceirosArquivadosCache;
     const p = (fonte[row.dataset.casa] || []).find(x => x.id === parseInt(row.dataset.id, 10));
     if (p) { selecionarParceiro(p); abrirAcctPop(false); }
+  }
+  document.getElementById('acctTree').addEventListener('click', e => {
+    _acctPick(e.target.closest('.acct-acct'));
+  });
+  // Navegação por teclado: conta é focável (tabindex) — Enter/Espaço seleciona.
+  document.getElementById('acctTree').addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const row = e.target.closest && e.target.closest('.acct-acct');
+    if (!row) return;
+    e.preventDefault();
+    _acctPick(row);
   });
   // 4.2.c — criar conta nova
   const novoToggle = document.getElementById('acctNewToggle');

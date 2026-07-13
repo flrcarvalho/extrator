@@ -136,6 +136,7 @@ body::before {
       <div class="wm"><div class="w">Sharp<span class="e">en.</span></div></div>
     </div>
     <nav class="sidebar-nav">
+      <div class="nav-item" data-key="inicio" onclick="location.hash='inicio'" title="Início"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7.2 8 2l6 5.2"/><path d="M3.3 6.4V14h9.4V6.4"/></svg>Início</div>
       <div class="nav-group">Operação</div>
       <div class="nav-item" data-key="plan:extracao" onclick="location.hash='plan'" title="Extração de bilhetes"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="13" height="13" rx="1"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13"/></svg>Extração e Captura</div>
       <div class="nav-item" data-key="plan:contas" onclick="location.hash='plan/contas'" title="Gestão de contas e parceiros"><svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8 1.7l6 3-6 3-6-3z"/><path d="M2 4.7v6.6l6 3 6-3V4.7"/></svg>Contas &amp; Parceiros</div>
@@ -165,6 +166,7 @@ body::before {
   <!-- Conteúdo: os 2 apps carregados como iframes (mesma origem → chamada cruzada OK).
        O Planilhador carrega já; o Dashboard é lazy (só no 1º clique em Análise). -->
   <main class="host-main">
+    <iframe id="fr-inicio" class="app-frame active" src="/inicio" title="Início"></iframe>
     <iframe id="fr-plan" class="app-frame" src="/" title="Extração e Captura"></iframe>
     <iframe id="fr-dash" class="app-frame" title="Dashboard"></iframe>
   </main>
@@ -178,10 +180,11 @@ body::before {
    Trocar de app = mostrar/esconder iframe → a casca (sidebar) NUNCA recarrega,
    e o estado de cada app sobrevive (ex.: extração em andamento). */
 (function(){
+  var frInicio = document.getElementById('fr-inicio');
   var frPlan = document.getElementById('fr-plan');
   var frDash = document.getElementById('fr-dash');
   var dashLoaded = false;
-  var current = { app: 'plan', target: 'extracao' };
+  var current = { app: 'inicio', target: '' };   // porta de entrada = Início
 
   function setActive(key){
     var items = document.querySelectorAll('.nav-item[data-key]');
@@ -190,6 +193,7 @@ body::before {
     }
   }
   function showFrame(which){
+    frInicio.classList.toggle('active', which === 'inicio');
     frPlan.classList.toggle('active', which === 'plan');
     frDash.classList.toggle('active', which === 'dash');
   }
@@ -197,7 +201,11 @@ body::before {
   function callDash(page){ try { frDash.contentWindow.showPage(page); } catch(e){} }
 
   function go(app, target){
-    if (app === 'dash'){
+    if (app === 'inicio'){
+      current = { app: 'inicio', target: '' };
+      showFrame('inicio');
+      setActive('inicio');
+    } else if (app === 'dash'){
       var page = target || 'overview';
       current = { app: 'dash', target: page };
       if (!dashLoaded){ frDash.src = '/dashboard/#' + page; dashLoaded = true; }
@@ -216,7 +224,8 @@ body::before {
   function route(){
     var h = (location.hash || '').replace(/^#/, '');
     if (h.indexOf('dash') === 0){ go('dash', h.split('/')[1] || 'overview'); }
-    else { go('plan', h.split('/')[1] || 'extracao'); }
+    else if (h.indexOf('plan') === 0){ go('plan', h.split('/')[1] || 'extracao'); }
+    else { go('inicio'); }   // '' ou '#inicio' → home pós-login
   }
 
   // Deep-link a frio: reaplica o alvo quando o iframe termina de montar.
