@@ -77,7 +77,9 @@ h1 { font-size: 28px; font-weight: 800; letter-spacing: -.035em; margin: 8px 0 0
 .lrow.clic { cursor: pointer; transition: background .12s; }
 .lrow.clic:hover { background: var(--surface-2); }
 .lrow .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-.lrow .spdot { width: 22px; height: 22px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line-2); display: grid; place-items: center; font-size: 12px; flex: none; filter: grayscale(.2); }
+/* Chip de esporte CANÔNICO (UI_REFERENCE §4 / REFERENCIA_EMOJIS_ESPORTES §2):
+   24×24, raio 7px, fundo steel, emoji 14px DESSATURADO (grayscale 1) — nunca colorido. */
+.sp-chip { width: 24px; height: 24px; border-radius: 7px; background: var(--fdc-steel); border: 1px solid rgba(255,255,255,.08); display: inline-grid; place-items: center; flex: none; font-size: 14px; line-height: 1; filter: grayscale(1); }
 .lrow .lc { min-width: 0; flex: 1; }
 .lrow .t { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lrow .s { font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -86,21 +88,26 @@ h1 { font-size: 28px; font-weight: 800; letter-spacing: -.035em; margin: 8px 0 0
 .lrow .odd { color: var(--ink-mute); font-size: 11px; }
 .empty { padding: 20px 18px; text-align: center; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-mute); }
 .empty.ok { color: var(--pos); }
-.foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--line-2); font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-mute); }
-.foot b { color: var(--ink-soft); font-weight: 600; }
+/* Totalizador (linha de soma da coluna de stakes) — tratamento de "total": borda
+   forte, rótulo mono uppercase apagado, valor em --ink alinhado à direita (fmtR). */
+.foot { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.foot .fl { font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); }
+.foot .fv { font-family: var(--font-mono); font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
 
-/* Destaques (Bookies / Tipsters): duas colunas — ganhando (verde) / perdendo (vermelho). */
+/* Destaques (Bookies / Tipsters) = TABELA CANÔNICA (UI_REFERENCE §2/§4): header mono
+   uppercase --ink-mute, linhas separadas por --line-2, números mono à direita. */
 .dcols { display: grid; grid-template-columns: 1fr 1fr; flex: 1 1 auto; }
-.dcol { min-width: 0; display: flex; flex-direction: column; }
+.dcol { min-width: 0; }
 .dcol + .dcol { border-left: 1px solid var(--line-2); }
-.dsub { font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; padding: 11px 16px 7px; display: flex; align-items: center; gap: 6px; }
-.dsub.up { color: var(--pos); } .dsub.down { color: var(--neg); }
-.drow { display: flex; align-items: center; gap: 9px; padding: 7px 16px; font-size: 12px; }
-.drow .drank { font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); width: 11px; flex: none; text-align: right; }
-.drow .dn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
-.drow .dv { font-family: var(--font-mono); font-size: 11.5px; flex: none; }
-.dnote { padding: 9px 16px; font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-mute); }
-.dnote.ok { color: var(--pos); }
+.rk-h { font-family: var(--font-mono); font-size: 8.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; padding: 12px 16px 8px; }
+.rk-h.up { color: var(--pos); } .rk-h.down { color: var(--neg); }
+.rk { width: 100%; border-collapse: collapse; }
+.rk td { font-size: 12px; color: var(--ink); padding: 7px 16px; border-top: 1px solid var(--line-2); white-space: nowrap; }
+.rk td.rank { font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); width: 16px; text-align: right; }
+.rk td.nm { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.rk td.val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.rk td.note { color: var(--ink-mute); font-family: var(--font-mono); font-size: 10.5px; padding: 12px 16px; }
+.rk td.note.ok { color: var(--pos); }
 
 /* Glifo IA. */
 .hglifo { width: 15px; height: 15px; flex: none; display: grid; place-items: center; }
@@ -143,7 +150,7 @@ h1 { font-size: 28px; font-weight: 800; letter-spacing: -.035em; margin: 8px 0 0
     <div class="panel">
       <div class="ph"><span class="tick"></span><h3>Apostas em Aberto</h3><span class="meta">aguardando resultado</span></div>
       <div class="plist" id="emjogo-list"><div class="empty">Carregando…</div></div>
-      <div class="foot" id="emjogo-foot" style="display:none"><span>Capital em aberto</span><span id="emjogo-cap">—</span></div>
+      <div class="foot" id="emjogo-foot" style="display:none"><span class="fl">Capital em aberto</span><span class="fv" id="emjogo-cap">—</span></div>
     </div>
     <div class="col">
       <div class="panel">
@@ -205,11 +212,14 @@ function el(id){return document.getElementById(id);}
 
 // Top N positivos / negativos de um mapa {chave: pl}.
 function ranked(map,pos,n){const arr=Object.entries(map).map(([k,v])=>({k,v}));return pos?arr.filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,n):arr.filter(x=>x.v<0).sort((a,b)=>a.v-b.v).slice(0,n);}
-function drows(list){return list.map((x,i)=>'<div class="drow"><span class="drank">'+(i+1)+'</span><span class="dn">'+esc(x.k)+'</span><span class="dv">'+fmtPL(x.v)+'</span></div>').join('');}
+function rkTable(list,noteHtml){
+  if(!list.length) return '<table class="rk"><tr>'+noteHtml+'</tr></table>';
+  return '<table class="rk">'+list.map((x,i)=>'<tr><td class="rank">'+(i+1)+'</td><td class="nm">'+esc(x.k)+'</td><td class="val">'+fmtPL(x.v)+'</td></tr>').join('')+'</table>';
+}
 function destaques(map,noun){
   const up=ranked(map,true,5), down=ranked(map,false,5);
-  const colUp='<div class="dcol"><div class="dsub up">▲ Ganhando</div>'+(up.length?drows(up):'<div class="dnote">sem '+noun+' no positivo ainda</div>')+'</div>';
-  const colDown='<div class="dcol"><div class="dsub down">▼ Perdendo</div>'+(down.length?drows(down):'<div class="dnote ok">nenhum no vermelho ✓</div>')+'</div>';
+  const colUp='<div class="dcol"><div class="rk-h up">Positivos</div>'+rkTable(up,'<td class="note">sem '+noun+' no positivo</td>')+'</div>';
+  const colDown='<div class="dcol"><div class="rk-h down">Negativos</div>'+rkTable(down,'<td class="note ok">nenhum no vermelho ✓</td>')+'</div>';
   return colUp+colDown;
 }
 
@@ -308,7 +318,7 @@ async function boot(){
       const sub=[b.casa,b.parceiro,b.esporte].filter(Boolean).map(esc).join(' · ');
       const od=num(b.odd);
       const right=moneyStake(b.stake)+(od>0?'<span class="odd">@ '+fmtOdd(od)+'</span>':'');
-      return '<div class="lrow"><span class="spdot">'+sportEmoji(b.esporte)+'</span><div class="lc"><div class="t">'+titulo+'</div><div class="s">'+sub+'</div></div><span class="r">'+right+'</span></div>';
+      return '<div class="lrow"><span class="sp-chip">'+sportEmoji(b.esporte)+'</span><div class="lc"><div class="t">'+titulo+'</div><div class="s">'+sub+'</div></div><span class="r">'+right+'</span></div>';
     }).join('');
     if(abertas.length>vis.length) ejHost.innerHTML+='<div class="empty" style="padding:9px 18px;text-align:left">+ '+(abertas.length-vis.length)+' outras em aberto</div>';
     el('emjogo-cap').innerHTML=fmtR(capAberto);
