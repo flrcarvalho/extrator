@@ -50,6 +50,29 @@ $("b365-teto").addEventListener("change", (e) => {
   e.target.value = n || "";
   chrome.storage.local.set({ b365Teto: n });
 });
+// Betfair: quantidade (freio principal, padrão 100) + dias opcional + varrer tudo.
+$("bf-qtd").addEventListener("change", (e) => {
+  const n = Math.max(1, Math.min(5000, Number(e.target.value) || 100));
+  e.target.value = n;
+  chrome.storage.local.set({ bfQtd: n });
+});
+$("bf-dias").addEventListener("change", (e) => {
+  const v = (e.target.value || "").trim();
+  const n = v ? Math.max(1, Math.min(365, Number(v) || 0)) : 0;   // 0 = sem limite de dias
+  e.target.value = n || "";
+  chrome.storage.local.set({ bfDias: n });
+});
+$("bf-full").addEventListener("change", (e) => {
+  chrome.storage.local.set({ bfFull: !!e.target.checked });
+  _bfToggleFull(e.target.checked);
+});
+// Varrer tudo desativa (visualmente) quantidade + dias — os limites são ignorados.
+function _bfToggleFull(on) {
+  $("bf-qtd").disabled = on;
+  $("bf-dias").disabled = on;
+  $("bf-qtd-wrap").style.opacity = on ? ".45" : "";
+  $("bf-dias-wrap").style.opacity = on ? ".45" : "";
+}
 
 $("btn-conectar").addEventListener("click", conectar);
 $("btn-desconectar").addEventListener("click", desconectar);
@@ -143,12 +166,17 @@ async function render() {
     if (dom) { fav.style.display = ""; fav.src = `https://icons.duckduckgo.com/ip3/${dom}.ico`; }
     else { fav.style.display = "none"; }
     const texto = st.modo === "texto";
-    // Bet365 usa marco + teto (sem data/ID); Betano/Superbet usam janela de dias + ID.
+    // Bet365: marco + teto (sem data/ID). Betfair: quantidade + dias + varrer tudo (histórico
+    // ilimitado). Betano/Superbet/BETesporte: janela de dias + ID.
     const isBet365 = texto && st.casa === "Bet365";
-    const isBetSup = texto && !isBet365;
+    const isBetfair = texto && st.casa === "Betfair";
+    const isBetSup = texto && !isBet365 && !isBetfair;
     $("nota-texto").hidden = !texto;
     $("janela-wrap").hidden = !isBetSup;
     $("stopid-wrap").hidden = !isBetSup;
+    $("bf-qtd-wrap").hidden = !isBetfair;
+    $("bf-dias-wrap").hidden = !isBetfair;
+    $("bf-full-wrap").hidden = !isBetfair;
     $("b365-marco-wrap").hidden = !isBet365;
     $("b365-teto-wrap").hidden = !isBet365;
     $("btn-capturar").hidden = false;   // vale nos dois modos
@@ -161,6 +189,12 @@ async function render() {
       const cfg = await chrome.storage.local.get(["b365Marco", "b365Teto"]);
       $("b365-marco").value = cfg.b365Marco || "";
       $("b365-teto").value = cfg.b365Teto || "";
+    } else if (isBetfair) {
+      const cfg = await chrome.storage.local.get(["bfQtd", "bfDias", "bfFull"]);
+      $("bf-qtd").value = cfg.bfQtd || 100;
+      $("bf-dias").value = cfg.bfDias || "";
+      $("bf-full").checked = !!cfg.bfFull;
+      _bfToggleFull(!!cfg.bfFull);
     }
   } else {
     telaConectar.hidden = false;

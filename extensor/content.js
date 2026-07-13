@@ -383,7 +383,7 @@
     // Parada do robô: janela de N dias (look-back) OU até o ID do último bilhete
     // já extraído (copiar dele pra cima). Defensivo: sem data reconhecida, a janela
     // não corta → rola até o fim. Custo: o backend dedupa por ID antes da IA.
-    const cfg = await chrome.storage.local.get(["lookbackDias", "casa", "stopId", "b365Marco", "b365Teto"]);
+    const cfg = await chrome.storage.local.get(["lookbackDias", "casa", "stopId", "b365Marco", "b365Teto", "bfQtd", "bfDias", "bfFull"]);
     const N = Math.max(1, Number(cfg.lookbackDias) || 30);
     const cutoff = Date.now() - N * 86400000;
     const pisoSanidade = cutoff - 730 * 86400000;
@@ -398,6 +398,15 @@
       parar: () => parar,
       painel,
     };
+    // Betfair: histórico ILIMITADO (não corta como a Betano) → freio por QUANTIDADE
+    // (padrão 100) + dias opcional + "varrer conta inteira". A lista é por POSTAGEM
+    // (a resolução fica fora de ordem), então quantidade é o freio previsível.
+    if (casa === "betfair") {
+      ctx.varrerTudo = !!cfg.bfFull;
+      ctx.qtdMax = ctx.varrerTudo ? 0 : Math.max(1, Number(cfg.bfQtd) || 100);   // 0 = sem limite
+      const dias = Number(cfg.bfDias);
+      ctx.bfCutoff = (!ctx.varrerTudo && cfg.bfDias && dias > 0) ? (Date.now() - dias * 86400000) : -Infinity;
+    }
 
     let blocos;
     if (casa === "superbet") {
@@ -950,14 +959,16 @@
         if (!cod || usados.has(cod)) continue;
         if (ctx.stopId && cod === ctx.stopId) { travado = true; return; }   // último já extraído
         usados.add(cod);
-        // Janela de dias pela settledDate (resolução). "12-jul-26…" → _dbrBF → DD/MM/AAAA → ts.
+        // Freio da Betfair (histórico ilimitado): QUANTIDADE (padrão 100) é o principal;
+        // dias é opcional (janela pela settledDate); "varrer tudo" ignora ambos.
         const dbr = _dbrBF(t.settledDate);
         let dt = NaN;
         if (dbr) { const pp = dbr.split("/"); dt = Date.UTC(+pp[2], +pp[1] - 1, +pp[0]); }
-        const passou = !isNaN(dt) && dt < ctx.cutoff && dt > ctx.pisoSanidade;
+        const passouDias = ctx.bfCutoff > -Infinity && !isNaN(dt) && dt < ctx.bfCutoff;
         blocos.push(formatTicketBF(t));
         ctx.painel.contador.textContent = blocos.length + " bilhete" + (blocos.length === 1 ? "" : "s");
-        if (passou) { travado = true; return; }   // passou da janela de dias → para
+        if (passouDias) { travado = true; return; }                                  // passou da janela de dias
+        if (ctx.qtdMax && blocos.length >= ctx.qtdMax) { travado = true; return; }   // atingiu a quantidade
       }
     };
 
