@@ -20,6 +20,8 @@
   const all = [];
   const seen = new Set();
   let fimReal = false;
+  const LOG = (...a) => { try { console.log("[SharpenUp bf_inject]", ...a); } catch (e) {} };
+  LOG("hook instalado em", location.href);
 
   function postAll() {
     if (all.length || fimReal) {
@@ -28,10 +30,13 @@
   }
 
   function forward(url, text) {
-    if (!RX.test(String(url)) || typeof text !== "string") return;
+    if (!RX.test(String(url))) return;
+    LOG("resposta capturada:", String(url).slice(0, 120), "· bytes:", (text || "").length);
+    if (typeof text !== "string") return;
     try {
       const j = JSON.parse(text);
       const arr = Array.isArray(j && j.bets) ? j.bets : [];
+      LOG("bets no JSON:", arr.length, "· moreAvailable:", j && j.moreAvailable);
       let added = false;
       for (const t of arr) {
         const c = t && t.betId;
@@ -39,8 +44,8 @@
       }
       // moreAvailable === false → não há próxima página → fim autoritativo da lista.
       if (j && j.moreAvailable === false) fimReal = true;
-      if (added || fimReal) postAll();
-    } catch (e) {}
+      if (added || fimReal) { LOG("total acumulado:", all.length, "· fim:", fimReal); postAll(); }
+    } catch (e) { LOG("erro ao parsear JSON:", e && e.message); }
   }
 
   // O content script pede o acumulado ao iniciar o robô → re-envia tudo.
