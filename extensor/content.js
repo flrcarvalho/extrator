@@ -78,9 +78,13 @@
   const bfTickets = [];
   const bfTicketSeen = new Set();
   let bfFimReal = false;
+  let bfHookVivo = false;   // o bf_inject respondeu → hook ativo na página (autodiagnóstico)
+  let bfRespostas = 0;      // respostas de /activity/sportsbook que o hook viu
   window.addEventListener("message", (ev) => {
     const d = ev.data;
     if (d && d.__sharpenupBFData) {
+      if (d.hook) bfHookVivo = true;
+      if (typeof d.respostas === "number") bfRespostas = d.respostas;
       if (Array.isArray(d.bets)) {
         for (const t of d.bets) {
           const c = t && t.betId;
@@ -438,7 +442,17 @@
 
     painel.remove();
     roboRodando = false;
-    if (!blocos.length) { toastLocal("Nada coletado — rolagem/estrutura não reconhecida.", false); return; }
+    if (!blocos.length) {
+      if (casa === "betfair") {
+        // Autodiagnóstico na tela (sem console): onde travou a captura da Betfair.
+        toastLocal("Betfair: 0 bilhetes. Hook: " + (bfHookVivo ? "ATIVO" : "NÃO carregou") +
+                   " · respostas /activity/sportsbook: " + bfRespostas +
+                   " · bilhetes vistos: " + bfTickets.length, false);
+      } else {
+        toastLocal("Nada coletado — rolagem/estrutura não reconhecida.", false);
+      }
+      return;
+    }
     chrome.runtime.sendMessage({ type: "ENVIAR_TEXTO", texto: blocos.join("\n\n") });
     toastLocal(blocos.length + " bilhete(s) coletado(s), enviando…", true);
   }
@@ -992,7 +1006,8 @@
     }
     await sleep(400);
     processar();   // consome a última leva (inclusive a página final com moreAvailable:false)
-    console.log("[SharpenUp] Betfair: " + blocos.length + " bilhete(s) · bfTickets=" + bfTickets.length + " · fimReal=" + bfFimReal);
+    console.log("[SharpenUp] Betfair: " + blocos.length + " bilhete(s) · bfTickets=" + bfTickets.length +
+                " · hook=" + bfHookVivo + " · respostas=" + bfRespostas + " · fimReal=" + bfFimReal);
     return blocos;
   }
 

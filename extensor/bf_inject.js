@@ -20,36 +20,41 @@
   const all = [];
   const seen = new Set();
   let fimReal = false;
+  let respostas = 0;   // quantas respostas de /activity/sportsbook o hook viu (diagnóstico)
   const LOG = (...a) => { try { console.log("[SharpenUp bf_inject]", ...a); } catch (e) {} };
   LOG("hook instalado em", location.href);
 
-  function postAll() {
-    if (all.length || fimReal) {
-      try { window.postMessage({ __sharpenupBFData: true, bets: all, fim: fimReal }, "*"); } catch (e) {}
-    }
+  // SEMPRE responde (mesmo com 0 bets) → o content script sabe que o hook está VIVO e
+  // quantas respostas foram vistas. É o autodiagnóstico do "0 coletado" (sem console):
+  // hook:true = injeção OK; respostas>0 = viu a API; bets>0 = leu os bilhetes.
+  function enviar() {
+    try {
+      window.postMessage({ __sharpenupBFData: true, hook: true, bets: all, fim: fimReal, respostas: respostas }, "*");
+    } catch (e) {}
   }
 
   function forward(url, text) {
     if (!RX.test(String(url))) return;
+    respostas++;
     LOG("resposta capturada:", String(url).slice(0, 120), "· bytes:", (text || "").length);
-    if (typeof text !== "string") return;
+    if (typeof text !== "string") { enviar(); return; }
     try {
       const j = JSON.parse(text);
       const arr = Array.isArray(j && j.bets) ? j.bets : [];
       LOG("bets no JSON:", arr.length, "· moreAvailable:", j && j.moreAvailable);
-      let added = false;
       for (const t of arr) {
         const c = t && t.betId;
-        if (c && !seen.has(c)) { seen.add(c); all.push(t); added = true; }
+        if (c && !seen.has(c)) { seen.add(c); all.push(t); }
       }
       // moreAvailable === false → não há próxima página → fim autoritativo da lista.
       if (j && j.moreAvailable === false) fimReal = true;
-      if (added || fimReal) { LOG("total acumulado:", all.length, "· fim:", fimReal); postAll(); }
+      LOG("total acumulado:", all.length, "· fim:", fimReal);
     } catch (e) { LOG("erro ao parsear JSON:", e && e.message); }
+    enviar();
   }
 
-  // O content script pede o acumulado ao iniciar o robô → re-envia tudo.
-  window.addEventListener("message", (ev) => { if (ev.data && ev.data.__sharpenupBFReq) postAll(); });
+  // O content script pede o estado ao iniciar o robô → responde SEMPRE (reporta hook vivo).
+  window.addEventListener("message", (ev) => { if (ev.data && ev.data.__sharpenupBFReq) enviar(); });
 
   // fetch
   const of = window.fetch;
