@@ -286,3 +286,19 @@ def test_corrige_um_para_um():
     assert linhas[0].split("\t")[10] == _A
     assert linhas[1].split("\t")[10] == _B
     assert st == {"corrigidos": 1, "incertos": 0}
+
+
+def test_estado_extracao_exige_resultado_e_odd():
+    # resolvida SÓ com resultado canônico E odd utilizável (> 0)
+    assert R.estado_extracao("W", "2,04") == "resolvida"
+    assert R.estado_extracao("L", "1,75") == "resolvida"
+    assert R.estado_extracao("V", "2,00") == "resolvida"
+    assert R.estado_extracao("W", "0.7") == "resolvida"   # ponto decimal, cashout parcial
+    # sem odd (linha colapsada) → aberta, mesmo com resultado válido
+    assert R.estado_extracao("W", "") == "aberta"
+    assert R.estado_extracao("L", None) == "aberta"
+    assert R.estado_extracao("V", "0,00") == "aberta"
+    # sem resultado → aberta
+    assert R.estado_extracao("", "2,00") == "aberta"
+    # minúsculo canoniza (não regride o fix do 'v'/'w')
+    assert R.estado_extracao("w", "2,0") == "resolvida"
