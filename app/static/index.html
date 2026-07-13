@@ -1237,10 +1237,13 @@ td.c-res.res-HL { color: var(--warn); }
   font-family: var(--font-mono); font-size: 11px; color: var(--ink);
   background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-weight: 500;
 }
+/* Fase 2 (sessão 133): modelo + segundos são registro de dev → saem da vista do
+   cliente (o nº de itens já vive no KPI). O dado segue no evento SSE / log server-side
+   para o backoffice da Fase 3. Reversível — só display. */
 .rail-foot {
   padding: 13px 18px; border-top: 1px solid var(--line);
   font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-mute);
-  display: flex; align-items: center; gap: 8px;
+  display: none; align-items: center; gap: 8px;
 }
 .rail-foot .rf-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); flex: none; }
 
@@ -1262,7 +1265,10 @@ td.c-res.res-HL { color: var(--warn); }
 .extract-card--warn .ec-spin { display: none; }
 .ec-label { font-size: 11px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ec-time { font-size: 10px; color: var(--ink-mute); font-family: var(--font-mono); flex-shrink: 0; }
-.ec-tok { font-size: 10px; color: var(--ink-mute); font-family: var(--font-mono); flex-shrink: 0; }
+/* Fase 2 (sessão 133): tokens crus (in/out/%↑) são métrica de dev, não do cliente.
+   Escondidos da vista; o dado continua chegando no evento SSE e é logado server-side
+   (/uso/tokens) para o backoffice da Fase 3. Reversível — só display. */
+.ec-tok { font-size: 10px; color: var(--ink-mute); font-family: var(--font-mono); flex-shrink: 0; display: none; }
 .ec-cancel {
   background: none; border: none; cursor: pointer;
   font-size: 10px; color: var(--ink-mute); padding: 2px 5px;
