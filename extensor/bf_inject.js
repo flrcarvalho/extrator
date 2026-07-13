@@ -42,6 +42,11 @@
     let j;
     try { j = JSON.parse(text); } catch (e) { return; }   // não é JSON → não é a lista
     if (!j || !Array.isArray(j.bets)) return;              // forma errada → ignora (seletividade real)
+    // SÓ a lista RESOLVIDA (SETTLED). A aba "Aberta" (OPEN) também chama /activity/sportsbook,
+    // mas com poucas apostas e `moreAvailable:false` → capturá-la zerava a paginação (o robô
+    // parava cedo, ex.: em 21) e ainda misturava aposta em aberto com resolvida.
+    const status = j.responseFilters && j.responseFilters.status;
+    if (status && String(status).toUpperCase() !== "SETTLED") return;
     respostas++;
     LOG("resposta de bilhetes:", String(url).slice(0, 120), "· bets:", j.bets.length, "· moreAvailable:", j.moreAvailable);
     for (const t of j.bets) {

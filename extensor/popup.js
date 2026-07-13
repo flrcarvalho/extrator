@@ -160,9 +160,9 @@ async function capturar() {
                 : casa === "Superbet" ? "sb_inject.js"
                 : casa === "Betano" ? "bn_inject.js"
                 : casa === "Betfair" ? "bf_inject.js" : null;
-      // allFrames: a lista de bilhetes pode rodar num iframe (ex.: Betfair) → injeta o
-      // interceptor em TODOS os frames, não só no topo.
-      if (inj) { try { await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: [inj], world: "MAIN" }); } catch (_) {} }
+      // Frame de topo (onde vivem os bilhetes na Betfair — confirmado). O manifest cobre os
+      // sub-frames betfair.bet.br no carregamento (all_frames); aqui é o backup p/ aba já aberta.
+      if (inj) { try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [inj], world: "MAIN" }); } catch (_) {} }
       // Dispara o robô (rola/pagina + colhe + envia texto).
       try { await chrome.tabs.sendMessage(tab.id, { type: "START_ROBOT" }); } catch (_) {}
     } else {
