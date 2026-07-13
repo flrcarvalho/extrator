@@ -1295,6 +1295,10 @@ td.c-res.res-HL { color: var(--warn); }
 .rx-n { width: 20px; height: 20px; border-radius: 50%; background: rgba(var(--accent-rgb),.12); border: 1px solid rgba(var(--accent-rgb),.3); color: var(--accent-2); font-family: var(--font-mono); font-size: 10px; font-weight: 700; display: grid; place-items: center; flex: none; margin-top: 1px; }
 .rx-step p { margin: 0; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.5; color: var(--ink-soft); }
 .rx-step p b { color: var(--ink); }
+.rx-tip { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: 10px; line-height: 1.55; color: var(--ink-mute); }
+.rx-tip b { color: var(--accent-2); }
+/* SharpenUp esmaecido nas casas não conectáveis */
+#btn-conectar-ext.is-off, #btn-conectar-ext:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ── Rail Análise IA / Confiança (4.4) — resumo da extração ──
    Padrão do modelo "Planilhador (Modelo)": pill de estado + 3 KPIs
@@ -1380,6 +1384,12 @@ td.c-res.res-HL { color: var(--warn); }
 #btn-extrair { display: inline-flex; align-items: center; gap: 8px; }
 .hrow .hglifo { display: inline-grid; place-items: center; flex: none; }
 .hrow .hglifo svg { width: 13px; height: 13px; }
+/* Ícones do feed global de ações (Contas & Parceiros, sem conta ativa) */
+.hact { display: inline-grid; place-items: center; flex: none; width: 14px; height: 14px; }
+.hact svg { width: 13px; height: 13px; }
+.hact.act-new { color: var(--accent-2); }
+.hact.act-arch { color: var(--ink-mute); }
+.hact.act-ren { color: var(--ink-soft); }
 .hrow .hglifo.ok { color: var(--pos); } .hrow .hglifo.warn { color: var(--warn); } .hrow .hglifo.run { color: var(--accent-2); }
 .rail__scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
@@ -1816,7 +1826,7 @@ td.c-res.res-HL { color: var(--warn); }
     </div>
     <!-- ── Card 2: Histórico da conta (30%) — sempre visível; clique reabre o resumo ── -->
     <div class="rail-card rail-card--hist" id="rail-hist">
-      <div class="hist__head">Histórico da conta<span class="cnt" id="hist-conta"></span></div>
+      <div class="hist__head"><span id="hist-title">Histórico da conta</span><span class="cnt" id="hist-conta"></span></div>
       <div class="hist__list" id="rail-hist-list"></div>
     </div>
   </aside><!-- .rail -->
@@ -1952,7 +1962,7 @@ async function carregarUsuario() {
     const vendo = efetivo !== real;
     // isolamento do store de custos: escopa por dono efetivo + migra o legado uma vez.
     window.__donoEfetivo = efetivo; window.__donoReal = real;
-  try { renderHist(); } catch (e) {}   // histórico do rail é escopado por dono
+  try { renderHist(); atualizarRaioxVazio(); } catch (e) {}   // rail: feed/histórico + estado do Raio-X
     _migrarCustoLegado(real);
 
     document.getElementById('user-nome').textContent = efetivo;
@@ -2391,6 +2401,7 @@ async function arquivarParceiro(id, casa) {
     if (parceiroSelecionado && parceiroSelecionado.id === id) {
       parceiroSelecionado = null; mostrarEmptyState();
     }
+    _actPush('arquivamento', casa, p ? p.nome : '');
   } catch { alert('Erro ao arquivar.'); }
 }
 
@@ -2405,6 +2416,7 @@ async function reativarParceiro(id, casa) {
       parceirosCache[casa] = [...(parceirosCache[casa] || []), p];
     }
     renderCasaList();  // casa some da aba Inativas se ficou sem arquivados
+    _actPush('reativacao', casa, p ? p.nome : '');
   } catch { alert('Erro de rede.'); }
 }
 
@@ -2506,6 +2518,7 @@ async function contasRenomear(id, casa, nomeAtual) {
       parceiroSelecionado.nome = nome;
       if (typeof atualizarBotaoConta === 'function') atualizarBotaoConta();
     }
+    _actPush('renomeacao', casa, nome);
     renderPainelContas();   // nome/fornecedor podem mudar → re-render completo do hub
   } catch { alert('Erro de rede.'); }
 }
@@ -2576,7 +2589,7 @@ function atualizarBotaoConta() {
   img.src = faviconUrl(parceiroSelecionado.casa);
   chip.appendChild(img);
   atualizarQuickActs();
-  try { renderHist(); } catch (e) {}   // histórico do rail é escopado pela conta ativa
+  try { renderHist(); atualizarRaioxVazio(); } catch (e) {}   // rail escopado pela conta ativa
 }
 // Ações rápidas (editar nome / arquivar) só existem quando há conta ativa.
 function atualizarQuickActs() {
@@ -2722,6 +2735,7 @@ async function ncCriarConta() {
     const r = await fetch('/parceiros', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ casa, nome }) });
     if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.detail || 'Erro ao criar conta'); return; }
     const p = await r.json();
+    _actPush('criacao', p.casa, nome);
     if (!(casasCarregadas || []).includes(p.casa)) {
       casasCarregadas = [...(casasCarregadas || []), p.casa].sort((a, b) => a.localeCompare(b));
     }
@@ -3035,8 +3049,14 @@ function mostrarEmptyState() {
   const kpis = document.getElementById('ctxKpis');
   if (kpis) kpis.style.display = 'none';
   atualizarQuickActs();
+  try { renderHist(); atualizarRaioxVazio(); } catch (e) {}   // sem conta → feed global + convite
   renderPainelContas();
 }
+
+// Casas em que o SharpenUp opera (espelha o backend captura.py `_HOSTS_POR_CASA`).
+// Fora dessa lista o botão Conectar aparece esmaecido/não clicável (captura é por print manual).
+const CASAS_CONECTAVEIS = new Set(['SUPERBET', 'BETANO', 'BET365', 'BETESPORTE', 'BETFAIR']);
+function _casaConectavel(casa) { return CASAS_CONECTAVEIS.has((casa || '').toUpperCase()); }
 
 // ── Polymarket: sincronização via API ───────────────────────────────────────────
 function aplicarModoCasa(casa) {
@@ -3047,6 +3067,16 @@ function aplicarModoCasa(casa) {
   if (up) up.style.display = isPoly ? 'none' : '';
   if (headSync) headSync.style.display = isPoly ? '' : 'none';
   if (dash) dash.style.display = isPoly ? '' : 'none';
+  // SharpenUp: só clicável nas casas conectáveis; nas demais fica visível porém esmaecido.
+  const conn = document.getElementById('btn-conectar-ext');
+  if (conn) {
+    const ok = _casaConectavel(casa);
+    conn.disabled = !ok;
+    conn.classList.toggle('is-off', !ok);
+    conn.title = ok
+      ? 'Gera um código para conectar o SharpenUp a esta conta'
+      : 'O SharpenUp ainda não cobre esta casa — envie os prints manualmente';
+  }
   if (isPoly) {
     const w = document.getElementById('poly-wallet');
     if (w && !w.value) w.value = localStorage.getItem('poly-wallet') || '';
@@ -3475,6 +3505,23 @@ function _histSave(list) {
   try { localStorage.setItem(_histKey(), JSON.stringify(list.slice(0, 40))); } catch (e) {}
 }
 function _histPush(entry) { const l = _histLoad(); l.unshift(entry); _histSave(l); renderHist(); }
+
+// ── Log de ações da conta (criar/arquivar/renomear/reativar) por dono ──────────
+// Alimenta o "feed global" do rail quando NÃO há conta ativa (Contas & Parceiros).
+const ACT_KEY = 'sharpen_activity';
+function _actKey() { return ACT_KEY + '::' + (window.__donoEfetivo || '_'); }
+function _actLoad() {
+  try { const r = localStorage.getItem(_actKey()); const a = r ? JSON.parse(r) : []; return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+function _actPush(tipo, casa, parceiro) {
+  try {
+    const l = _actLoad();
+    l.unshift({ ts: Date.now(), tipo, casa: casa || '', parceiro: parceiro || '' });
+    localStorage.setItem(_actKey(), JSON.stringify(l.slice(0, 60)));
+  } catch (e) {}
+  try { renderHist(); } catch (e) {}
+}
 function _quando(ts) {
   const d = new Date(ts), now = new Date();
   const hm = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -3597,16 +3644,22 @@ function renderRail(analise, notaIA, modelLabel, elapsedSec, ctx) {
 }
 
 // Histórico — lista clicável na base do rail; clique reabre o resumo daquela extração.
+// Dispatcher: COM conta ativa → histórico daquela conta; SEM conta (Contas &
+// Parceiros) → feed global das últimas ações (extrações + criação/arquivamento/…).
 function renderHist() {
-  const wrap = document.getElementById('rail-hist'), list = document.getElementById('rail-hist-list');
-  if (!wrap || !list) return;
-  // Histórico DESTA conta (casa + parceiro ativos) — não é janela de 7 dias nem mistura
-  // outras contas. Sem conta ativa → esconde. Ex.: na Bet365 não mostra a extração da Betfair.
-  const chave = parceiroSelecionado ? (parceiroSelecionado.casa + '||' + parceiroSelecionado.nome) : null;
-  const items = chave ? _histLoad().filter(h => ((h.casa || '') + '||' + (h.parceiro || '')) === chave) : [];
+  const list = document.getElementById('rail-hist-list');
   const cnt = document.getElementById('hist-conta');
+  const title = document.getElementById('hist-title');
+  if (!list) return;
+  if (parceiroSelecionado) _renderHistConta(list, cnt, title);
+  else _renderFeedGlobal(list, cnt, title);
+}
+function _renderHistConta(list, cnt, title) {
+  if (title) title.textContent = 'Histórico da conta';
+  // Só esta conta (casa+parceiro) — não janela de 7 dias nem outras casas.
+  const chave = parceiroSelecionado.casa + '||' + parceiroSelecionado.nome;
+  const items = _histLoad().filter(h => ((h.casa || '') + '||' + (h.parceiro || '')) === chave);
   if (cnt) cnt.textContent = items.length ? (items.length + (items.length === 1 ? ' extração' : ' extrações')) : '';
-  // Card sempre visível (bloco fixo de 30%): sem itens → mensagem, não esconde.
   if (!items.length) { list.innerHTML = '<div class="hist-empty">Nenhuma extração nesta conta ainda.</div>'; return; }
   list.innerHTML = items.map((h, i) => {
     const quem = esc(h.casa || 'Extração') + (h.parceiro ? ' · ' + esc(h.parceiro) : '');
@@ -3617,10 +3670,64 @@ function renderHist() {
       + '<div class="hwho"><div class="ha">' + quem + '</div><div class="hb">' + esc(b) + '</div></div>'
       + '<span class="hn">' + n + '</span></div>';
   }).join('');
-  // Clique reabre pelo item capturado no closure (índice já é da lista filtrada).
   list.querySelectorAll('[data-hist]').forEach((row, i) => {
     row.addEventListener('click', () => reopenHist(items[i], row));
   });
+}
+const _ACT_ROTULO = { criacao: 'nova conta', arquivamento: 'arquivada', renomeacao: 'renomeada', reativacao: 'reativada' };
+const _ACT_ICONE = {
+  criacao: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  arquivamento: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/></svg>',
+  renomeacao: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  reativacao: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+};
+function _feedRow(e) {
+  const quem = esc(e.casa || '—') + (e.parceiro ? ' · ' + esc(e.parceiro) : '');
+  if (e.tipo === 'extracao') {
+    const detalhe = _quando(e.ts) + ' · ' + (e.itens || 0) + ' item(ns) · ' + (e.st === 'warn' ? 'pendência' : 'limpa');
+    const n = e.conf != null ? e.conf + '%' : '—';
+    return '<div class="hrow"><span class="hglifo ' + (e.st || 'ok') + '">' + GLIFO_SVG + '</span>'
+      + '<div class="hwho"><div class="ha">' + quem + '</div><div class="hb">' + esc(detalhe) + '</div></div>'
+      + '<span class="hn">' + n + '</span></div>';
+  }
+  const cls = (e.tipo === 'arquivamento') ? 'act-arch' : (e.tipo === 'renomeacao' ? 'act-ren' : 'act-new');
+  const detalhe = _quando(e.ts) + ' · ' + (_ACT_ROTULO[e.tipo] || e.tipo);
+  return '<div class="hrow"><span class="hact ' + cls + '">' + (_ACT_ICONE[e.tipo] || '') + '</span>'
+    + '<div class="hwho"><div class="ha">' + quem + '</div><div class="hb">' + esc(detalhe) + '</div></div></div>';
+}
+function _renderFeedGlobal(list, cnt, title) {
+  if (title) title.textContent = 'Últimas ações';
+  // Extrações de TODAS as contas do dono + eventos de ciclo de vida, por tempo.
+  const ext = _histLoad().map(h => ({ ts: h.ts, tipo: 'extracao', casa: h.casa, parceiro: h.parceiro, itens: h.itens, st: h.st, conf: h.conf, dup: h.dup }));
+  const eventos = ext.concat(_actLoad()).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 40);
+  if (cnt) cnt.textContent = eventos.length ? (eventos.length + (eventos.length === 1 ? ' ação' : ' ações')) : '';
+  if (!eventos.length) { list.innerHTML = '<div class="hist-empty">Nenhuma ação registrada ainda.</div>'; return; }
+  list.innerHTML = eventos.map(_feedRow).join('');
+}
+
+// Estado vazio do Raio-X, contextual: sem conta → convite a selecionar; com conta →
+// os 3 passos + (nas casas conectáveis) como usar o SharpenUp.
+const INSTRUCOES_RAIOX =
+  '<p class="rx-lead">Solte um bilhete e o <b>Sharpen faz o resto</b> — em segundos o resumo aparece aqui.</p>'
+  + '<div class="rx-steps">'
+  + '<div class="rx-step"><span class="rx-n">1</span><p><b>Solte um print ou cole o texto</b> na área ao lado.</p></div>'
+  + '<div class="rx-step"><span class="rx-n">2</span><p>O <b>Sharpen</b> lê evento, mercado, odd, stake e resultado.</p></div>'
+  + '<div class="rx-step"><span class="rx-n">3</span><p>Você <b>confere e confirma</b> — vai direto pra tabela.</p></div>'
+  + '</div>';
+function atualizarRaioxVazio() {
+  const el = document.getElementById('right-empty');
+  if (!el) return;
+  if (!parceiroSelecionado) {
+    el.innerHTML = '<p class="rx-lead">Selecione uma conta ao lado para extrair — o <b>resumo de cada extração</b> aparece aqui.</p>';
+    return;
+  }
+  let html = INSTRUCOES_RAIOX;
+  if (_casaConectavel(parceiroSelecionado.casa)) {
+    const nome = NOMES[parceiroSelecionado.casa] || parceiroSelecionado.casa;
+    html += '<p class="rx-tip"><b>SharpenUp disponível nesta casa</b> — clique em <b>Conectar</b>, abra a ' + esc(nome)
+      + ' com a extensão e capture direto da tela: ela lê os bilhetes e envia pro Sharpen, sem print manual.</p>';
+  }
+  el.innerHTML = html;
 }
 function reopenHist(h, row) {
   const empty = document.getElementById('right-empty');
