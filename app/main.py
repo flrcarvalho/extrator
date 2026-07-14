@@ -2025,6 +2025,7 @@ class TipsterInfoRequest(BaseModel):
     stake_max: Optional[float | str] = None
     apelidos: Optional[str] = None
     dica_stake: Optional[str] = None
+    esportes: Optional[str] = None
 
 
 class TipsterRenomearRequest(BaseModel):
@@ -2050,7 +2051,8 @@ async def atualizar_tipster_info_route(tipster_id: int, body: TipsterInfoRequest
                                        dono: str = Depends(dono_efetivo)):
     ok = await atualizar_tipster_info(tipster_id, dono, body.casas, body.mercados, body.obs,
                                       stake_min=body.stake_min, stake_max=body.stake_max,
-                                      apelidos=body.apelidos, dica_stake=body.dica_stake)
+                                      apelidos=body.apelidos, dica_stake=body.dica_stake,
+                                      esportes=body.esportes)
     if not ok:
         raise HTTPException(404, "Tipster não encontrado ou sem campos válidos.")
     return {"atualizado": True}

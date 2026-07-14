@@ -1289,7 +1289,7 @@ async def list_tipsters_cadastro(dono: str, incluir_arquivados: bool = False) ->
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             f"SELECT id, nome, casas, mercados, obs, stake_min, stake_max, apelidos, "
-            f"dica_stake, arquivado, criado_em "
+            f"dica_stake, esportes, arquivado, criado_em "
             f"FROM tipsters {filtro} ORDER BY nome ASC",
             dono,
         )
@@ -1297,7 +1297,7 @@ async def list_tipsters_cadastro(dono: str, incluir_arquivados: bool = False) ->
     for r in rows:
         d = dict(r)
         d["completo"] = bool(d.get("casas") or d.get("mercados") or d.get("obs")
-                             or d.get("apelidos") or d.get("dica_stake")
+                             or d.get("apelidos") or d.get("dica_stake") or d.get("esportes")
                              or d.get("stake_min") is not None
                              or d.get("stake_max") is not None)
         out.append(d)
@@ -1326,14 +1326,16 @@ async def atualizar_tipster_info(tipster_id: int, dono: str, casas: str | None,
                                  mercados: str | None, obs: str | None,
                                  stake_min=None, stake_max=None,
                                  apelidos: str | None = None,
-                                 dica_stake: str | None = None) -> bool:
+                                 dica_stake: str | None = None,
+                                 esportes: str | None = None) -> bool:
     """Preenche os campos de info do perfil (casas, mercados, observações, dica de stake +
     os campos de detecção da Fase B: faixa de stake e apelidos/marca d'água).
     Regra: `None` mantém o valor atual; para os campos de texto string vazia LIMPA; para
     stake_min/stake_max, `""`/valor ilegível → NULL (via _num_or_none)."""
     sets, params = [], []
     for col, val in (("casas", casas), ("mercados", mercados), ("obs", obs),
-                     ("apelidos", apelidos), ("dica_stake", dica_stake)):
+                     ("apelidos", apelidos), ("dica_stake", dica_stake),
+                     ("esportes", esportes)):
         if val is not None:
             params.append(val.strip() or None)
             sets.append(f"{col} = ${len(params)}")

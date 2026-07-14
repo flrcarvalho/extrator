@@ -532,49 +532,58 @@ function _tmMoney(v){return`<span class="money" style="width:auto"><span class="
 // nome dentro de onclick="…('…')" — escapa \ e '
 function _tmJs(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 
-let _tmSelCasas=[],_tmSelMkts=[];         // seleção do editor aberto (casas/mercados)
-let _tmAllCasas=[],_tmAllMkts=[];         // universo de casas/mercados da base (p/ os menus)
-let _tmMktOwners={};                       // mercado -> nº de tipsters DISTINTOS que o usam
-// Agrega as apostas da base por tipster (1 passada em DADOS): contagem por casa, por
-// mercado (r.aposta) e por valor de stake (exclui Void) — fonte do "Sharpen sugere". Na
-// mesma passada monta o universo de casas/mercados e a contagem de tipsters por mercado
-// (exclusividade: 1 tipster = sinal forte; vários = cuidado na atribuição).
+let _tmSelCasas=[],_tmSelMkts=[],_tmSelEsp=[];   // seleção do editor aberto
+let _tmAllCasas=[],_tmAllMkts=[],_tmAllEsp=[];   // universo da base (p/ os menus)
+let _tmMktOwners={},_tmEspOwners={};             // key -> nº de tipsters DISTINTOS que usam
+// Agrega as apostas da base por tipster (1 passada em DADOS): contagem por casa, mercado
+// (r.aposta), esporte e valor de stake (exclui Void) — fonte do "Sharpen sugere". Na mesma
+// passada monta o universo de casas/mercados/esportes e a contagem de tipsters DISTINTOS
+// por mercado/esporte (exclusividade: 1 tipster = sinal forte; vários = cuidado).
 function _tmBuildAgg(){
-  const agg={},casaSet=new Set(),mktSet=new Set(),owners={};
-  if(typeof DADOS==='undefined'||!DADOS){_tmAllCasas=[];_tmAllMkts=[];_tmMktOwners={};return agg;}
+  const agg={},casaSet=new Set(),mktSet=new Set(),espSet=new Set(),mo={},eo={};
+  if(typeof DADOS==='undefined'||!DADOS){_tmAllCasas=[];_tmAllMkts=[];_tmAllEsp=[];_tmMktOwners={};_tmEspOwners={};return agg;}
   DADOS.forEach(r=>{
     if(r.casa)casaSet.add(r.casa);
     if(r.aposta)mktSet.add(r.aposta);
+    if(r.esporte)espSet.add(r.esporte);
     if(!r.tipster)return;
-    if(r.aposta)(owners[r.aposta]||(owners[r.aposta]=new Set())).add(r.tipster);
-    const a=agg[r.tipster]||(agg[r.tipster]={n:0,pl:0,casas:{},mkts:{},stakes:{}});
+    if(r.aposta)(mo[r.aposta]||(mo[r.aposta]=new Set())).add(r.tipster);
+    if(r.esporte)(eo[r.esporte]||(eo[r.esporte]=new Set())).add(r.tipster);
+    const a=agg[r.tipster]||(agg[r.tipster]={n:0,pl:0,casas:{},mkts:{},esp:{},stakes:{}});
     a.n++;a.pl+=(r.lucro||0);
     if(r.casa)a.casas[r.casa]=(a.casas[r.casa]||0)+1;
     if(r.aposta)a.mkts[r.aposta]=(a.mkts[r.aposta]||0)+1;
+    if(r.esporte)a.esp[r.esporte]=(a.esp[r.esporte]||0)+1;
     if(r.resultado!=='V'&&r.stake>0)a.stakes[r.stake]=(a.stakes[r.stake]||0)+1;
   });
   _tmAllCasas=[...casaSet].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   _tmAllMkts=[...mktSet].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  _tmMktOwners={};Object.keys(owners).forEach(m=>{_tmMktOwners[m]=owners[m].size;});
+  _tmAllEsp=[...espSet].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  _tmMktOwners={};Object.keys(mo).forEach(m=>{_tmMktOwners[m]=mo[m].size;});
+  _tmEspOwners={};Object.keys(eo).forEach(e=>{_tmEspOwners[e]=eo[e].size;});
   return agg;
 }
 // lista "a, b, c" -> array único e limpo (e volta com join(', '))
 function _tmSplit(s){return [...new Set(String(s||'').split(',').map(x=>x.trim()).filter(Boolean))];}
-// Tag de exclusividade de um mercado: quantos tipsters DISTINTOS o usam na base.
-function _tmMktTag(mkt){
-  const o=_tmMktOwners[mkt]||0;
+// Tag de exclusividade: quantos tipsters DISTINTOS usam essa chave (mercado/esporte).
+function _tmOwnerTag(map,key){
+  const o=(map||{})[key]||0;
   if(o===1)return`<span style="font-family:var(--font-mono);font-size:9px;color:var(--pos);background:rgba(var(--pos-rgb),.12);border-radius:999px;padding:1px 6px;margin-left:2px">só você</span>`;
   if(o>1)return`<span style="font-family:var(--font-mono);font-size:9px;color:var(--warn);background:rgba(var(--warn-rgb),.12);border-radius:999px;padding:1px 6px;margin-left:2px">${o} tipsters</span>`;
   return'';
 }
+function _tmMktTag(m){return _tmOwnerTag(_tmMktOwners,m);}
+function _tmEspTag(e){return _tmOwnerTag(_tmEspOwners,e);}
 function _tmTop(obj,lim){return Object.entries(obj||{}).map(([k,c])=>({k,c})).sort((a,b)=>b.c-a.c).slice(0,lim||99);}
-// Stake típica = moda (stake mais frequente) → {valor, share, n} ou null.
+// Stake típica HONESTA: top-3 valores de stake com share. `dominante` = o mais comum
+// cobre ≥50% (aí vale mostrar um número só); senão é "stake variada" (mostra a lista).
 function _tmStakeTipica(stakes){
   const ent=Object.entries(stakes||{});
   if(!ent.length)return null;
   const tot=ent.reduce((a,[,c])=>a+c,0);
   ent.sort((a,b)=>b[1]-a[1]);
-  return {valor:Number(ent[0][0]),share:ent[0][1]/tot,n:tot};
+  const top=ent.slice(0,3).map(([v,c])=>({valor:Number(v),share:c/tot}));
+  return {top:top,dominante:top[0].share>=0.5,n:tot};
 }
 
 async function renderTipsterMetodo(){
@@ -652,11 +661,12 @@ function tmRenderEditor(nome){
   const secTit='font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin:14px 0 12px';
   // ESQUERDA — você preenche. A escada mora em #tmEscada (container próprio): adicionar/
   // remover degrau re-renderiza SÓ ela, sem apagar os inputs não salvos (bug do Feca).
-  _tmSelCasas=_tmSplit(t.casas);_tmSelMkts=_tmSplit(t.mercados);
+  _tmSelCasas=_tmSplit(t.casas);_tmSelMkts=_tmSplit(t.mercados);_tmSelEsp=_tmSplit(t.esportes);
   const dlMkts=`<datalist id="tmMktDL">${_tmAllMkts.map(m=>`<option value="${esc(m)}">`).join('')}</datalist>`;
   const esquerda=`<div>`
     +`<div style="${secTit};color:var(--ink-soft)">Suas informações</div>`
     +`<div style="margin-bottom:12px"><label style="${lb}">Casas principais</label><div id="tmCasasBox"></div></div>`
+    +`<div style="margin-bottom:12px"><label style="${lb}">Esportes</label><div id="tmEspBox"></div></div>`
     +`<div style="margin-bottom:12px"><label style="${lb}">Mercados</label><div id="tmMktBox"></div>${dlMkts}</div>`
     +`<div style="margin-bottom:12px"><label style="${lb}">Dica de stake</label><input id="tmDica" style="${iv}" value="${esc(t.dica_stake||'')}" placeholder="Ex.: unidade 500, mas passo 501 (ou 500,01) pra facilitar a leitura"></div>`
     +`<div style="margin-bottom:12px"><label style="${lb}">Observações gerais</label><input id="tmObs" style="${iv}" value="${esc(t.obs||'')}" placeholder="Método, gestão, contato…"></div>`
@@ -669,13 +679,13 @@ function tmRenderEditor(nome){
     +_tmSugestoes(nome)
     +`</div>`;
   box.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">${esquerda}${direita}</div>`;
-  _tmRenderCasas();_tmRenderMkts();
+  _tmRenderCasas();_tmRenderEsp();_tmRenderMkts();
   tmRenderEscada(nome);
 }
 
 // Chip de item já selecionado (com ✕). grp: 'casa' | 'mkt'. tag: HTML extra (exclusividade).
 function _tmSelChip(grp,val,tag){
-  const del=grp==='casa'?'tmCasaDel':'tmMktDel';
+  const del={casa:'tmCasaDel',mkt:'tmMktDel',esp:'tmEspDel'}[grp];
   return`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 10px;font-size:12px;color:var(--ink)">${esc(val)}${tag||''}<button onclick="${del}('${_tmJs(val)}')" title="Remover" style="background:none;border:0;color:var(--ink-mute);cursor:pointer;font-size:13px;line-height:1;padding:0 2px">✕</button></span>`;
 }
 // Casas principais = chips selecionados + menu suspenso das casas da base (sem digitar).
@@ -698,6 +708,17 @@ function tmCasaDel(v){_tmSelCasas=_tmSelCasas.filter(x=>x!==v);_tmRenderCasas();
 function tmMktAdd(){const i=document.getElementById('tmMktInp');if(!i)return;const v=(i.value||'').trim();if(v&&!_tmSelMkts.includes(v))_tmSelMkts.push(v);_tmRenderMkts();const n=document.getElementById('tmMktInp');if(n)n.focus();}
 function tmMktDel(v){_tmSelMkts=_tmSelMkts.filter(x=>x!==v);_tmRenderMkts();}
 window.tmCasaAdd=tmCasaAdd;window.tmCasaDel=tmCasaDel;window.tmMktAdd=tmMktAdd;window.tmMktDel=tmMktDel;
+// Esportes = chips (com tag de exclusividade) + menu suspenso dos esportes da base.
+function _tmRenderEsp(){
+  const el=document.getElementById('tmEspBox');if(!el)return;
+  const chips=_tmSelEsp.map(e=>_tmSelChip('esp',e,_tmEspTag(e))).join('');
+  const opts=_tmAllEsp.filter(e=>!_tmSelEsp.includes(e)).map(e=>`<option value="${esc(e)}">${esc(e)}</option>`).join('');
+  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${chips}`
+    +`<select onchange="tmEspAdd(this.value);this.selectedIndex=0" style="${_tmIV};width:auto;max-width:200px"><option value="">+ adicionar esporte</option>${opts}</select></div>`;
+}
+function tmEspAdd(v){v=(v||'').trim();if(v&&!_tmSelEsp.includes(v)){_tmSelEsp.push(v);_tmRenderEsp();}}
+function tmEspDel(v){_tmSelEsp=_tmSelEsp.filter(x=>x!==v);_tmRenderEsp();}
+window.tmEspAdd=tmEspAdd;window.tmEspDel=tmEspDel;
 
 // Painel "Sharpen sugere": stake típica (moda das stakes) + chips TICKÁVEIS das casas e
 // mercados mais usados pelo tipster. "Usar selecionados" copia os ticados p/ os inputs.
@@ -706,27 +727,39 @@ function _tmSugestoes(nome){
   const lb=_tmLB;
   if(!ag||!ag.n)return`<div style="color:var(--ink-mute);font-size:12px">Sem apostas deste tipster na base ainda — preencha à mão.</div>`;
   const st=_tmStakeTipica(ag.stakes);
-  const stakeCard=st?`<div style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px">`
-    +`<div style="${lb}">Stake típica</div>`
-    +`<div style="display:flex;align-items:baseline;gap:10px"><div style="font-size:18px">${_tmMoney(st.valor)}</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-mute)">${fmtPct(st.share*100,0,false)} das apostas</div></div>`
-    +`<div style="font-size:11px;color:var(--ink-soft);margin-top:4px">É o valor de aposta mais comum — bom ponto de partida para a unidade (1u) na escada ao lado.</div>`
-    +`</div>`:'';
+  const stakeBox='background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px';
+  let stakeCard='';
+  if(st&&st.dominante){
+    const t0=st.top[0];
+    stakeCard=`<div style="${stakeBox}"><div style="${lb}">Stake típica</div>`
+      +`<div style="display:flex;align-items:baseline;gap:10px"><div style="font-size:18px">${_tmMoney(t0.valor)}</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-mute)">${fmtPct(t0.share*100,0,false)} das apostas</div></div>`
+      +`<div style="font-size:11px;color:var(--ink-soft);margin-top:4px">É o valor de aposta mais comum — bom ponto de partida para a unidade (1u) na escada ao lado.</div></div>`;
+  }else if(st){
+    const lista=st.top.map(x=>`<span style="display:inline-flex;align-items:baseline;gap:5px">${_tmMoney(x.valor)}<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-mute)">${fmtPct(x.share*100,0,false)}</span></span>`).join('<span style="color:var(--ink-mute)"> · </span>');
+    stakeCard=`<div style="${stakeBox}"><div style="${lb}">Stake variada</div>`
+      +`<div style="display:flex;flex-wrap:wrap;gap:6px 4px;align-items:baseline;margin-top:2px">${lista}</div>`
+      +`<div style="font-size:11px;color:var(--ink-soft);margin-top:4px">Não há um valor dominante. A escada de unidade (ao lado) resolve: defina 1u por período e o resultado sai em u mesmo com stake variável.</div></div>`;
+  }
   const chip=(grp,k,c,tag)=>`<label style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 10px;margin:0 6px 6px 0;cursor:pointer;font-size:12px;color:var(--ink)"><input type="checkbox" data-tmchip="${grp}" value="${esc(k)}" checked style="accent-color:var(--accent);cursor:pointer">${esc(k)} <span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-mute)">${c}</span>${tag||''}</label>`;
-  const casasChips=_tmTop(ag.casas,8).map(x=>chip('casa',x.k,x.c)).join('')||'<span style="color:var(--ink-mute);font-size:12px">—</span>';
-  const mktsChips=_tmTop(ag.mkts,10).map(x=>chip('mkt',x.k,x.c,_tmMktTag(x.k))).join('')||'<span style="color:var(--ink-mute);font-size:12px">—</span>';
-  const legenda=`<div style="font-size:11px;color:var(--ink-mute);margin-top:4px;display:flex;gap:16px;flex-wrap:wrap"><span><span style="color:var(--pos);font-weight:600">só você</span> = mercado exclusivo, fácil identificar</span><span><span style="color:var(--warn);font-weight:600">N tipsters</span> = compartilhado, mais cuidado na sugestão</span></div>`;
+  const dash='<span style="color:var(--ink-mute);font-size:12px">—</span>';
+  const casasChips=_tmTop(ag.casas,8).map(x=>chip('casa',x.k,x.c)).join('')||dash;
+  const espChips=_tmTop(ag.esp,8).map(x=>chip('esp',x.k,x.c,_tmEspTag(x.k))).join('')||dash;
+  const mktsChips=_tmTop(ag.mkts,10).map(x=>chip('mkt',x.k,x.c,_tmMktTag(x.k))).join('')||dash;
+  const legenda=`<div style="font-size:11px;color:var(--ink-mute);margin-top:4px;display:flex;gap:16px;flex-wrap:wrap"><span><span style="color:var(--pos);font-weight:600">só você</span> = exclusivo, fácil identificar</span><span><span style="color:var(--warn);font-weight:600">N tipsters</span> = compartilhado, mais cuidado</span></div>`;
   return stakeCard
     +`<div style="margin-bottom:12px"><div style="${lb}">Casas mais usadas</div><div>${casasChips}</div></div>`
+    +`<div style="margin-bottom:12px"><div style="${lb}">Esportes mais apostados</div><div>${espChips}</div></div>`
     +`<div style="margin-bottom:8px"><div style="${lb}">Mercados mais usados</div><div>${mktsChips}</div>${legenda}</div>`
     +`<button style="${_tmBTG};margin-top:12px" onclick="tmUsarSugestoes()">Usar selecionados →</button>`
-    +`<div style="font-size:11px;color:var(--ink-mute);margin-top:8px">Tique os que fazem sentido e clique — as casas e mercados entram na esquerda. Depois é só “Salvar info”.</div>`;
+    +`<div style="font-size:11px;color:var(--ink-mute);margin-top:8px">Tique os que fazem sentido e clique — casas, esportes e mercados entram na esquerda. Depois é só “Salvar info”.</div>`;
 }
 // Copia os chips ticados para a seleção da esquerda (MERGE — não apaga o que já estava).
 function tmUsarSugestoes(){
   const sel=g=>[...document.querySelectorAll('[data-tmchip="'+g+'"]:checked')].map(c=>c.value);
   _tmSelCasas=[...new Set([..._tmSelCasas,...sel('casa')])];
+  _tmSelEsp=[...new Set([..._tmSelEsp,...sel('esp')])];
   _tmSelMkts=[...new Set([..._tmSelMkts,...sel('mkt')])];
-  _tmRenderCasas();_tmRenderMkts();
+  _tmRenderCasas();_tmRenderEsp();_tmRenderMkts();
 }
 window.tmUsarSugestoes=tmUsarSugestoes;
 
@@ -745,7 +778,7 @@ async function tmRenderEscada(nome){
 window.tmRenderEscada=tmRenderEscada;
 
 async function tmSaveInfo(id){
-  const body={casas:_tmSelCasas.join(', '),mercados:_tmSelMkts.join(', '),obs:_tmVal('tmObs'),dica_stake:_tmVal('tmDica')};
+  const body={casas:_tmSelCasas.join(', '),mercados:_tmSelMkts.join(', '),esportes:_tmSelEsp.join(', '),obs:_tmVal('tmObs'),dica_stake:_tmVal('tmDica')};
   try{const r=await fetch('/tipsters/'+id+'/info',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw 0;_tmCadastro=null;if(typeof _tipCadastro!=='undefined')_tipCadastro=null;renderTipsterMetodo();}catch(e){alert('Erro ao salvar as informações.');}
 }
 window.tmSaveInfo=tmSaveInfo;

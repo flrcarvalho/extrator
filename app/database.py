@@ -184,6 +184,9 @@ ALTER TABLE tipsters ADD COLUMN IF NOT EXISTS apelidos  TEXT;
 -- Dica de stake: nota livre sobre a gestão de stake do tipster (ex.: "unidade 500, mas
 -- passo 501/500,01 pra facilitar a leitura"). Separada de `obs` (observações gerais).
 ALTER TABLE tipsters ADD COLUMN IF NOT EXISTS dica_stake TEXT;
+-- Esportes principais (CSV): mais um sinal de identificação (um tipster só de tênis se
+-- destaca na hora). Alimenta o "Sharpen sugere" e a futura auto-atribuição.
+ALTER TABLE tipsters ADD COLUMN IF NOT EXISTS esportes TEXT;
 
 -- Backfill idempotente: todo tipster distinto já presente nos bilhetes vira registro
 -- (incompleto). Roda a cada boot; ON CONFLICT DO NOTHING → nunca duplica nem
