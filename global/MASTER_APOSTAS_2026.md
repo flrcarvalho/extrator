@@ -94,7 +94,7 @@ quando existir categoria mais específica aplicável.
 | Múltipla | Cupom com múltiplas seleções |
 | Outros | Último recurso |
 | Player Props | Estatísticas individuais de jogador |
-| Pontos | Mercados de pontos de jogo ou de time (Basquete / eBasket) |
+| Pontos | Mercados de pontos de jogo ou de time (Basquete, eBasket, Vôlei) |
 | Sets | Mercados de sets |
 | Team Props | Estatísticas de equipe |
 | Triplo-Duplo | Mercado específico de basquete |
@@ -347,15 +347,16 @@ Sinônimos:
 - Points
 - Total de Pontos
 - Mais/Menos pontos
-- Totais do Jogo (Basquete / eBasket)
-- Total - 2 Opções (Basquete / eBasket)
+- Totais do Jogo (Basquete, eBasket, Vôlei)
+- Total - 2 Opções (Basquete, eBasket, Vôlei)
 - Total de Pontos do Time
 - Team Total Points
 
 > `Pontos` cobre o total de pontos do **jogo** ou de um **time**. Pontos de um
 > **jogador** continuam `Player Props` — ver §5 (Pontos) e §7 (prioridade).
-> Os rótulos `Totais do Jogo` e `Total - 2 Opções` só significam `Pontos` em
-> Basquete / eBasket; em outros esportes seguem o objeto (Futebol → `Gols`).
+> Os rótulos `Totais do Jogo` e `Total - 2 Opções` só significam `Pontos` quando o
+> objeto for ponto; em outros esportes seguem o objeto (Futebol → `Gols`).
+> No Vôlei, `Pontos` ≠ `Sets` — são objetos distintos (§5).
 
 ---
 
@@ -464,16 +465,17 @@ Não confundir com:
 `Pontos` representa:
 
 ```text
-Total de pontos do jogo ou de um time, em Basquete e eBasket.
+Total de pontos do jogo ou de um time, em qualquer esporte cujo
+objeto apostado seja o ponto: Basquete, eBasket e Vôlei.
 ```
 
-É a categoria da unidade de pontuação do basquete, equivalente a `Gols` (Futebol),
-`Games` (Tênis), `Legs` (Dardos) e `Sets` (Vôlei).
+É a categoria do **objeto ponto**, equivalente a `Gols` (Futebol), `Games` (Tênis)
+e `Legs` (Dardos). Segue o princípio §1: a categoria registra o objeto medido.
 
 Como qualquer categoria, admite over/under, handicap de total ou comparativo — o
 tipo de mercado não altera a classificação (§1).
 
-**Discriminante — a entidade apostada** (mesmo critério de `Sets`):
+**Discriminante 1 — a entidade apostada** (mesmo critério de `Sets`):
 
 | Entidade no mercado | Categoria |
 |---|---|
@@ -481,18 +483,36 @@ tipo de mercado não altera a classificação (§1).
 | Time | `Pontos` |
 | Jogador individual | `Player Props` |
 
+**Discriminante 2 — Pontos vs Sets (Vôlei):** o Vôlei tem os dois mercados. O
+discriminante é a **unidade contada**, não o esporte:
+
+| Unidade contada | Categoria |
+|---|---|
+| Pontos (`Over 178.5 Pontos`) | `Pontos` |
+| Sets (`Over 3.5 Sets`, `Brasil -1.5 Sets`) | `Sets` |
+
 Exemplos:
 
 ```text
-Under 220.5 [LAL Lakers v CHI Bulls]          → Pontos   (total do jogo)
-Mais de 92.5 [OKC Thunder v NY Knicks]        → Pontos   (total do jogo, eBasket)
-OKC Thunder Mais de 49.5 [OKC v NY]           → Pontos   (total do time)
+Under 220.5 [LAL Lakers v CHI Bulls]           → Pontos   (total do jogo, Basquete)
+Mais de 92.5 [OKC Thunder v NY Knicks]         → Pontos   (total do jogo, eBasket)
+OKC Thunder Mais de 49.5 [OKC v NY]            → Pontos   (total do time)
+Over 178.5 Pontos [França v Itália]            → Pontos   (total do jogo, Vôlei)
+Over 3.5 Sets [França v Itália]                → Sets     (Vôlei — unidade = set)
 Mitchell Robinson - Under 3.5 Pontos [SA v NY] → Player Props (jogador)
 ```
+
+> ⚠️ **Faixa não é discriminante de esporte.** Um total de ~160–190 pode ser
+> Basquete **ou** Vôlei; ~80–130 pode ser eBasket **ou** um total de 1º tempo /
+> de time no Basquete. Quem decide o **Esporte** é o confronto e a liga
+> (`MASTER_ESPORTES_2026`); a categoria `Pontos` é a mesma nos três casos.
 
 Não confundir com:
 - `Player Props` (pontos de jogador — ver §6 NBA / Basquete)
 - `Team Props` (outras estatísticas coletivas: tiros de meta, etc.)
+- `Sets` (Vôlei/Tênis — unidade = set, não ponto)
+- `Games` (Tênis — unidade = game, não ponto)
+- `Gols` (Futebol — objeto = gol)
 - `Handicap` (spread do resultado, não total de pontos)
 
 ---
@@ -1081,6 +1101,26 @@ Sets
 
 ---
 
+### Total de pontos (jogo ou time)
+
+Classificar como:
+
+```text
+Pontos
+```
+
+O Vôlei tem **dois** mercados de total, com objetos diferentes — não confundir:
+
+| Mercado | Objeto | Categoria |
+|---|---|---|
+| `Over 178.5 Pontos [França v Itália]` | ponto | `Pontos` |
+| `Over 3.5 Sets [França v Itália]` | set | `Sets` |
+
+⚠️ Nunca classificar total de pontos do Vôlei como `Games` (unidade do Tênis),
+`Team Props` (é total do jogo, não estatística de equipe) nem `Outros`.
+
+---
+
 ### Estatísticas individuais
 
 Classificar como:
@@ -1144,22 +1184,28 @@ Assistência    > Player Props
 E-Sports Props > Player Props
 Sets (time)    > Player Props          (→ Vôlei)
 Sets (jogador) > Player Props          (→ Tênis)
-Pontos         > Team Props            (→ Basquete / eBasket)
+Pontos         > Team Props            (→ Basquete / eBasket / Vôlei)
 Pontos         > Handicap              (total de pontos ≠ spread)
+Pontos         > Games                 (→ Vôlei conta ponto, não game)
+Pontos         > Outros                (o total de pontos SEMPRE tem gaveta)
 ```
 
 Desambiguação da categoria `Sets`:
 - `Sets` com **time / seleção** → Vôlei
 - `Sets` com **jogador individual / dupla** → Tênis
 
-Desambiguação da categoria `Pontos` (Basquete / eBasket):
+Desambiguação da categoria `Pontos` (Basquete / eBasket / Vôlei):
 - pontos do **jogo** (soma dos dois times) → `Pontos`
 - pontos de um **time** → `Pontos`
 - pontos de um **jogador** → `Player Props` (§6 NBA / Basquete)
 
+Desambiguação `Pontos` vs `Sets` (Vôlei) — a **unidade contada** decide:
+- `Over 178.5 Pontos [França v Itália]` → `Pontos`
+- `Over 3.5 Sets [França v Itália]` → `Sets`
+
 > `Player Props` tem prioridade sobre `Pontos` **apenas** quando a entidade for um
-> jogador. Sem jogador nomeado, o total é sempre `Pontos` — nunca `Team Props`
-> nem `Outros`.
+> jogador. Sem jogador nomeado, o total é sempre `Pontos` — nunca `Team Props`,
+> `Games`, `Gols` nem `Outros`.
 
 Marcador discreto vs total de gols do jogador (Futebol):
 - `Para Marcar N ou Mais` / `Hat-trick` (mercado sim/não de marcar) → `Anytime`, limiar na descrição (`MASTER_DESCRICAO_2026 §12.1`)
@@ -1206,9 +1252,10 @@ Antes de retornar a saída, o extrator deve validar:
 15. `Sets` com nome de **time / seleção** = Vôlei (nunca Tênis, exceto Copa Davis explícita)
 16. `Sets` com nome de **jogador individual / dupla** = Tênis (nunca Vôlei)
 17. mercado "Mais 180's" / "Maioria de 180's" em Dardos foi classificado como `H2H` (nunca `Player Props` nem `Legs`)
-18. total de pontos de **jogo ou time** em Basquete / eBasket = `Pontos` (nunca `Team Props`, `Handicap` nem `Outros`)
+18. total de pontos de **jogo ou time** em Basquete / eBasket / Vôlei = `Pontos` (nunca `Team Props`, `Games`, `Gols`, `Handicap` nem `Outros`)
 19. pontos de **jogador** em Basquete / eBasket = `Player Props` (nunca `Pontos`)
 20. `E-Sports Props` não foi utilizado em eBasket (é exclusivo do Esporte `E-Sports`)
+21. no Vôlei, a **unidade contada** define a categoria: ponto → `Pontos`, set → `Sets` (nunca `Games`)
 
 Se qualquer regra falhar, a linha deve ser considerada inválida.
 
