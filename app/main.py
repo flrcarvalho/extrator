@@ -2079,7 +2079,9 @@ async def renomear_tipster_route(tipster_id: int, body: TipsterRenomearRequest,
 class UnidadeSegmentoRequest(BaseModel):
     tipster: str
     vigente_desde: str
-    valor: float
+    # float | str: aceita número ou string BR ("1.234,50"); set_unidade normaliza
+    # via _num_or_none (mesma máquina de número do resto do sistema).
+    valor: float | str
 
 
 @app.get("/tipsters/unidades")

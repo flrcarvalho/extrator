@@ -1512,6 +1512,18 @@ td.c-res.res-HL { color: var(--warn); }
 .conta-act.danger { color: var(--neg); }
 .conta-act.danger:hover { border-color: var(--neg); background: rgba(var(--neg-rgb),.08); }
 .contas-empty { padding: 48px 24px; text-align: center; font-family: var(--font-mono); font-size: 12px; color: var(--ink-mute); border: 1px dashed var(--line); border-radius: var(--r-lg); }
+/* Escada de unidade (Perfil de Tipster) — lista de degraus + form de alteração.
+   O .modal-body é um grid 2col; estes ocupam a linha inteira (como .modal-field.full). */
+.un-hint, #un-lista, .un-add { grid-column: 1 / -1; }
+.un-hint { font-size: 12px; color: var(--ink-soft); line-height: 1.5; margin-bottom: 14px; }
+.un-seg { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--line-2); }
+.un-seg:last-child { border-bottom: 0; }
+.un-seg-data { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; color: var(--ink-soft); }
+.un-seg-val { margin-left: auto; }
+.un-add { display: flex; gap: 8px; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.un-add input { flex: 1; min-width: 0; background: var(--field); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px 10px; color: var(--ink); font-size: 13px; font-family: var(--font-sans); outline: none; }
+.un-add input:focus { border-color: var(--accent); box-shadow: var(--glow); }
+.un-add input:first-child { flex: 0 0 130px; max-width: 130px; font-family: var(--font-mono); }
 </style>
 </head>
 <body>
@@ -1917,6 +1929,29 @@ td.c-res.res-HL { color: var(--warn); }
     <div class="modal-foot">
       <button class="btn btn-ghost btn-sm" type="button" onclick="fecharInfoTipster()">Cancelar</button>
       <button class="btn btn-primary btn-sm" type="button" onclick="salvarInfoTipster()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Escada de unidade do tipster (Perfil de Tipster · Fatia 1) — quanto vale 1u
+     em R$ ao longo do tempo. Alimenta o resultado em "u" (derivado, dashboard). -->
+<div class="modal-overlay" id="tipster-unidade-modal">
+  <div class="modal modal-narrow">
+    <div class="modal-head">
+      <span class="modal-title">Unidades · <span id="un-nome"></span></span>
+      <button class="modal-close" type="button" onclick="fecharUnidades()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="un-hint">Quanto <b>1 unidade</b> vale em R$, ao longo do tempo. Cada alteração passa a valer a partir da data informada — a primeira vale desde a primeira aposta.</div>
+      <div id="un-lista"></div>
+      <div class="un-add">
+        <input type="text" id="un-data" placeholder="DD/MM/AAAA" spellcheck="false" autocomplete="off">
+        <input type="text" id="un-valor" placeholder="R$ por unidade" spellcheck="false" autocomplete="off">
+        <button class="btn btn-primary btn-sm" type="button" onclick="addUnidadeSeg()">Adicionar</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" type="button" onclick="fecharUnidades()">Fechar</button>
     </div>
   </div>
 </div>
@@ -4737,7 +4772,8 @@ function renderTipList() {
     const badge = !t.completo ? '<span class="acct-badge pend" title="Cadastro incompleto — falta info">i</span>' : '';
     const acoes = inativos
       ? '<button class="conta-act" onclick="reativarTipster(' + t.id + ')">Reativar</button>'
-      : '<button class="conta-act" onclick="abrirInfoTipster(' + t.id + ')">Editar info</button>' +
+      : '<button class="conta-act" onclick="abrirUnidades(' + t.id + ')">Unidades</button>' +
+        '<button class="conta-act" onclick="abrirInfoTipster(' + t.id + ')">Editar info</button>' +
         '<button class="conta-act" onclick="renomearTipster(' + t.id + ')">Renomear</button>' +
         '<button class="conta-act danger" onclick="arquivarTipster(' + t.id + ')">Arquivar</button>';
     const meta = [t.casas, t.mercados].filter(Boolean).join(' · ');
@@ -4819,6 +4855,79 @@ async function reativarTipster(id) {
     if (!r.ok) throw new Error();
     renderPainelTipsters();
   } catch { alert('Erro ao reativar o tipster.'); }
+}
+
+// ── Escada de unidade (Fatia 1) — quanto vale 1u em R$ ao longo do tempo ────────
+// A unidade é view derivada (nunca persiste o "u"): guarda-se só esta escada e o
+// resultado em u é calculado no dashboard. Valor em R$ usa moneyStake (§5).
+let unidadeTipsterNome = null;
+
+function _isoToBR(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? m[3] + '/' + m[2] + '/' + m[1] : (iso || '');
+}
+
+async function abrirUnidades(id) {
+  const t = tipstersCad.find(x => x.id === id);
+  if (!t) return;
+  unidadeTipsterNome = t.nome;
+  document.getElementById('un-nome').textContent = t.nome || '';
+  document.getElementById('un-data').value = '';
+  document.getElementById('un-valor').value = '';
+  document.getElementById('tipster-unidade-modal').classList.add('open');
+  await carregarEscada();
+}
+
+function fecharUnidades() {
+  document.getElementById('tipster-unidade-modal').classList.remove('open');
+  unidadeTipsterNome = null;
+}
+
+async function carregarEscada() {
+  const box = document.getElementById('un-lista');
+  if (!box || unidadeTipsterNome == null) return;
+  let segs = [];
+  try {
+    const r = await fetch('/tipsters/unidades?tipster=' + encodeURIComponent(unidadeTipsterNome));
+    const data = await r.json();
+    segs = data.escada || [];
+  } catch {}
+  if (!segs.length) {
+    box.innerHTML = '<div class="painel-empty" style="padding:22px">Sem escada ainda — o resultado em unidades usa a stake média até você definir o valor da unidade.</div>';
+    return;
+  }
+  box.innerHTML = segs.map(s => {
+    const val = (Number(s.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return '<div class="un-seg"><span class="un-seg-data">desde ' + esc(_isoToBR(s.vigente_desde)) + '</span>' +
+      '<span class="un-seg-val">' + moneyStake(val) + '</span>' +
+      '<button class="conta-act danger" title="Remover" onclick="removerEscada(' + s.id + ')">✕</button></div>';
+  }).join('');
+}
+
+async function addUnidadeSeg() {
+  if (unidadeTipsterNome == null) return;
+  const data = document.getElementById('un-data').value.trim();
+  const valor = document.getElementById('un-valor').value.trim();
+  if (!data || !valor) { alert('Informe a data e o valor da unidade.'); return; }
+  try {
+    const r = await fetch('/tipsters/unidades', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipster: unidadeTipsterNome, vigente_desde: data, valor: valor }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(d.detail || 'Não foi possível salvar a alteração.'); return; }
+    document.getElementById('un-data').value = '';
+    document.getElementById('un-valor').value = '';
+    carregarEscada();
+  } catch { alert('Erro ao salvar a alteração de stake.'); }
+}
+
+async function removerEscada(segId) {
+  try {
+    const r = await fetch('/tipsters/unidades/' + segId, { method: 'DELETE' });
+    if (!r.ok) throw new Error();
+    carregarEscada();
+  } catch { alert('Erro ao remover o degrau.'); }
 }
 
 // Salva o tipster de um bilhete (PATCH otimista + sinal azul + badge da sidebar).
