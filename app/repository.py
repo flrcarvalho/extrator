@@ -565,6 +565,52 @@ def _assinatura(row: dict, _counter: int = 1) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:20]
 
 
+# Colunas que entram no hash de `_assinatura`. Editar qualquer uma delas invalida a
+# assinatura gravada — ver `_assinatura_pos_edicao`.
+_SIG_COLS = frozenset({"casa", "parceiro", "data", "aposta", "descricao", "stake", "odd"})
+
+
+async def _assinatura_pos_edicao(conn, antes, safe: dict, dono: str,
+                                 bilhete_id: int) -> str | None:
+    """Assinatura que o bilhete deve ter DEPOIS da edição. None = não mexer.
+
+    `atualizar_bilhete` edita colunas que entram no hash (`aposta`, `descricao`, `stake`,
+    `odd`, `data`, `casa`, `parceiro`). Sem recalcular, a assinatura fica velha e a
+    re-extração do mesmo bilhete gera uma assinatura nova que NÃO colide com ela → o
+    UPSERT não dedupa e duplica (mesma família do gap de re-extração sem código).
+
+    Colisão: se o conteúdo final bater com OUTRA linha da mesma conta, escala o `_counter`
+    igual ao `upsert_bilhetes` já faz para bilhetes distintos de conteúdo idêntico (regra
+    do Feca: sem ID, duplicata só quando stake+odd+descrição batem os três).
+
+    Bilhete COM código não aceita counter — o hash por ID ignora `_counter` — então numa
+    colisão devolve None e mantém a assinatura atual (o comportamento de hoje; nunca pior).
+    """
+    final = {c: (safe.get(c, antes[c]) or "") for c in _SIG_COLS}
+    final["codigo_bilhete"] = antes["codigo_bilhete"] or ""
+    if _assinatura(final) == antes["assinatura"]:
+        return None  # conteúdo do hash não mudou
+    tem_codigo = bool(final["codigo_bilhete"].strip())
+    for cnt in range(1, 51):
+        sig = _assinatura(final, _counter=cnt)
+        livre = await conn.fetchval(
+            """SELECT NOT EXISTS (
+                   SELECT 1 FROM bilhetes
+                   WHERE dono = $1 AND casa = $2 AND parceiro = $3
+                     AND assinatura = $4 AND id <> $5)""",
+            dono, final["casa"], final["parceiro"], sig, bilhete_id)
+        if livre:
+            # sig == a atual acontece quando a linha já usava counter e o slot dela
+            # continua sendo o certo: nada a gravar.
+            return None if sig == antes["assinatura"] else sig
+        if tem_codigo:
+            break  # escalar não sai do lugar: o hash por código ignora `_counter`
+    logger.warning(
+        "assinatura pós-edição colide para o bilhete %s (dono=%s); mantida a atual — "
+        "uma re-extração deste bilhete pode duplicar", bilhete_id, dono)
+    return None
+
+
 async def upsert_bilhetes(
     rows: list[dict], dono: str, confianca: float | None = None,
     origem: str = "extracao", criado_base: datetime | None = None,
@@ -1557,12 +1603,35 @@ async def atualizar_bilhete(bilhete_id: int, campos: dict, dono: str) -> bool:
         elif "resultado" in safe:  # snapshot falhou: regra antiga (só resultado)
             params.append("resolvida" if safe["resultado"] in _RESULTADOS_VALIDOS else "aberta")
             sets.append(f"extraction_state = ${len(params)}")
-        params.append(bilhete_id)
-        id_ph = len(params)
-        params.append(dono)
-        sql = (f"UPDATE bilhetes SET {', '.join(sets)}, atualizado_em = NOW() "
-               f"WHERE id = ${id_ph} AND dono = ${len(params)}")
-        result = await conn.execute(sql, *params)
+
+        # Ponto de retorno SEM assinatura: fallback se a corrida abaixo estourar a unique.
+        sets_base, params_base = list(sets), list(params)
+
+        # Recalcula a assinatura quando a edição toca o hash — senão a linha fica com a
+        # assinatura velha e uma re-extração do mesmo bilhete duplica.
+        if antes is not None and not _SIG_COLS.isdisjoint(safe):
+            nova_sig = await _assinatura_pos_edicao(conn, antes, safe, dono, bilhete_id)
+            if nova_sig:
+                params.append(nova_sig)
+                sets.append(f"assinatura = ${len(params)}")
+
+        async def _exec(sets_: list, params_: list) -> str:
+            p = list(params_)
+            p.append(bilhete_id)
+            id_ph = len(p)
+            p.append(dono)
+            return await conn.execute(
+                f"UPDATE bilhetes SET {', '.join(sets_)}, atualizado_em = NOW() "
+                f"WHERE id = ${id_ph} AND dono = ${len(p)}", *p)
+
+        try:
+            result = await _exec(sets, params)
+        except asyncpg.UniqueViolationError:
+            # Corrida: alguém ocupou a assinatura entre a checagem e o UPDATE. A edição do
+            # usuário não pode falhar por isso — regrava sem tocar na assinatura.
+            logger.warning("assinatura pós-edição colidiu em corrida no bilhete %s; "
+                           "edição aplicada mantendo a assinatura atual", bilhete_id)
+            result = await _exec(sets_base, params_base)
         ok = result.split()[-1] == "1"
         if ok and antes is not None:
             await _registrar_correcoes(conn, bilhete_id, dono, antes, safe)
