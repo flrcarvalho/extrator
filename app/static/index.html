@@ -4688,7 +4688,8 @@ function _parseStakeSig(dica) {
   // "final 6" → 6. NÃO casa "final $1" (dólar da Polymarket, não é final de stake em R$).
   let m; const reF = /final\s+(\d)\b/g;
   while ((m = reF.exec(s))) { const d = parseInt(m[1]); if (d) finais.add(d); }
-  const reN = /\d{2,}(?:[.,]\d+)?/g;
+  // \b nas duas pontas: NÃO pega número dentro de palavra ("365" de "bet365", "1" de "faz1bet").
+  const reN = /\b\d{2,}(?:[.,]\d+)?\b/g;
   while ((m = reN.exec(s))) { const v = Math.round(parseFloat(m[0].replace(',', '.'))); if (v >= 20) { valores.add(v); if (v % 10 !== 0) finais.add(v % 10); } }
   return { finais, valores };
 }
@@ -4709,9 +4710,14 @@ function _numBR(v) {
 function _stakeWeight(S, sig) {
   const I = Math.round(_numBR(S));
   if (!I || !sig) return 0;
-  const d = I % 10, sz = Math.max(1, sig.finais.size + sig.valores.size);
-  if (d !== 0 && sig.finais.has(d)) return 25 / Math.sqrt(sz);
-  if (sig.valores.has(I)) return sz === 1 ? 25 : 0;
+  const d = I % 10;
+  // FINAL distintivo: especificidade = quantos FINAIS distintos o tipster usa (usar só
+  // final-1 é específico), NÃO quantos valores exemplo ele listou. Assim "51 101 151…"
+  // pesa igual a "final 1" (a lista não dilui o sinal). 1 final → 25.
+  if (d !== 0 && sig.finais.has(d)) return 25 / Math.sqrt(sig.finais.size);
+  // VALOR redondo (final 0, ex.: 250/800): só conta se for a assinatura ÚNICA (1 valor,
+  // sem finais) — senão 200/300 redondo vira ímã.
+  if (sig.valores.has(I)) return (sig.finais.size === 0 && sig.valores.size === 1) ? 25 : 0;
   return 0;
 }
 function _buildSugIndex() {
