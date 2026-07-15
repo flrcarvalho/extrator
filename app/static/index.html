@@ -4696,8 +4696,18 @@ function _parseStakeSig(dica) {
 // (25/√tamanho — assinatura de 1 valor pesa mais que lista larga); valor REDONDO (final 0,
 // ex.: 250/800) só conta se for a assinatura ÚNICA do tipster (Robotenis=250, TC=800),
 // senão é comum demais e vira 0 (evita falso-positivo em 200/300 redondo).
+// b.stake vem como STRING no formato BR ("250,00", "1.234,50") — o output usa vírgula
+// decimal. Number("250,00")=NaN, então parseia BR à mão (senão a assinatura nunca casa).
+function _numBR(v) {
+  if (typeof v === 'number') return v;
+  const s = (v == null ? '' : String(v)).replace(/[^\d.,-]/g, '');
+  if (!s) return 0;
+  const t = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
+  const n = parseFloat(t);
+  return isNaN(n) ? 0 : n;
+}
 function _stakeWeight(S, sig) {
-  const I = Math.round(Number(S) || 0);
+  const I = Math.round(_numBR(S));
   if (!I || !sig) return 0;
   const d = I % 10, sz = Math.max(1, sig.finais.size + sig.valores.size);
   if (d !== 0 && sig.finais.has(d)) return 25 / Math.sqrt(sz);
