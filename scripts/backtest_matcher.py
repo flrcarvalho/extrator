@@ -1,6 +1,8 @@
-"""Fase 0B — backtest holdout do matcher v3 de auto-atribuição (READ-ONLY).
+"""Fase 0B — backtest holdout do matcher v4 de auto-atribuição (READ-ONLY).
 
-Porta fiel de _sugParaBilhete/_stakeSignal/_parseStakeSig do app/static/index.html.
+Porta fiel de _sugParaBilhete/_stakeSignal/_parseStakeSig/_parseCentavos do
+app/static/index.html. v4 = código de centavos EXPLÍCITO ("Os centavos (21)" nas obs) tem
+prioridade e vira match nível-ID; quem não declara código cai na lógica antiga (finais/quebrada).
 Para cada dono: pega os bilhetes recentes JÁ atribuídos (excluindo os de procedência
 'sugerido', que são chute do próprio sistema — ver Fase 0A), esconde o tipster, roda o
 matcher contra o cadastro ATUAL e mede cobertura × precisão + as maiores confusões.
@@ -45,9 +47,19 @@ def _parse_sig(dica):
             valores.add(v)
             if v % 10 != 0: finais.add(v % 10)
     return {"finais": finais, "valores": valores, "quebrado": bool(re.search(r"quebrad|centavo|cents", s)), "quebradoCasa": None}
+def _parse_centavos(dica, obs):
+    # Código de centavos EXPLÍCITO (carteira do Jonathan): "(21)" / "21 centavos". Lê dica + obs.
+    codes = set()
+    txt = f"{dica or ''}\n{obs or ''}".lower()
+    for m in re.finditer(r"\((\d{2})\)", txt):        codes.add(int(m.group(1)))
+    for m in re.finditer(r"(\d{2})\s*centavos", txt):  codes.add(int(m.group(1)))
+    return codes
 def _stake_signal(S, sig, casaK):
     n = _num_br(S)
     if not n or not sig: return (0.0, False)
+    if sig.get("centavos"):   # código explícito tem prioridade — centavo é a identidade do tipster
+        cents = round(n * 100) % 100
+        return (50.0, False) if cents in sig["centavos"] else (0.0, True)
     quebrada = round(n * 100) % 100 != 0
     hasFinal = len(sig["finais"]) > 0
     if quebrada:
@@ -73,6 +85,7 @@ def build_index(profs):
         if ss["quebrado"]:
             dl = _norm(p["dica_stake"])
             ss["quebradoCasa"] = next((c for c in _split(p["casas"]) if _slug(c) in dl), None)
+        ss["centavos"] = _parse_centavos(p["dica_stake"], p.get("obs"))
         sig[nome] = ss
         esp[nome] = set(_norm(e) for e in _split(p["esportes"]))
     return {"ownCasa": ownCasa, "ownEsp": ownEsp, "ownMkt": ownMkt, "sig": sig, "esp": esp}
@@ -104,7 +117,7 @@ async def main():
         print(f"{'dono':<12}{'N':>6}{'c/perfil':>9}{'cobertura':>11}{'precisão':>10}   confusões (real→sugerido)")
         for dono in donos:
             profs = [dict(r) for r in await conn.fetch(
-                "SELECT nome, casas, esportes, mercados, dica_stake FROM tipsters "
+                "SELECT nome, casas, esportes, mercados, dica_stake, obs FROM tipsters "
                 "WHERE dono=$1 AND arquivado IS NOT TRUE", dono)]
             if not profs: continue
             ativos = set(p["nome"] for p in profs)

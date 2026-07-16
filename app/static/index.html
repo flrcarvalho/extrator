@@ -4699,6 +4699,21 @@ function _parseStakeSig(dica) {
   const quebrado = /quebrad|centavo|cents/.test(s);
   return { finais, valores, quebrado };
 }
+// Código de centavos EXPLÍCITO (carteira do Jonathan): cada tipster reserva um par de
+// centavos ("Os centavos (21)…nenhuma outra aposta termina com 21 centavos" → Arrudex=21).
+// É um ID carimbado na stake. Lê os DOIS campos: a DECLARAÇÃO mora nas Observações
+// ("(21)" / "21 centavos"); a Dica só traz o exemplo ("50,21"). Devolve o Set de códigos.
+// Só casa "(NN)"/"NN centavos" — NÃO parseia decimal cru (evita "0,25u" virar código 25).
+function _parseCentavos(dica, obs) {
+  const codes = new Set();
+  const txt = ((dica || '') + '\n' + (obs || '')).toLowerCase();
+  let m;
+  const reP = /\((\d{2})\)/g;            // "(21)"
+  while ((m = reP.exec(txt))) codes.add(parseInt(m[1]));
+  const reC = /(\d{2})\s*centavos/g;     // "21 centavos" (tolera espaço duplo)
+  while ((m = reC.exec(txt))) codes.add(parseInt(m[1]));
+  return codes;
+}
 // Peso do stake para um perfil: final distintivo (1–9) pesa por especificidade
 // (25/√tamanho — assinatura de 1 valor pesa mais que lista larga); valor REDONDO (final 0,
 // ex.: 250/800) só conta se for a assinatura ÚNICA do tipster (Robotenis=250, TC=800),
@@ -4726,6 +4741,14 @@ function _numBR(v) {
 function _stakeSignal(S, sig, casaK) {
   const n = _numBR(S);
   if (!n || !sig) return { w: 0, veto: false };
+  // Código de centavos EXPLÍCITO tem PRIORIDADE sobre finais/valores/quebrada: o centavo é a
+  // identidade do tipster na carteira. Bateu → match nível-ID (peso alto, ganha a folga sozinho);
+  // tem centavo declarado mas o da stake NÃO bate (inclui stake redonda) → VETA (não é ele).
+  // Quem não declara código cai na lógica antiga abaixo (não regride Peixe do Feca).
+  if (sig.centavos && sig.centavos.size) {
+    const cents = Math.round(n * 100) % 100;
+    return sig.centavos.has(cents) ? { w: 50, veto: false } : { w: 0, veto: true };
+  }
   const quebrada = Math.round(n * 100) % 100 !== 0;
   const hasFinal = sig.finais.size > 0;
   if (quebrada) {
@@ -4753,6 +4776,7 @@ function _buildSugIndex() {
     // Amarra a assinatura de quebrada à casa citada na própria dica (Peixe: "...na betano" →
     // casa quebrada só na Betano). Casa não citada → vale em qualquer casa do tipster.
     if (ss.quebrado) { const dl = (p.dica_stake || '').toLowerCase(); ss.quebradoCasa = _sugSplit(p.casas).find(c => dl.includes(_sugSlug(c))) || null; }
+    ss.centavos = _parseCentavos(p.dica_stake, p.obs);   // código de centavos (Jonathan) — lê dica + obs
     sig[p.nome] = ss;
     esp[p.nome] = new Set(_sugSplit(p.esportes).map(_sugNorm));   // esportes declarados (filtro duro)
   });
