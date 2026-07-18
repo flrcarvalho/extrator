@@ -72,6 +72,12 @@ h1 { font-size: 28px; font-weight: 800; letter-spacing: -.035em; margin: 8px 0 0
 .ph h3 { margin: 0; font-size: 13px; font-weight: 700; color: var(--accent-2); }
 .ph .meta { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); }
 .plist { display: flex; flex-direction: column; }
+/* Painel "Apostas em Aberto": lista cresce e rola por dentro para o rodapé
+   (Capital em aberto) ficar fixo na base do box; excedente vira toggle. */
+#emjogo-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+.ejtoggle { justify-content: flex-start; }
+.ejtoggle #emjt-lbl { font-family: var(--font-mono); font-size: 11.5px; color: var(--accent-2); }
+.ejtoggle:hover #emjt-lbl { color: var(--accent); }
 
 .lrow { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--line-2); font-size: 12.5px; }
 .lrow:last-child { border-bottom: 0; }
@@ -375,18 +381,37 @@ async function boot(){
   el('briefing').innerHTML=brief;
 
   // ── Apostas em Aberto ──
+  // Cada linha carrega o essencial: descrição (substância) no título; tipo · tipster ·
+  // casa · parceiro · esporte no subtítulo. O excedente das 7 primeiras fica dobrado num
+  // bloco expansível; o Capital em aberto (fmtR) vive no rodapé fixo na base do box.
   const ejHost=el('emjogo-list'), ejFoot=el('emjogo-foot');
+  const ejRow=b=>{
+    const desc=(b.descricao||'').trim(), tipo=(b.aposta||'').trim();
+    const titulo=esc(desc||tipo||b.esporte||'Aposta');
+    const parts=[];
+    if(desc&&tipo)parts.push(tipo);                         // tipo só no sub quando o título já é a descrição
+    if((b.tipster||'').trim())parts.push(b.tipster.trim());
+    [b.casa,b.parceiro,b.esporte].forEach(x=>{if((x||'').toString().trim())parts.push(String(x).trim());});
+    const sub=parts.map(esc).join(' · ');
+    const od=num(b.odd);
+    const right=moneyStake(b.stake)+(od>0?'<span class="odd">@ '+fmtOdd(od)+'</span>':'');
+    return '<div class="lrow"><span class="sp-chip">'+sportEmoji(b.esporte)+'</span><div class="lc"><div class="t">'+titulo+'</div><div class="s">'+sub+'</div></div><span class="r">'+right+'</span></div>';
+  };
   if(!abertas.length){ ejHost.innerHTML='<div class="empty ok">Nenhuma aposta em aberto — tudo resolvido. ✓</div>'; }
   else{
-    const vis=abertas.slice(0,7);
-    ejHost.innerHTML=vis.map(b=>{
-      const titulo=esc(b.aposta||b.descricao||b.esporte||'Aposta');
-      const sub=[b.casa,b.parceiro,b.esporte].filter(Boolean).map(esc).join(' · ');
-      const od=num(b.odd);
-      const right=moneyStake(b.stake)+(od>0?'<span class="odd">@ '+fmtOdd(od)+'</span>':'');
-      return '<div class="lrow"><span class="sp-chip">'+sportEmoji(b.esporte)+'</span><div class="lc"><div class="t">'+titulo+'</div><div class="s">'+sub+'</div></div><span class="r">'+right+'</span></div>';
-    }).join('');
-    if(abertas.length>vis.length) ejHost.innerHTML+='<div class="empty" style="padding:9px 18px;text-align:left">+ '+(abertas.length-vis.length)+' outras em aberto</div>';
+    const HEAD=7, head=abertas.slice(0,HEAD), more=abertas.slice(HEAD);
+    let html=head.map(ejRow).join('');
+    if(more.length){
+      html+='<div id="emjogo-more" style="display:none">'+more.map(ejRow).join('')+'</div>';
+      html+='<div class="lrow clic ejtoggle" id="emjogo-toggle"><span id="emjt-lbl">+ '+more.length+' outras em aberto ▾</span></div>';
+    }
+    ejHost.innerHTML=html;
+    const tgl=el('emjogo-toggle');
+    if(tgl)tgl.addEventListener('click',()=>{
+      const m=el('emjogo-more'), open=m.style.display!=='none';
+      m.style.display=open?'none':'';
+      el('emjt-lbl').textContent=open?('+ '+more.length+' outras em aberto ▾'):'mostrar menos ▴';
+    });
     el('emjogo-cap').innerHTML=fmtR(capAberto);
     ejFoot.style.display='';
   }
