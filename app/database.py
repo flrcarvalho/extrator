@@ -217,6 +217,23 @@ CREATE TABLE IF NOT EXISTS tipster_unidade (
     criado_em     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (dono, tipster, vigente_desde)
 );
+
+-- ── Casa dedicada (auto-atribuição por casa-feudo) ────────────────────────────
+-- Muitas casas de nicho são MONOGÂMICAS na operação do dono: na BETesporte é sempre
+-- Peixe, independente do valor. É um sinal FORTE que o matcher subusava (casa valia só
+-- +5, afogado). Aqui o dono declara casa→tipster(s): 1 dono = crava; 2 = restringe o
+-- candidato e o stake desempata; 'multi' = casa compartilhada (ignora). Linha ausente =
+-- casa ainda não curada. A tela nasce pré-preenchida com a SUGESTÃO derivada da pureza
+-- observada (só rótulos humanos, sem 'sugerido' → sem circularidade); o dono só confirma.
+-- NÃO plugado no matcher na Etapa 1 (só o registro + curadoria). Ver STATUS s148.
+CREATE TABLE IF NOT EXISTS casa_config (
+    dono          TEXT NOT NULL,
+    casa          TEXT NOT NULL,
+    modo          TEXT NOT NULL DEFAULT 'dedicada',   -- 'dedicada' | 'multi'
+    tipsters      TEXT NOT NULL DEFAULT '',           -- CSV de 1-2 nomes quando modo='dedicada'
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (dono, casa)
+);
 """
 
 

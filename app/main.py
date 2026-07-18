@@ -46,6 +46,7 @@ from repository import (
     get_codigos_resolvidos, limpar_ativos_tipster, list_bilhetes, list_esportes, list_tipsters,
     criar_tipster, list_tipsters_cadastro, arquivar_tipster, reativar_tipster,
     atualizar_tipster_info, renomear_tipster,
+    casas_visao, salvar_casa_config,
     get_escada_unidade, set_unidade, remover_unidade, resultado_em_unidades,
     get_escadas_todas, sugerir_tipster,
     resultado_valido, set_ativo_tipster, set_tipster_bulk,
@@ -2063,6 +2064,27 @@ async def atualizar_tipster_info_route(tipster_id: int, body: TipsterInfoRequest
     if not ok:
         raise HTTPException(404, "Tipster não encontrado ou sem campos válidos.")
     return {"atualizado": True}
+
+
+class CasaConfigRequest(BaseModel):
+    """Curadoria de uma casa: modo 'dedicada' (1-2 tipsters) ou 'multi' (compartilhada)."""
+    casa: str
+    modo: str
+    tipsters: Optional[str] = ""
+
+
+@app.get("/casas/config")
+async def listar_casas_config(dono: str = Depends(dono_efetivo)):
+    """Registro de Casas: evidência de pureza + sugestão de casa-feudo + config atual."""
+    return {"casas": await casas_visao(dono)}
+
+
+@app.post("/casas/config")
+async def salvar_casa_config_route(body: CasaConfigRequest, dono: str = Depends(dono_efetivo)):
+    ok = await salvar_casa_config(dono, body.casa, body.modo, body.tipsters or "")
+    if not ok:
+        raise HTTPException(400, "Config de casa inválida (modo deve ser 'dedicada' com 1-2 tipsters, ou 'multi').")
+    return {"salvo": True}
 
 
 class SugerirTipsterRequest(BaseModel):

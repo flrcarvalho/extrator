@@ -1357,6 +1357,93 @@ async def atualizar_tipster_info(tipster_id: int, dono: str, casas: str | None,
     return result.split()[-1] == "1"
 
 
+# ── Casa dedicada (registro + curadoria) ──────────────────────────────────────
+# Casa-feudo: casa usada por 1 (ou 2) tipster(s) na operação do dono. A sugestão nasce
+# da PUREZA observada nos rótulos HUMANOS (exclui 'sugerido' → sem circularidade). Estas
+# funções só montam o registro e a curadoria; o matcher NÃO usa ainda (Etapa 1). Ver STATUS.
+CASA_MIN_VOL = 8       # volume mínimo da casa p/ ter sugestão confiável
+CASA_SHARE = 0.10      # tipster só é candidato a dono se ocupa ≥10% das apostas da casa
+CASA_COVER = 0.85      # os 1-2 donos precisam cobrir ≥85% do volume (senão a cauda = multi)
+
+
+async def casas_visao(dono: str) -> list[dict]:
+    """Para cada casa vista nos bilhetes do dono, devolve a evidência de pureza (top
+    tipster + share + volume + nº de tipsters), a SUGESTÃO de casa-feudo e a config atual
+    (se já curada). Ordena por volume. READ-ONLY sobre os bilhetes."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT casa, tipster, COUNT(*) AS n FROM bilhetes "
+            "WHERE dono = $1 AND tipster IS NOT NULL AND tipster <> '' "
+            "AND (origem_tipster IS DISTINCT FROM 'sugerido') "
+            "GROUP BY casa, tipster", dono)
+        cfg_rows = await conn.fetch(
+            "SELECT casa, modo, tipsters FROM casa_config WHERE dono = $1", dono)
+        ativos = await conn.fetch(
+            "SELECT nome FROM tipsters WHERE dono = $1 AND arquivado = FALSE", dono)
+    ativos_set = {r["nome"] for r in ativos}
+    cfg = {r["casa"]: {"modo": r["modo"], "tipsters": r["tipsters"]} for r in cfg_rows}
+    por_casa: dict[str, dict] = {}
+    for r in rows:
+        casa = (r["casa"] or "").strip()
+        if not casa:
+            continue
+        d = por_casa.setdefault(casa, {"total": 0, "dist": {}})
+        d["total"] += r["n"]
+        d["dist"][(r["tipster"] or "").strip()] = r["n"]
+    out = []
+    for casa, d in por_casa.items():
+        total = d["total"]
+        dist = sorted(d["dist"].items(), key=lambda x: -x[1])
+        top_nome, top_n = dist[0]
+        # Sugestão de feudo: donos = tipsters ATIVOS com share individual ≥ CASA_SHARE (corta a
+        # cauda), no máximo os 2 maiores. Só é 'dedicada' se esses 1-2 cobrem ≥ CASA_COVER do
+        # volume; senão a cauda é grande = casa compartilhada → 'multi'. Ex.: Bet365 tem 2 acima
+        # de 10% mas juntos <30% → multi; BETesporte é 99% Peixe → dedicada.
+        donos = [nome for nome, n in dist if nome in ativos_set and n / total >= CASA_SHARE][:2]
+        cobertura = sum(d["dist"][nm] for nm in donos) / total if donos else 0
+        if total < CASA_MIN_VOL:
+            sug_modo, sug_tipsters = None, []            # pouco dado → sem sugestão, Feca decide
+        elif donos and cobertura >= CASA_COVER:
+            sug_modo, sug_tipsters = "dedicada", donos
+        else:
+            sug_modo, sug_tipsters = "multi", []
+        c = cfg.get(casa)
+        out.append({
+            "casa": casa, "total": total, "n_tipsters": len(d["dist"]),
+            "top": top_nome, "top_share": round(100 * top_n / total),
+            "sugestao_modo": sug_modo, "sugestao_tipsters": sug_tipsters,
+            "modo": c["modo"] if c else None,             # None = ainda não curada
+            "tipsters": c["tipsters"] if c else "",
+        })
+    out.sort(key=lambda x: -x["total"])
+    return out
+
+
+async def salvar_casa_config(dono: str, casa: str, modo: str, tipsters: str) -> bool:
+    """Upsert da curadoria de uma casa. modo='dedicada' exige 1-2 tipsters; 'multi' zera a
+    lista. Chave (dono, casa). Retorna False se o input for inválido."""
+    casa = (casa or "").strip()
+    modo = (modo or "").strip().lower()
+    if not casa or modo not in ("dedicada", "multi"):
+        return False
+    if modo == "dedicada":
+        tips_list = [t.strip() for t in (tipsters or "").split(",") if t.strip()]
+        if not (1 <= len(tips_list) <= 2):
+            return False
+        tips = ",".join(tips_list)
+    else:
+        tips = ""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO casa_config (dono, casa, modo, tipsters, atualizado_em) "
+            "VALUES ($1, $2, $3, $4, NOW()) "
+            "ON CONFLICT (dono, casa) DO UPDATE SET modo = $3, tipsters = $4, atualizado_em = NOW()",
+            dono, casa, modo, tips)
+    return True
+
+
 async def renomear_tipster(tipster_id: int, novo_nome: str, dono: str) -> dict:
     """Renomeia o tipster E propaga aos bilhetes (que o referenciam por NOME em
     bilhetes.tipster). Espelha renomear_parceiro. Colisão respeita UNIQUE (dono, nome):
