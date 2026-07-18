@@ -381,6 +381,7 @@ html.embedded .sidebar { display: none; }
 .painel-resumo-num .l { display: flex; align-items: center; font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-mute); }
 .painel-resumo-num .n { font-family: var(--font-mono); font-size: 32px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; }
 .painel-resumo-foot { display: flex; gap: 26px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.painel-resumo-foot .painel-nova-conta { margin-left: auto; align-self: center; }
 .painel-foot-stat { display: flex; flex-direction: column; gap: 4px; }
 .painel-foot-stat .n { font-family: var(--font-mono); font-size: 16px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; }
 .painel-foot-stat .l { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-mute); }
@@ -2971,6 +2972,7 @@ function renderPainelContas() {
           '<div class="painel-foot-stat"><span class="n">' + nf(totContas) + '</span><span class="l">Total de contas</span></div>' +
           '<div class="painel-foot-stat"><span class="n">' + nf(casasComConta) + '</span><span class="l">Casas</span></div>' +
           '<div class="painel-foot-stat"><span class="n">' + nf(forns.length) + '</span><span class="l">Fornecedores</span></div>' +
+          '<button class="btn btn-primary btn-sm painel-nova-conta" type="button" onclick="abrirModalNovaConta(&quot;painel&quot;)">+ Nova conta</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -3022,7 +3024,7 @@ function renderPainelContas() {
 
   // Topo: ESQUERDA = painel de lista (resumo Contas no topo + lista) | DIREITA = Contas por casa.
   // Abaixo (informativo de contas, sem métricas de aposta): custos + atividade.
-  host.innerHTML = hero +
+  host.innerHTML =
     '<div class="painel-top">' +
       listaPanel +
       casaCard +
