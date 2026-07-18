@@ -704,6 +704,28 @@ html.embedded .sidebar { display: none; }
 .btn-sm { padding: 5px 12px; font-size: 11px; }
 .btn-danger { color: var(--neg); border-color: rgba(var(--neg-rgb),.25); }
 .btn-danger:hover { background: rgba(var(--neg-rgb),.08); border-color: var(--neg); }
+/* Botão secundário "especial/inteligente": ouro duotone + glow. NÃO é primário
+   (só o azul + Inserir aposta é). Herda padding/font/radius de .btn+.btn-sm;
+   aqui só o tratamento dourado. Golds derivam da família --d-proj (diagnóstico).
+   position:relative ancora o ::after (borda-brilho gradiente) — não remover. */
+.btn--gold-duo {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(120deg, rgba(240,197,110,.22), rgba(201,150,60,.12));
+  border: 1px solid transparent; background-clip: padding-box;
+  color: #F2D9A0;
+  box-shadow: 0 4px 20px -10px rgba(230,190,110,.7);
+}
+.btn--gold-duo::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(120deg, #F6D98A, #C9963C);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none; opacity: .95;
+}
+.btn--gold-duo:hover { box-shadow: 0 6px 28px -8px rgba(230,190,110,.9); }
+.btn--gold-duo:hover::after { opacity: 1; }
+.btn--gold-duo svg { flex: none; color: #F6D98A; }
 /* Botão Conectar: o logo SharpenUp (a extensão) é o herói; "Conectar" é rótulo de apoio.
    Logo espelha o cabeçalho do popup (extensor/popup.css .tile/.up/.wm), em escala de botão.
    Cinza (desconectado) → cor cheia (pareado), convenção do pill (.status off/on). */
@@ -1755,7 +1777,13 @@ td.c-res.res-HL { color: var(--warn); }
                   <button type="button" class="export-opt" data-fmt="csv">CSV <span>· abrir no Excel</span></button>
                 </div>
               </div>
-              <button class="btn btn-ghost btn-sm" id="btn-sugerir-tip" type="button" title="Preenche o tipster dos bilhetes vazios comparando casa · esporte · mercado com os perfis ativos (Tipster / Método). Prioriza o exclusivo; ambíguo fica vazio.">✨ Sugerir tipsters</button>
+              <button class="btn btn-sm btn--gold-duo" id="btn-sugerir-tip" type="button" title="Preenche o tipster dos bilhetes vazios comparando casa · esporte · mercado com os perfis ativos (Tipster / Método). Prioriza o exclusivo; ambíguo fica vazio.">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3l1.6 4.2L18 9l-4.4 1.8L12 15l-1.6-4.2L6 9l4.4-1.8L12 3Z"/>
+                  <path d="M19 14l.6 1.6 1.6.6-1.6.6L19 19l-.6-1.6-1.6-.6 1.6-.6L19 14Z"/>
+                </svg>
+                Sugerir tipsters
+              </button>
               <button class="btn btn-ghost btn-sm" id="btn-tipster-sel" style="display:none">👤 Informar tipster</button>
               <button class="btn btn-ghost btn-sm btn-danger" id="btn-deletar-sel" style="display:none">🗑 Excluir selecionadas</button>
               <button class="btn btn-ghost btn-sm btn-danger" id="btn-desfazer" style="display:none">↩ Desfazer análise</button>
