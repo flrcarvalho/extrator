@@ -67,7 +67,7 @@ O Feca rodou **vários terminais em paralelo** antes de dormir. Diagnóstico:
 
 > Itens 7-9 são o "trio barato de segurança" — fazer os três juntos numa sessão.
 >
-> **✅ STATUS 19/07 (sessão 158):** trio de segurança **FEITO e no ar** — SESSION_SECRET fail-closed em produção (`06be977`, segredo setado no Railway pelo Feca), X-Forwarded-For não-spoofável (`afad142`), `.dockerignore` (`947cef7`). **#10/#11 (testes: `test_auth.py` + harness de DB) seguem abertos** — próximo alvo natural.
+> **✅ STATUS 19/07 (sessão 158):** trio de segurança **FEITO e no ar** — SESSION_SECRET fail-closed em produção (`06be977`, segredo setado no Railway pelo Feca), X-Forwarded-For não-spoofável (`afad142`), `.dockerignore` (`947cef7`). **#10 `test_auth.py` FEITO** (`0bf12f2`, 27 testes, suíte 140→167). **Resta #11** — harness de camada-DB (exercer `upsert_bilhetes` + queries por dono; esforço grande, sessão dedicada).
 
 ### 🌊 Onda 3 — Arquitetura de maior retorno
 | # | Achado | Local | Esforço |
