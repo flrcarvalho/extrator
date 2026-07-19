@@ -813,8 +813,32 @@ async def upsert_bilhetes(
                         -- (extração/sync sempre mandam ''); só sobrescreve com valor real
                         tipster          = COALESCE(NULLIF(EXCLUDED.tipster, ''), bilhetes.tipster),
                         codigo_bilhete   = COALESCE(bilhetes.codigo_bilhete, EXCLUDED.codigo_bilhete),
-                        resultado        = EXCLUDED.resultado,
-                        extraction_state = EXCLUDED.extraction_state,
+                        -- Aposta ABERTA (Betano etc.) sobe sem resultado e vira 'aberta'.
+                        -- Quando FECHA, a re-extração (mesmo BetId → mesma assinatura) traz o
+                        -- resultado e faz UPSERT: atualiza, nunca duplica. DUAS blindagens:
+                        --  1) resultado VAZIO nunca sobrescreve um resultado já gravado
+                        --     (uma re-leitura tardia da aba "Em aberto" não rebaixa a linha
+                        --      já resolvida de volta p/ 'aberta').
+                        --  2) só quando a linha ESTAVA 'aberta' e agora resolve é que os
+                        --     campos financeiros (odd/data/stake) são refrescados com a
+                        --     verdade da liquidação — vitória com boost passa a odd = Retorno
+                        --     ÷ Stake, etc. Linha já resolvida fica intacta. A assinatura por
+                        --     código não usa esses campos → o match não quebra.
+                        resultado        = COALESCE(NULLIF(EXCLUDED.resultado, ''), bilhetes.resultado),
+                        extraction_state = CASE
+                            WHEN NULLIF(EXCLUDED.resultado, '') IS NULL
+                                 AND NULLIF(bilhetes.resultado, '') IS NOT NULL
+                            THEN bilhetes.extraction_state
+                            ELSE EXCLUDED.extraction_state END,
+                        odd = CASE WHEN bilhetes.extraction_state = 'aberta'
+                                   THEN COALESCE(NULLIF(EXCLUDED.odd, ''), bilhetes.odd)
+                                   ELSE bilhetes.odd END,
+                        data = CASE WHEN bilhetes.extraction_state = 'aberta'
+                                    THEN COALESCE(NULLIF(EXCLUDED.data, ''), bilhetes.data)
+                                    ELSE bilhetes.data END,
+                        stake = CASE WHEN bilhetes.extraction_state = 'aberta'
+                                     THEN COALESCE(NULLIF(EXCLUDED.stake, ''), bilhetes.stake)
+                                     ELSE bilhetes.stake END,
                         -- backfill do USD em re-sync; nunca apaga um valor já gravado
                         stake_usd        = COALESCE(EXCLUDED.stake_usd, bilhetes.stake_usd),
                         atualizado_em    = NOW()
@@ -840,14 +864,24 @@ async def upsert_bilhetes(
                     UPDATE bilhetes SET
                         tipster          = COALESCE(NULLIF($5, ''), tipster),
                         codigo_bilhete   = COALESCE(codigo_bilhete, $6),
-                        resultado        = $7,
-                        extraction_state = $8,
+                        -- mesmas 2 blindagens do ON CONFLICT acima (aberta→resolvida):
+                        resultado        = COALESCE(NULLIF($7, ''), resultado),
+                        extraction_state = CASE
+                            WHEN NULLIF($7, '') IS NULL AND NULLIF(resultado, '') IS NOT NULL
+                            THEN extraction_state ELSE $8 END,
+                        odd   = CASE WHEN extraction_state = 'aberta'
+                                     THEN COALESCE(NULLIF($9,  ''), odd)   ELSE odd   END,
+                        data  = CASE WHEN extraction_state = 'aberta'
+                                     THEN COALESCE(NULLIF($10, ''), data)  ELSE data  END,
+                        stake = CASE WHEN extraction_state = 'aberta'
+                                     THEN COALESCE(NULLIF($11, ''), stake) ELSE stake END,
                         atualizado_em    = NOW()
                     WHERE dono = $1 AND casa = $2 AND parceiro = $3 AND assinatura = $4
                     RETURNING id, FALSE AS was_inserted
                     """,
                     dono, row.get("casa", ""), row.get("parceiro", ""), sig,
                     row.get("tipster"), codigo or None, resultado, extraction_state,
+                    row.get("odd"), row.get("data"), row.get("stake"),
                 )
             if rec:
                 db_id = rec["id"]

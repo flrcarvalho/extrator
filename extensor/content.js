@@ -50,23 +50,30 @@
   });
 
   // Bilhetes da Betano capturados pelo bn_inject.js (mundo MAIN) — as RESPOSTAS JSON de
-  // GET /api/ma/bet/bet-history-v3?settled=true&page=N. Mesmo modelo passivo: o robô só
-  // rola a lista p/ a página paginar (levas de 10, cursor lastId); a extensão lê o dado
-  // exato (BetId, Stake, DecimalOdds, Status, PlacedAt, Legs/Selections), sem OCR nem
-  // scraping de texto. `bnFimReal` = a página final (sem LastId) chegou → fim autoritativo.
-  const bnTickets = [];
-  const bnTicketSeen = new Set();
-  let bnFimReal = false;
+  // GET /api/ma/bet/bet-history-v3?settled=true|false&page=N. Mesmo modelo passivo: o robô
+  // só rola a lista p/ a página paginar (levas de 10, cursor lastId); a extensão lê o dado
+  // exato (BetId, Stake, DecimalOdds, Status, PlacedAt, Legs/Selections), sem OCR.
+  // Duas abas: Liquidada (resolvidas) e Em aberto (`__aberta:true`, sem resultado).
+  // `bnById` guarda 1 bilhete por BetId — a versão LIQUIDADA vence a ABERTA (quando o
+  // bilhete fecha na mesma sessão, a verdade da liquidação substitui a aberta). Fim
+  // autoritativo é POR LISTA (`bnFimOpen`/`bnFimSettled`): a aba ativa decide qual usar.
+  const bnById = new Map();          // BetId(string) → ticket (liquidada > aberta)
+  let bnFimOpen = false, bnFimSettled = false;
   window.addEventListener("message", (ev) => {
     const d = ev.data;
     if (d && d.__sharpenupBNData) {
       if (Array.isArray(d.bets)) {
         for (const t of d.bets) {
           const c = t && t.BetId;
-          if (c != null && !bnTicketSeen.has(c)) { bnTicketSeen.add(c); bnTickets.push(t); }
+          if (c == null) continue;
+          const key = String(c);
+          const ex = bnById.get(key);
+          // Entra se ainda não há nada; ou se o novo é LIQUIDADO e o guardado era ABERTO.
+          if (!ex || (ex.__aberta && !t.__aberta)) bnById.set(key, t);
         }
       }
-      if (d.fim) bnFimReal = true;
+      if (d.fimOpen) bnFimOpen = true;
+      if (d.fimSettled) bnFimSettled = true;
     }
   });
 
@@ -426,7 +433,7 @@
       blocos = await roboBetanoPassive(ctx);
       // Rede de segurança: se a API não trouxe NADA (aba aberta antes da extensão →
       // 1ª página perdida), cai no robô de texto atual — nunca fica pior que hoje.
-      if (!blocos.length && !bnTickets.length) {
+      if (!blocos.length && !bnById.size) {
         console.log("[SharpenUp] Betano: API vazia → fallback texto");
         blocos = await roboScroll(ctx);
       }
@@ -690,6 +697,11 @@
   const _TIPO_BN = { Single: "Simples", Double: "Dupla", Triple: "Tripla" };
   function formatTicketBN(t) {
     const L = [];
+    // Bilhete da aba "Em aberto": ainda não liquidou. Sobe SEM resultado (a IA deixa a
+    // coluna Resultado vazia → o backend grava 'aberta'). A odd vai a estrutural
+    // (DecimalOdds); quando o bilhete fechar, a re-extração (mesmo BetId) faz UPSERT e
+    // atualiza resultado/odd. Nunca liquidar um bilhete aberto pelo Status numérico.
+    const aberta = !!t.__aberta;
     const stake = _brlNum(t.Stake);
     const ret = _brlNum(t.Return);
     const legs = Array.isArray(t.Legs) ? t.Legs : [];
@@ -715,21 +727,24 @@
     //   2=Ganho→W · 3=Perdido→L · 0=Devolvido/Anulado→V · 6=Cash Out (regra financeira §7).
     // Cashout (Status 6, confirmado): sacado = stake → V (odd exibida) · ≠ stake → W
     // (Odd = Cashout÷Stake; cobre o parcial: retorno<stake vira W com odd<1, preserva o recuperado).
-    const cashout = (t.Status === 6) || !!t.IsCreditCashout;
+    const cashout = !aberta && ((t.Status === 6) || !!t.IsCreditCashout);
     const cashoutEqStake = cashout && ret != null && stake != null && Math.abs(ret - stake) < 0.005;
     let stTxt;
-    if (cashoutEqStake) stTxt = "Cash Out (sacado = stake) → V";
+    if (aberta) stTxt = "em aberto (aguardando resultado — NÃO liquidar; sem resultado)";
+    else if (cashoutEqStake) stTxt = "Cash Out (sacado = stake) → V";
     else if (cashout) stTxt = "Cash Out (sacado ≠ stake) → W";
     else if (t.Status === 2) stTxt = "Ganho → W";
     else if (t.Status === 3) stTxt = "Perdido → L";
     else if (t.Status === 0) stTxt = "Devolvido/Anulado → V";
     else stTxt = t.Status + " (a conferir — não liquidar automaticamente)";
-    L.push("Status: " + stTxt + (t.Return != null ? (" · Retorno " + t.Return) : ""));
+    // Em aberto: `Return` é potencial (não realizado) → rotula como tal p/ a IA nunca
+    // confundir com vitória. Liquidado: `Return` é o retorno real.
+    L.push("Status: " + stTxt + (t.Return != null ? ((aberta ? " · Retorno potencial " : " · Retorno ") + t.Return) : ""));
     if (cashout && t.Return != null) L.push("Cash Out: " + t.Return);   // sinal explícito p/ o pipeline
 
     // Odd total: W (Ganho OU cashout≠stake) = Return÷Stake (respeita boost, §11); L/V/cashout=stake
-    // = odd combinada estrutural (DecimalOdds; já é o produto das pernas nas múltiplas).
-    const oddW = ret != null && stake > 0 && (t.Status === 2 || (cashout && !cashoutEqStake));
+    // e ABERTA = odd combinada estrutural (DecimalOdds; já é o produto das pernas nas múltiplas).
+    const oddW = !aberta && ret != null && stake > 0 && (t.Status === 2 || (cashout && !cashoutEqStake));
     const oddTot = oddW ? (ret / stake)
                  : (typeof t.DecimalOdds === "number" ? t.DecimalOdds : _oddNum(t.Odds));
     L.push("Odd total: " + _odd(oddTot) + (oddW ? " (= Retorno ÷ Stake)" : ""));
@@ -908,28 +923,35 @@
   // Modo passivo (dado vem do bn_inject: exato, com BetId). A Betano pagina por SCROLL
   // infinito (levas de 10, cursor lastId) → o robô ROLA até o fundo repetidamente p/ a
   // página buscar mais, e vai consumindo o JSON. A ROLAGEM é idêntica à que já funciona
-  // hoje (gruda no fundo); só a LEITURA muda (JSON exato, não scraping). Para no stopId
-  // (copiar dele pra cima), na janela de dias, OU — sinal autoritativo — quando chega a
-  // página FINAL sem LastId (bnFimReal). NUNCA para no primeiro obstáculo: só desiste por
-  // teto após MUITOS segundos totalmente parado sem sinal de fim (rede travou de vez).
+  // hoje (gruda no fundo); só a LEITURA muda (JSON exato, não scraping). Serve às DUAS
+  // abas: liquidadas (com resultado) e Em aberto (sem resultado → o backend grava 'aberta').
+  // Para no stopId (copiar dele pra cima), na janela de dias (só liquidadas), OU — sinal
+  // autoritativo — quando a LISTA ATIVA chega à página FINAL sem LastId (fimAtivo). NUNCA
+  // para no 1º obstáculo: só desiste por teto após MUITOS segundos parado sem sinal de fim.
   async function roboBetanoPassive(ctx) {
     const cont = acharScroll();
     const blocos = [], usados = new Set();
     let travado = false;
+    // Aba "Em aberto" (/bethistory/open): abertas são sempre recentes → a janela de dias
+    // NÃO corta (senão uma liquidada velha ainda em memória interromperia antes das abertas).
+    const naAbaAberta = /\/open(\b|$|\/)/i.test(location.pathname);
 
     const processar = () => {
-      for (const t of bnTickets) {
+      for (const t of bnById.values()) {
         const cod = (t.BetId != null ? String(t.BetId) : "").toUpperCase();
         if (!cod || usados.has(cod)) continue;
         if (ctx.stopId && cod === ctx.stopId) { travado = true; return; }   // último já extraído
         usados.add(cod);
         const dt = t.PlacedAt ? Date.parse(t.PlacedAt) : NaN;
-        const passou = !isNaN(dt) && dt < ctx.cutoff && dt > ctx.pisoSanidade;
+        // Janela de dias corta só LIQUIDADAS e só fora da aba Em aberto.
+        const passou = !naAbaAberta && !t.__aberta && !isNaN(dt) && dt < ctx.cutoff && dt > ctx.pisoSanidade;
         blocos.push(formatTicketBN(t));
         ctx.painel.contador.textContent = blocos.length + " bilhete" + (blocos.length === 1 ? "" : "s");
         if (passou) { travado = true; return; }   // passou da janela de dias → para
       }
     };
+    // Fim autoritativo da paginação = o da LISTA que está aberta na tela.
+    const fimAtivo = () => (naAbaAberta ? bnFimOpen : bnFimSettled);
 
     // Pede ao bn_inject o que já capturou (a 1ª página vem no load da página).
     try { window.postMessage({ __sharpenupBNReq: true }, "*"); } catch (e) {}
@@ -939,7 +961,7 @@
     // Rola do topo p/ garantir que nada da 1ª leva foi pulado, depois gruda no fundo.
     sTo(cont, 0); await sleep(400);
     let voltas = 0, ultTotal = -1, ultCresceu = Date.now();
-    while (!ctx.parar() && !travado && !bnFimReal && voltas < 3000) {
+    while (!ctx.parar() && !travado && !fimAtivo() && voltas < 3000) {
       voltas++;
       // Gruda no fundo p/ disparar o lazy-load da próxima leva (comportamento que já funciona).
       try { window.scrollTo(0, document.documentElement.scrollHeight); } catch (e) {}
@@ -947,12 +969,13 @@
       await sleep(700);
       processar();
       if (travado) break;
-      if (bnTickets.length > ultTotal) { ultTotal = bnTickets.length; ultCresceu = Date.now(); }
+      if (bnById.size > ultTotal) { ultTotal = bnById.size; ultCresceu = Date.now(); }
       else if (Date.now() - ultCresceu > 12000) break;   // 12s parado, sem fim real → desiste (nunca no 1º obstáculo)
     }
     await sleep(400);
     processar();   // consome a última leva (inclusive a página final sem LastId)
-    console.log("[SharpenUp] Betano: " + blocos.length + " bilhete(s) · bnTickets=" + bnTickets.length + " · fimReal=" + bnFimReal);
+    console.log("[SharpenUp] Betano: " + blocos.length + " bilhete(s) · bnById=" + bnById.size +
+                " · aba=" + (naAbaAberta ? "abertas" : "liquidadas") + " · fimOpen=" + bnFimOpen + " · fimSettled=" + bnFimSettled);
     return blocos;
   }
 

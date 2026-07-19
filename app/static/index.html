@@ -5327,6 +5327,11 @@ async function exportar(fmt) {
   setExpStatus('Preparando…', '');
   const linhas = await carregarTodosBilhetes();
   if (!linhas.length) { setExpStatus('Nenhuma aposta para exportar', 'err'); return; }
+  // Abertas (sem resultado) primeiro — o operador as vê no topo do arquivo exportado,
+  // separadas das já resolvidas. Sort ESTÁVEL: dentro de cada grupo mantém a ordem do
+  // backend (criado_em / hora de envio).
+  linhas.sort((a, b) => (a.resultado && String(a.resultado).trim() ? 1 : 0)
+                      - (b.resultado && String(b.resultado).trim() ? 1 : 0));
   const isCsv = fmt === 'csv';
   // CSV leva BOM (UTF-8) para o Excel abrir os acentos corretamente.
   const conteudo = isCsv ? '﻿' + montarCSV(linhas) : montarTSV(linhas);
