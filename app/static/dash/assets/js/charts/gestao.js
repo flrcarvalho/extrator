@@ -901,14 +901,13 @@ function tmRenderEditor(nome){
     +`<div style="margin-bottom:12px"><label style="${lb}">Dica de stake</label><input id="tmDica" style="${iv}" value="${esc(t.dica_stake||'')}" placeholder="Ex.: unidade 500, mas passo 501 (ou 500,01) pra facilitar a leitura"></div>`
     +`<div style="margin-bottom:12px"><label style="${lb}">Observações gerais</label><input id="tmObs" style="${iv}" value="${esc(t.obs||'')}" placeholder="Método, gestão, contato…"></div>`
     +`<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button style="${bt}" onclick="tmSaveInfo(${t.id})">Salvar info</button></div>`
-    +`<div id="tmEscada"></div>`
     +`</div>`;
   // DIREITA — Sharpen sugere (analisa a base)
   const direita=`<div>`
     +`<div style="${secTit};color:var(--accent)">Sharpen sugere <span style="color:var(--ink-mute);text-transform:none;letter-spacing:0">— das apostas na base</span></div>`
     +_tmSugestoes(nome)
     +`</div>`;
-  box.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">${esquerda}${direita}</div>`;
+  box.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">${esquerda}${direita}</div><div id="tmEscada" style="margin-top:22px"></div>`;
   _tmRenderCasas();_tmRenderEsp();_tmRenderMkts();
   tmRenderEscada(nome);
 }
@@ -993,17 +992,35 @@ function tmUsarSugestoes(){
 }
 window.tmUsarSugestoes=tmUsarSugestoes;
 
+// Escada de unidade — form à esquerda + LINHA DO TEMPO horizontal (mais novo à esquerda).
+// Classes do pack (.ladder/.tl-node). Valor em R$ 2 casas via fmt (mesmo formatador do .money);
+// R$ menor via .tl-val .cur; delta ▲/▼ entre períodos. Reusa tmAddSeg/tmDelSeg (persistência).
 async function tmRenderEscada(nome){
   const el=document.getElementById('tmEscada');
   if(!el)return;
   let segs=[];
   try{const r=await fetch('/tipsters/unidades?tipster='+encodeURIComponent(nome));const d=await r.json();segs=d.escada||[];}catch(e){}
-  const iv=_tmIV,lb=_tmLB,bt=_tmBT,bx=_tmBX;
-  const segRows=segs.length
-    ?segs.map(s=>`<div style="display:flex;align-items:center;gap:12px;padding:8px 2px;border-bottom:1px solid var(--line-2)"><span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-soft)">desde ${esc(_tmIsoBR(s.vigente_desde))}</span><span style="margin-left:auto">${_tmMoney(s.valor)}</span><button style="${bx}" title="Remover" onclick="tmDelSeg(${s.id})">✕</button></div>`).join('')
-    :`<div style="color:var(--ink-mute);font-size:12px;padding:6px 0">Sem escada — o resultado em unidades usa a stake média até você definir o valor da unidade.</div>`;
-  el.innerHTML=`<label style="${lb}">Escada de unidade — quanto vale 1u em R$ no tempo</label>${segRows}`
-    +`<div style="display:flex;gap:8px;margin-top:12px;align-items:center"><input id="tmData" style="${iv};max-width:130px;font-family:var(--font-mono)" placeholder="DD/MM/AAAA"><input id="tmValor" style="${iv};max-width:160px" placeholder="R$ por unidade"><button style="${bt}" onclick="tmAddSeg()">Adicionar</button></div>`;
+  segs=segs.slice().sort((a,b)=>(b.vigente_desde||'').localeCompare(a.vigente_desde||''));   // mais novo primeiro
+  const brl=v=>fmt(Number(v)||0,2);
+  const X='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>';
+  const note=segs.length
+    ? `Unidade atual: <b>R$ ${brl(segs[0].valor)}</b> desde <b>${esc(_tmIsoBR(segs[0].vigente_desde))}</b>. Adicione um novo valor sempre que a unidade mudar.`
+    : `Sem escada — o resultado em unidades usa a stake média até você definir o valor da unidade.`;
+  let tl;
+  if(!segs.length){
+    tl=`<div class="tl-empty">Nenhuma alteração registrada ainda.<br>O primeiro valor que você adicionar vira a unidade atual.</div>`;
+  }else{
+    const nodes=segs.map((s,i)=>{
+      const older=segs[i+1];let delta='';
+      if(older){const dd=(Number(s.valor)||0)-(Number(older.valor)||0);if(dd!==0)delta=`<div class="tl-delta ${dd>0?'up':'down'}">${dd>0?'▲':'▼'} R$ ${brl(Math.abs(dd))}</div>`;}
+      return `<div class="tl-node${i===0?' cur':''}"><span class="tl-dot"></span><div class="tl-b"><div class="tl-top"><span class="tl-date">desde ${esc(_tmIsoBR(s.vigente_desde))}</span>${i===0?'<span class="tl-badge">atual</span>':''}</div><div class="tl-val"><span class="cur">R$</span> ${brl(s.valor)}</div>${delta}</div><button class="tl-rm" title="Remover" onclick="tmDelSeg(${s.id})">${X}</button></div>`;
+    }).join('');
+    tl=`<div class="tl-hd">Histórico</div><div class="tl-list">${nodes}</div>`;
+  }
+  el.innerHTML=`<div class="ladder"><div class="ladder__hd"><span class="eye">Escada de unidade — quanto vale 1u em R$ no tempo</span></div>`
+    +`<div class="ladder__bd"><div class="ladder__form"><p class="ladder__note">${note}</p>`
+      +`<div class="ladder__row"><input id="tmData" class="inp" placeholder="DD/MM/AAAA"><input id="tmValor" class="inp" placeholder="R$ por unidade"><button class="btn btn--primary" onclick="tmAddSeg()">Adicionar</button></div>`
+    +`</div><div class="ladder__tl">${tl}</div></div></div>`;
 }
 window.tmRenderEscada=tmRenderEscada;
 
