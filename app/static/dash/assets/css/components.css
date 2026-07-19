@@ -659,8 +659,8 @@
 .dot { width: 12px; height: 12px; border-radius: 2px; cursor: default; }
 .dot.w  { background: var(--pos); }
 .dot.l  { background: var(--neg); }
-.dot.hw { background: var(--warn) !important; }
-.dot.hl { background: var(--warn) !important; }
+.dot.hw { background: rgba(var(--pos-rgb), .5); }  /* meia-vitória: verde apagado (distinto de W cheio) */
+.dot.hl { background: rgba(var(--neg-rgb), .5); }  /* meia-derrota: vermelho apagado (distinto de L cheio) */
 .dot.v  { background: var(--elevated); }
 
 /* ── Heatmap ─────────────────────────────────────────────────────────────── */
