@@ -151,15 +151,6 @@ body.is-revalidating .reval-pill {
 }
 .reval-pill .reval-spin { display: inline-flex; color: var(--accent);
   animation: update-spin 0.8s linear infinite; }
-.sb-csv {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; margin-bottom: var(--space-2);
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em;
-  color: var(--ink-soft); background: var(--surface-2);
-  border: 1px solid var(--line); border-radius: var(--r-sm);
-  padding: 9px; text-decoration: none; transition: .2s;
-}
-.sb-csv:hover { border-color: rgba(var(--accent-rgb),.4); color: var(--ink); }
 .last-update {
   display: flex;
   align-items: center;

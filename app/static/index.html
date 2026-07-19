@@ -181,16 +181,6 @@ html.embedded .sidebar { display: none; }
 /* Rodapé da casca: status de sync + utilitário CSV (padding 12·16 = espelho do
    .sidebar-bottom do Dashboard, var(--space-3) var(--space-4)). */
 .sidebar-bottom { flex-shrink: 0; margin: 0; padding: 12px 16px; border-top: 1px solid var(--line-2); }
-.sb-csv {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; margin-top: 10px; padding: 9px;
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em;
-  color: var(--ink-soft); background: var(--surface-2);
-  border: 1px solid var(--line); border-radius: var(--r-sm); text-decoration: none;
-  transition: border-color .2s, color .2s;
-}
-.sb-csv svg { width: 13px; height: 13px; flex-shrink: 0; }
-.sb-csv:hover { border-color: rgba(var(--accent-rgb),.4); color: var(--ink); }
 .last-update {
   display: flex; align-items: center; justify-content: center; gap: 5px;
   font-size: var(--text-xxs); color: var(--ink-mute);
@@ -1584,7 +1574,6 @@ td.c-res.res-HL { color: var(--warn); }
   </nav>
   <div class="sidebar-bottom">
     <div class="last-update"><span class="pulse-dot"></span>Dados sincronizados</div>
-    <a href="/exportar.csv" class="sb-csv" title="Baixar toda a base como CSV (backup)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Baixar base (CSV)</a>
     <div class="sb-endorse">by FDC Capital</div>
   </div>
 </aside>

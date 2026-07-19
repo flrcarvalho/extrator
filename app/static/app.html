@@ -79,10 +79,10 @@ body::before {
   display: inline-block; flex-shrink: 0; animation: pulse-dot 2s infinite;
 }
 @media (prefers-reduced-motion: reduce) { .pulse-dot { animation: none; } }
-/* Ações utilitárias pareadas (tier 3): Baixar CSV + Atualizar lado a lado.
-   Ambos ghost mono, ícone 13px + rótulo, hover com borda azul (--accent). */
-.sb-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.sb-csv, .host-refresh {
+/* Ação utilitária (tier 3): Atualizar — ghost mono, ícone 13px + rótulo,
+   hover com borda azul (--accent). O "Baixar CSV" migrou p/ a aba Apostas. */
+.sb-actions { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.host-refresh {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   width: 100%; margin: 0; padding: 8px 6px;
   font-family: var(--font-mono); font-size: 11px; letter-spacing: .02em;
@@ -90,8 +90,7 @@ body::before {
   border: 1px solid var(--line); border-radius: var(--r-sm); text-decoration: none;
   cursor: pointer; transition: border-color .2s, color .2s;
 }
-.sb-csv svg { width: 13px; height: 13px; flex-shrink: 0; }
-.sb-csv:hover, .host-refresh:hover { border-color: rgba(var(--accent-rgb),.4); color: var(--ink); }
+.host-refresh:hover { border-color: rgba(var(--accent-rgb),.4); color: var(--ink); }
 /* Área de conteúdo: os 2 iframes empilhados. Crossfade curto ao trocar (reforça
    "é um app só"); ambos ficam sempre montados (estado vivo), só muda opacidade/camada. */
 .host-main { flex: 1; position: relative; min-width: 0; }
@@ -99,8 +98,8 @@ body::before {
   opacity: 0; z-index: 0; pointer-events: none; transition: opacity .18s ease; }
 .app-frame.active { opacity: 1; z-index: 1; pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) { .app-frame { transition: none; } }
-/* Atualizar dados (host): recarrega a base do Dashboard. Base visual compartilhada
-   com .sb-csv (regra acima); aqui ficam só o ícone e o estado "atualizando". */
+/* Atualizar dados (host): recarrega a base do Dashboard. Estilo base na regra
+   .host-refresh acima; aqui ficam só o ícone e o estado "atualizando". */
 .host-refresh .host-refresh-ico { display: inline-block; line-height: 1; font-size: 13px; }
 /* Estado "atualizando": botão desabilitado + seta girando (feedback do clique). */
 .host-refresh.is-loading { opacity: .7; cursor: default; border-color: var(--line); color: var(--ink-soft); }
@@ -195,9 +194,8 @@ body::before {
       </div>
       <!-- Tier 2 — Status de sync (centralizado): dot + rótulo na 1ª linha, data na 2ª (pintado por paintSync). -->
       <div class="last-update"><span class="sync-top"><span class="pulse-dot"></span>Dados sincronizados</span></div>
-      <!-- Tier 3 — Ações utilitárias pareadas (grid 1fr 1fr). -->
+      <!-- Tier 3 — Ação utilitária: Atualizar (o "Baixar CSV" migrou p/ a toolbar da aba Apostas). -->
       <div class="sb-actions">
-        <a href="/exportar.csv" class="sb-csv" title="Baixar toda a base como CSV (backup)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Baixar CSV</a>
         <button class="host-refresh" id="hostRefresh" title="Recarregar os dados do Dashboard"><span class="host-refresh-ico">↻</span> Atualizar</button>
       </div>
       <!-- Tier 4 — Sair (full-width). -->

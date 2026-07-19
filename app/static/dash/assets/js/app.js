@@ -500,7 +500,6 @@ function buildHTML(){
       </nav>
       <div class="sidebar-bottom">
         <div class="last-update" id="lastUpdate"><span class="pulse-dot"></span><span id="lastUpdateText">carregando…</span></div>
-        <a class="sb-csv" href="/exportar.csv" title="Baixar toda a base como CSV (backup)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Baixar base (CSV)</a>
         <button class="update-btn" id="updateBtn" onclick="loadData(true)"><span class="update-ico">↻</span><span class="update-lbl">Atualizar dados</span></button>
         <div class="sb-endorse">by FDC Capital</div>
       </div>
@@ -548,6 +547,7 @@ function buildHTML(){
             ${[['Aposta/Tipo',5],['Descrição/Evento',6],['Esporte',1],['Tipster',2],['Casa',3],['Parceiro',4]].map(([lbl,i])=>`<input class="apostas-filter-inp acf" type="text" placeholder="${lbl}..." oninput="apostasFilter(${i},this.value)">`).join('')}
           </div>
           <button onclick="clearApostasFilters()" style="font-size:10px;padding:5px 10px;background:transparent;border:1px solid var(--line);color:var(--ink-mute);border-radius:5px;cursor:pointer;font-family:'JetBrains Mono',monospace;white-space:nowrap;flex-shrink:0">✕ Limpar</button>
+          <a href="/exportar.csv" title="Baixar toda a base como CSV (backup)" style="display:inline-flex;align-items:center;gap:6px;font-size:10px;padding:5px 10px;background:transparent;border:1px solid var(--line);color:var(--ink-mute);border-radius:5px;text-decoration:none;font-family:'JetBrains Mono',monospace;white-space:nowrap;flex-shrink:0;transition:border-color .2s,color .2s" onmouseover="this.style.borderColor='rgba(var(--accent-rgb),.4)';this.style.color='var(--ink)'" onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--ink-mute)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Baixar base (CSV)</a>
         </div>
         <!-- Tabela de apostas -->
         <div class="btbl-wrap">
