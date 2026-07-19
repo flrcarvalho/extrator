@@ -1087,9 +1087,14 @@ _login_fails: dict[str, list[float]] = {}
 
 
 def _client_ip(request: Request) -> str:
-    xff = request.headers.get("x-forwarded-for")  # Railway fica atrás de proxy
+    # Atrás do proxy do Railway (1 hop confiável). O cliente PODE forjar o X-Forwarded-For,
+    # mas o proxy ANEXA o IP real de quem conectou como ÚLTIMO valor da lista. Pegar o
+    # leftmost (o que o cliente alega) deixaria um brute-force trocar a chave de rate-limit
+    # a cada tentativa (basta mandar um XFF diferente). Pegamos o ÚLTIMO valor = o IP que
+    # o Railway de fato viu — não spoofável pelo cliente.
+    xff = request.headers.get("x-forwarded-for")
     if xff:
-        return xff.split(",")[0].strip()
+        return xff.split(",")[-1].strip()
     return request.client.host if request.client else "?"
 
 
