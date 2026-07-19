@@ -215,7 +215,10 @@ function renderOvHeatmap(){
 // ── Card de cenário atual na Visão Geral ──
 function renderOvStreaks(rows){
   const el=document.getElementById('ovStreaksContent');
-  if(!el||!rows.length)return;
+  if(!el)return;
+  // Filtro que zera o período → estado vazio explícito, senão o card ficava com os
+  // números do filtro ANTERIOR (o KPI ao lado já zera → incoerência). Espelha o heatmap.
+  if(!rows.length){el.innerHTML=mkEmpty('Sem apostas no período/filtro');return;}
   const _td=calcTopoDrawdown(rows);
   const _rf=calcRecoveryFactor(rows);
   const _dd=calcDrawdownReal(rows);
@@ -263,7 +266,8 @@ function renderOvStreaks(rows){
 let _ovRiscoReq=0;
 function renderOvRisco(rows){
   const el=document.getElementById('ovRiscoContent');
-  if(!el||!rows.length)return;
+  if(!el)return;
+  if(!rows.length){el.innerHTML=mkEmpty('Sem apostas no período/filtro');return;}
   const kS='display:flex;flex-direction:column;min-width:0;overflow:visible';
   const vS='font-size:16px';
   const sbS='margin-top:auto;padding-top:6px';
