@@ -363,6 +363,16 @@ Perdida
 
 ---
 
+## 13.1 Aposta aberta / não liquidada → Resultado vazio
+
+Um bilhete ainda não liquidado (em aberto, pendente, "a conferir", "open") **não recebe
+código**: a coluna `Resultado` fica **vazia**. Os códigos W/L/V/HW/HL só se aplicam a
+bilhetes liquidados. Nunca chutar o resultado de uma aposta aberta.
+
+Regra completa em `MASTER_RESULTADO_2026 §1.1`.
+
+---
+
 # 14. Regra de Cashout
 
 Quando houver cashout, o resultado e a odd seguem (regra completa em
@@ -457,7 +467,7 @@ Antes de retornar o TSV, o GPT deve validar:
 5. decimal com `,`
 6. categorias válidas de aposta
 7. esporte válido
-8. resultado válido
+8. resultado válido (código oficial W/L/V/HW/HL, ou vazio quando a aposta está aberta — ver §13.1)
 9. exatamente 10 colunas por linha (Data…Resultado); `Código` como 11ª coluna interna é permitida quando solicitada
 
 Se qualquer validação falhar, o TSV deve ser considerado inválido.

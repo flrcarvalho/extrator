@@ -86,7 +86,7 @@ Planilhador/
 - **10 colunas para a planilha do usuário**: `Data | Esporte | Tipster | Casa | Parceiro | Aposta | Descrição | Stake | Odd | Resultado`
 - **11ª coluna interna** (`Código`): ID/código do bilhete visível no print — nunca vai para a planilha do usuário, só para o banco de dados. A AI sempre retorna essa coluna; se não houver ID visível, a célula fica vazia.
 - Decimal: **vírgula** (`2,35`) — nunca ponto
-- Resultado: apenas `W · L · V · HW · HL`
+- Resultado: `W · L · V · HW · HL` — ou **vazio** quando a aposta está aberta (não liquidada; ver `MASTER_OUTPUT §13.1` / `MASTER_RESULTADO §1.1`)
 - Odd sem limite de casas decimais (planilha usa a precisão completa)
 
 ---

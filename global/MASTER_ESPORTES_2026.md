@@ -235,6 +235,18 @@ Ver "Regra de Desambiguação — Sets" na seção anterior.
 
 ---
 
+## Múltiplos
+
+Valor oficial:
+
+```text
+Múltiplos
+```
+
+Valor **especial** — não é uma modalidade esportiva. Usar quando o bilhete mistura esportes diferentes ou acumula 3+ seleções de jogos diferentes (regras de uso em §2). Não substitui a categoria de aposta (a coluna `Aposta` segue com `Múltipla`).
+
+---
+
 ## Futebol
 
 Valor oficial:

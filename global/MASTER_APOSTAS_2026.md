@@ -124,8 +124,10 @@ Sinônimos:
 - Para marcar 2 ou mais / dois ou mais gols (marcador 2+)
 - Para marcar 3 ou mais / três ou mais gols (marcador 3+)
 - Hat-trick / marcar um hat-trick
+- Primeiro Marcador / Primeiro Marcador de Gol / Para Marcar Primeiro (primeiro a marcar)
+- Último Marcador / Último Marcador de Gol / Para Marcar Por Último (último a marcar)
 
-> `Anytime` cobre toda a família "jogador para marcar", inclusive os limiares 2+/3+. O **limiar não muda a categoria** — vai na Descrição (`MASTER_DESCRICAO_2026 §12.1`): 1+ sem sufixo, 2+ = `- 2+ Gols`, 3+ = `- Hat-trick`.
+> `Anytime` cobre toda a família "jogador para marcar", inclusive os limiares 2+/3+ e os mercados de **momento** (Primeiro/Último Marcador). O **limiar/momento não muda a categoria** — vai na Descrição (`MASTER_DESCRICAO_2026 §12.1`): 1+ sem sufixo, 2+ = `- 2+ Gols`, 3+ = `- Hat-trick`, primeiro/último marcador com o sufixo próprio.
 
 ---
 
