@@ -6,9 +6,31 @@
    preservados do pack (revisão fácil). Escopo: só a tela Tipster/Método.
    ============================================================ */
 
+/* ---------- BASE do pack (painel, toolbar, botão, input) — ausentes no dash ---------- */
+.tm-wrap .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.tm-wrap .panel__head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.tm-wrap .panel__head .tick{width:3px;height:16px;border-radius:3px;background:var(--accent);flex:none}
+.tm-wrap .panel__head h2{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin:0;color:var(--accent-2)}
+.tm-wrap .panel__head .meta{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-mute);margin-left:auto;letter-spacing:.04em}
+.tm-wrap .panel__head .meta b{color:var(--ink-soft)}
+.tm-wrap .intro{padding:15px 20px;border-bottom:1px solid var(--line-2);font-size:13px;color:var(--ink-soft);line-height:1.6;background:linear-gradient(180deg,rgba(var(--accent-rgb),.04),transparent)}
+.tm-wrap .intro b{color:var(--ink)} .tm-wrap .intro .em{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;color:var(--ink-mute);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-xs);padding:2px 6px;text-transform:uppercase}
+.tm-wrap .toolbar{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tm-wrap .search{flex:1;min-width:200px;display:flex;align-items:center;gap:9px;background:var(--field);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 13px}
+.tm-wrap .search svg{width:14px;height:14px;color:var(--ink-mute);flex:none}
+.tm-wrap .search input{flex:1;background:none;border:none;outline:none;color:var(--ink);font-family:var(--font-mono);font-size:12px}
+.tm-wrap .search input::placeholder{color:var(--ink-mute)}
+.tm-wrap .inp{width:100%;height:44px;background:var(--field);border:1px solid var(--line);border-radius:var(--r-sm);padding:0 14px;color:var(--ink);font-family:var(--font-sans);font-size:13.5px;outline:none;transition:.18s}
+.tm-wrap .inp::placeholder{color:var(--ink-mute)} .tm-wrap .inp:focus{border-color:var(--accent)}
+.tm-wrap .btn{font-family:var(--font-sans);font-weight:700;font-size:13px;height:44px;border-radius:var(--r-sm);padding:0 20px;border:1px solid transparent;cursor:pointer;transition:.2s var(--ease);display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.tm-wrap .btn--primary{background:var(--accent);color:#fff}
+.tm-wrap .btn--primary:hover{box-shadow:var(--glow)}
+.tm-wrap .btn--primary:disabled{opacity:.6;cursor:default;box-shadow:none}
+.tm-wrap .pill-warn{font-family:var(--font-mono);font-size:10px;letter-spacing:.03em;color:var(--warn);background:rgba(var(--warn-rgb),.1);border:1px solid rgba(var(--warn-rgb),.3);border-radius:var(--r-pill);padding:7px 12px;white-space:nowrap}
+
 /* ---------- TAB BAR (2 botões) + KPIs ---------- */
-.kpi{font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);border:1px solid var(--line);border-radius:var(--r-pill);padding:8px 13px;background:var(--surface)}
-.kpi b{color:var(--ink)} .kpi .w{color:var(--warn)}
+.tm-wrap .kpi{font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);border:1px solid var(--line);border-radius:var(--r-pill);padding:8px 13px;background:var(--surface)}
+.tm-wrap .kpi b{color:var(--ink)} .tm-wrap .kpi .w{color:var(--warn)}
 .tabbar{display:flex;gap:6px;padding:5px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface);width:max-content;margin-bottom:22px}
 .tabbar button{font-family:var(--font-mono);font-size:12.5px;letter-spacing:.03em;color:var(--ink-mute);background:transparent;border:0;cursor:pointer;padding:11px 22px;border-radius:var(--r-pill);white-space:nowrap;display:flex;align-items:center;gap:9px;transition:.18s var(--ease)}
 .tabbar button .n{font-family:var(--font-mono);font-size:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-pill);padding:2px 8px;color:var(--ink-soft)}
