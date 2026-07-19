@@ -205,6 +205,37 @@ def test_resumir_vazio():
     assert r["duracao_dias"] == 0
 
 
+def test_resumir_win_rate_fracao_hw_hl():
+    # Win rate espelha o wrFrac do front (app.js, achado #17): HW=½ vitória,
+    # HL=½ derrota, Void FORA do denominador.
+    #   W=2, HW=1, L=1, HL=1, V=1
+    #   wins(W+HW)=3 · settled(não-V)=5 · hw=1 · hl=1
+    #   num = 3 − ½·1 = 2,5 ; den = 5 − ½·1 − ½·1 = 4 → 2,5/4 = 62,5%
+    # O bug antigo (HW cheio: wins/settled = 3/5) daria 60,0 → este teste o pega.
+    rows = [
+        {"stake": "100", "odd": "2,00", "resultado": "W",  "data": "01/01/2026"},
+        {"stake": "100", "odd": "2,00", "resultado": "W",  "data": "02/01/2026"},
+        {"stake": "100", "odd": "2,00", "resultado": "HW", "data": "03/01/2026"},
+        {"stake": "100", "odd": "2,00", "resultado": "L",  "data": "04/01/2026"},
+        {"stake": "100", "odd": "2,00", "resultado": "HL", "data": "05/01/2026"},
+        {"stake": "100", "odd": "2,00", "resultado": "V",  "data": "06/01/2026"},
+    ]
+    r = R._resumir_apostas(rows)
+    assert r["win_rate"] == 62.5
+    assert r["win_rate"] != 60.0   # guarda: não é a conta antiga (HW cheio)
+    assert r["apostas"] == 6       # settled(5) + V(1)
+
+
+def test_resumir_win_rate_so_void_zero():
+    # Denominador zero (só Void encerrado) → win_rate 0.0, nunca divisão por zero.
+    rows = [
+        {"stake": "100", "odd": "2,00", "resultado": "V", "data": "01/01/2026"},
+        {"stake": "100", "odd": "2,00", "resultado": "V", "data": "02/01/2026"},
+    ]
+    r = R._resumir_apostas(rows)
+    assert r["win_rate"] == 0.0
+
+
 # ── validar_linhas (fronteira do /salvar) ─────────────────────────────────────
 def test_validar_linhas_aceita_validas_e_incompletas():
     rows = [

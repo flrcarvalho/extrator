@@ -1084,6 +1084,7 @@ def _resumir_apostas(rows: list[dict]) -> dict:
     """
     pl = turn = 0.0
     n = settled = wins = 0
+    hw = hl = 0  # contagens de HW/HL p/ a fração do win rate (achado #17)
     datas: set[str] = set()
     dmin = dmax = None
     for r in rows:
@@ -1106,13 +1107,20 @@ def _resumir_apostas(rows: list[dict]) -> dict:
             settled += 1
             if resultado in ("W", "HW"):
                 wins += 1
+            if resultado == "HW":
+                hw += 1
+            elif resultado == "HL":
+                hl += 1
         datas.add(data_iso)
         if dmin is None or data_iso < dmin:
             dmin = data_iso
         if dmax is None or data_iso > dmax:
             dmax = data_iso
     roi = (pl / turn * 100) if turn > 0 else 0.0
-    wr = (wins / settled * 100) if settled > 0 else 0.0
+    # Espelha o wrFrac do front (app.js, achado #17): HW=½ vitória, HL=½ derrota,
+    # Void fora do denominador. wins já é W+HW; num = wins−½·hw, den = settled−½·hw−½·hl.
+    wr_den = settled - 0.5 * hw - 0.5 * hl
+    wr = ((wins - 0.5 * hw) / wr_den * 100) if wr_den > 0 else 0.0
     duracao = 0
     if dmin and dmax:
         duracao = (date.fromisoformat(dmax) - date.fromisoformat(dmin)).days + 1
