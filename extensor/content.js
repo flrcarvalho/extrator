@@ -687,9 +687,9 @@
   // ── BETesporte modo API (sem clique) ─────────────────────────────────────────
   // Formata 1 item da /api/bet/RequestUserTickets no bloco de texto que a IA lê
   // (mesmo marcador "[Código: …]" da Superbet → o backend split/dedupa por ele).
-  // Status: 1=Perdido(L), 2=Ganho(W) — os únicos observados. Aberto/Devolvido/Encerrado/
-  // Cancelado ainda sem amostra → qualquer outro código (ou perna aberta) NÃO liquida
-  // sozinho: marca "a conferir" p/ o operador revisar (regra da casa: nunca chutar resultado).
+  // Status: 1=Perdido(L), 2=Ganho(W) — os únicos observados. Perna ABERTA (openBetsCount>0)
+  // → sobe SEM resultado ('aberta'; UPSERT por código atualiza quando fechar). Devolvido/
+  // Encerrado/Cancelado ainda sem amostra → "a conferir" (regra da casa: nunca chutar resultado).
   function formatTicketBE(t) {
     const L = [];
     L.push("[Código: " + (t.id != null ? t.id : "") + "]");
@@ -702,7 +702,10 @@
     if (t.possibleReturn != null) L.push("Retorno potencial: " + _brl(t.possibleReturn));
     if (t.cashoutValue && t.cashoutValue > 0) L.push("Cashout: " + _brl(t.cashoutValue));
     let st;
-    if (t.openBetsCount && t.openBetsCount > 0) st = "em aberto (não liquidado — revisar)";
+    // Aberta (perna ainda não liquidada): sobe SEM resultado → o backend grava 'aberta'
+    // e faz UPSERT por código quando o bilhete fechar (atualiza, não duplica). Sinal
+    // explícito (igual à Betano) p/ a IA deixar a coluna Resultado vazia, nunca chutar.
+    if (t.openBetsCount && t.openBetsCount > 0) st = "em aberto (aguardando resultado — NÃO liquidar; sem resultado)";
     else if (t.status === 1) st = "1 (Perdido → L)";
     else if (t.status === 2) st = "2 (Ganho → W)";
     else st = t.status + " (a conferir — não liquidar automaticamente)";
