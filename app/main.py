@@ -1562,8 +1562,11 @@ _WALLET_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 
 @app.post("/polymarket/sync")
-async def polymarket_sync(body: PolymarketSyncRequest, dono: str = Depends(dono_efetivo)):
+async def polymarket_sync(body: PolymarketSyncRequest, dono: str = Depends(usuario_atual)):
     """Sincroniza uma carteira Polymarket via API e salva na grade (casa='Polymarket'):
+    Rota de CRIAÇÃO → usa usuario_atual (não dono_efetivo): dado novo vai para a base de
+    quem está LOGADO mesmo em modo "ver como" (igual /extrair, /salvar, /bilhetes/manual),
+    para não poluir a base do operador visualizado (regra da sessão 82).
     posições RESOLVIDAS (W/L/V) + posições ATIVAS como bilhete ABERTO (resultado vazio,
     sem P/L, até liquidarem). Reusa upsert/auto-arquivar — mesma resposta do /salvar."""
     wallet = (body.wallet or "").strip()
