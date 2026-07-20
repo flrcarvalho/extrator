@@ -34,6 +34,21 @@ if TEST_DB:
     from database import get_pool, init_db  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _pool_por_loop():
+    """Isola o pool asyncpg por teste. Cada teste roda em seu próprio `asyncio.run(body())`
+    → um event loop NOVO. O pool é cacheado num global de módulo (`database._pool`) e fica
+    preso ao loop onde nasceu; reusá-lo no loop do teste seguinte dá "got Future attached to
+    a different loop" (o 1º teste passa, os demais quebram). Descartamos o pool antes de cada
+    teste para que `get_pool()` o recrie no loop corrente. `terminate()` é síncrono — não
+    precisa do loop antigo (já fechado) para fechar as conexões."""
+    import database
+    if getattr(database, "_pool", None) is not None:
+        database._pool.terminate()
+        database._pool = None
+    yield
+
+
 def _row(**kw):
     """Linha mínima válida para `upsert_bilhetes` (Betano resolvida, com código)."""
     base = dict(
