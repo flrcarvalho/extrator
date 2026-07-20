@@ -326,9 +326,21 @@ async function boot(){
   const wrHoje=nHoje>0?Math.round(wHoje/nHoje*100):0;
   let topSport=null,topVal=0; Object.entries(sportHoje).forEach(([e,v])=>{if(v>topVal){topVal=v;topSport=e;}});
 
-  // Apostas em aberto (exposição viva).
-  const abertas=(abertasResp&&abertasResp.bilhetes)||[];
-  const nAberto=(abertasResp&&abertasResp.total!=null)?abertasResp.total:abertas.length;
+  // Apostas em aberto (exposição viva). Duas fontes DISJUNTAS por dono: quem lê a
+  // planilha AO VIVO tem as abertas no feed (resultado='ABERTA', fora do Postgres);
+  // quem é Postgres tem em /bilhetes?extraction_state=aberta (o feed exclui abertas
+  // via repository.dashboard_rows). Um dono é sempre um OU outro, então a união não
+  // duplica. Sem isso, carteira de planilha viva mostrava "tudo resolvido" com
+  // abertas reais no feed (bug do Fatuch: card Abertas:2 vs painel vazio).
+  const pgAbertas=(abertasResp&&abertasResp.bilhetes)||[];
+  const pgTotal=(abertasResp&&abertasResp.total!=null)?abertasResp.total:pgAbertas.length;
+  const feedAbertas=rows.filter(r=>(r.resultado||'').toUpperCase()==='ABERTA').map(r=>({
+    descricao:r.descricao,aposta:r.aposta,tipster:r.tipster,casa:r.casa,
+    parceiro:r.parceiro,esporte:r.esporte,odd:r.odd,
+    stake:fmt(num(r.stake),2),criado_em:r.criado_em||null,
+  }));
+  const abertas=pgAbertas.concat(feedAbertas);
+  const nAberto=pgTotal+feedAbertas.length;
   let capAberto=0,paradas48=0; const lim48=Date.now()-48*3600*1000;
   abertas.forEach(b=>{capAberto+=num(b.stake);const t=b.criado_em?new Date(b.criado_em).getTime():NaN;if(isFinite(t)&&t<lim48)paradas48++;});
   const casasAbertas=new Set(abertas.map(b=>b.casa).filter(Boolean)).size;
