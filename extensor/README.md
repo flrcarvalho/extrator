@@ -52,7 +52,8 @@ Octo). Repita o carregamento nos perfis onde for capturar.
 A extensão **não está na Chrome Web Store** (rejeitada pela política de jogos de azar) e é
 instalada *unpacked*, que não tem auto-update. A distribuição é um **link fixo**:
 
-- **`sharpen.bet/extensao`** — página pública com o botão de baixar o `.zip` (gerado
+- **`www.sharpen.bet/extensao`** (com `www` — o apex `sharpen.bet` dá 404 em paths, o
+  forwarding da GoDaddy não preserva o caminho) — página pública com o botão de baixar o `.zip` (gerado
   on-the-fly a partir desta pasta no deploy, sempre a última versão) e o passo-a-passo de
   instalar/recarregar. É o único canal — mande este link para cada operador.
 - A extensão reporta a própria versão (`manifest.json`) nos handshakes de captura
