@@ -30,23 +30,33 @@ if TEST_DB:
     # get_pool() lê DATABASE_URL; apontamos para o banco de teste ANTES de importar o
     # repository/database reais (o conftest já pulou os stubs por causa de TEST_DATABASE_URL).
     os.environ["DATABASE_URL"] = TEST_DB
+    import database  # noqa: E402
     import repository  # noqa: E402
     from database import get_pool, init_db  # noqa: E402
 
+    # UM único event loop para todo o módulo. O pool asyncpg é cacheado num global
+    # (`database._pool`) e fica PRESO ao loop onde nasceu. Se cada teste usasse seu próprio
+    # `asyncio.run()` (loop novo), o 2º teste reusaria o pool preso ao loop já fechado —
+    # "got Future attached to a different loop". E fechar/terminar o pool de outro loop também
+    # falha ("Event loop is closed"), porque o abort agenda um call_soon no loop antigo. Um
+    # loop compartilhado resolve os dois: pool nasce e morre no mesmo loop.
+    _LOOP = asyncio.new_event_loop()
 
-@pytest.fixture(autouse=True)
-def _pool_por_loop():
-    """Isola o pool asyncpg por teste. Cada teste roda em seu próprio `asyncio.run(body())`
-    → um event loop NOVO. O pool é cacheado num global de módulo (`database._pool`) e fica
-    preso ao loop onde nasceu; reusá-lo no loop do teste seguinte dá "got Future attached to
-    a different loop" (o 1º teste passa, os demais quebram). Descartamos o pool antes de cada
-    teste para que `get_pool()` o recrie no loop corrente. `terminate()` é síncrono — não
-    precisa do loop antigo (já fechado) para fechar as conexões."""
-    import database
-    if getattr(database, "_pool", None) is not None:
-        database._pool.terminate()
-        database._pool = None
+
+def _run(coro):
+    """Roda a corrotina no loop compartilhado do módulo (ver bloco acima)."""
+    return _LOOP.run_until_complete(coro)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _fecha_pool_e_loop():
+    """Fecha o pool DENTRO do loop que o criou (senão o abort bate em loop já fechado) e só
+    então fecha o loop. Roda uma vez ao fim do módulo."""
     yield
+    if getattr(database, "_pool", None) is not None:
+        _run(database._pool.close())
+        database._pool = None
+    _LOOP.close()
 
 
 def _row(**kw):
@@ -94,7 +104,7 @@ def test_upsert_insere_depois_atualiza():
         assert (ins2, upd2) == (0, 1)
         assert ids2 == ids                      # mesma linha física
         assert await _count("TDonoA") == 1
-    asyncio.run(body())
+    _run(body())
 
 
 def test_upsert_isola_por_dono():
@@ -109,7 +119,7 @@ def test_upsert_isola_por_dono():
         rb = await _get("TDonoB", "BET1")
         assert ra["dono"] == "TDonoA" and rb["dono"] == "TDonoB"
         assert ra["id"] != rb["id"]            # duas linhas físicas separadas
-    asyncio.run(body())
+    _run(body())
 
 
 def test_upsert_canoniza_resultado_minusculo():
@@ -122,7 +132,7 @@ def test_upsert_canoniza_resultado_minusculo():
         r = await _get("TDonoA", "C1")
         assert r["resultado"] == "W"
         assert r["extraction_state"] != "aberta"
-    asyncio.run(body())
+    _run(body())
 
 
 def test_upsert_aberta_para_resolvida_nao_rebaixa():
@@ -150,4 +160,4 @@ def test_upsert_aberta_para_resolvida_nao_rebaixa():
         assert (r["resultado"] or "").upper() == "W"      # continua resolvida
         assert r["odd"] == "1,90"                          # odd preservada
         assert await _count("TDonoA") == 1                 # nunca duplicou
-    asyncio.run(body())
+    _run(body())
