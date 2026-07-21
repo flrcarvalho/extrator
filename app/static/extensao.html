@@ -140,6 +140,9 @@
       for (var i = 0; i < n; i++) { var x = ta[i] || 0, y = tb[i] || 0; if (x !== y) return x < y; }
       return false;
     }
+    // esc: 'instalada' vem do ?v= da URL (texto livre do atacante) e ia cru p/ innerHTML
+    // (XSS refletido, C2). Escapa &<>" — versao nunca precisa de HTML.
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     var instalada = (new URLSearchParams(location.search).get('v') || '').trim();
     fetch('/extensao/versao').then(function (r) { return r.json(); }).then(function (d) {
       var atual = (d.versao || '').trim();
@@ -151,15 +154,15 @@
         box.className = 'status';
         txt.textContent = 'Última versão disponível';
         txt.style.color = 'var(--ink)';
-        vers.innerHTML = 'Versão atual: <b>' + (atual || '—') + '</b>';
+        vers.innerHTML = 'Versão atual: <b>' + esc(atual || '—') + '</b>';
       } else if (menor(instalada, atual)) {
         box.className = 'status old';
         txt.textContent = 'Sua versão está desatualizada';
-        vers.innerHTML = 'Você tem: <b>' + instalada + '</b>' + '<span>Atual: <b>' + atual + '</b></span>';
+        vers.innerHTML = 'Você tem: <b>' + esc(instalada) + '</b>' + '<span>Atual: <b>' + esc(atual) + '</b></span>';
       } else {
         box.className = 'status ok';
         txt.textContent = 'Você está atualizado';
-        vers.innerHTML = 'Você tem: <b>' + instalada + '</b>' + '<span>Atual: <b>' + atual + '</b></span>';
+        vers.innerHTML = 'Você tem: <b>' + esc(instalada) + '</b>' + '<span>Atual: <b>' + esc(atual) + '</b></span>';
       }
     }).catch(function () {
       document.getElementById('status-txt').textContent = 'Não foi possível verificar a versão agora.';
