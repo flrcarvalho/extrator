@@ -73,7 +73,12 @@ def _fire(coro):
     t.add_done_callback(_bg_tasks.discard)
 
 _MAX_CHUNKS = 4
-_MAX_CONCURRENT = 4
+_MAX_CONCURRENT = 8      # requests simultâneos à API (semáforo). Subiu de 4 p/ 8 para PDF
+                        # grande: mais chunks pequenos em paralelo → o chunk mais lento
+                        # termina antes e a extração não estoura o timeout de borda.
+_IMGS_POR_CHUNK = 3     # páginas de PDF / imagens por chunk. Chunk enxuto = resposta rápida;
+                        # 50 páginas viram ~17 chunks pequenos (concorrência limitada pelo
+                        # semáforo) em vez de 4 chunks gordos de ~13 páginas que travavam.
 
 # Limites de upload (validados no servidor — o teto do front é contornável).
 _MAX_IMGS = 15
@@ -603,11 +608,17 @@ def _build_chunks(base_content: list[dict], instrucao_block: dict, casa_key: str
     images = [b for b in base_content if b.get("type") == "image"]
     texts  = [b for b in base_content if b.get("type") == "text"]
 
-    # Caso 1: múltiplas imagens → divide por imagem
+    # Caso 1: múltiplas imagens → divide em chunks pequenos (_IMGS_POR_CHUNK páginas
+    # cada). Chunk enxuto = resposta rápida; a concorrência é limitada pelo semáforo
+    # (_MAX_CONCURRENT), então muitos chunks NÃO viram muitos requests simultâneos.
+    # Antes o teto era 4 chunks → 50 páginas viravam 4 chunks de ~13 páginas, lentos
+    # demais, e a extração estourava o timeout de borda (stream cortado sem "done").
     if len(images) >= 2:
-        n = min(_MAX_CHUNKS, len(images))
-        size = math.ceil(len(images) / n)
-        return [images[i:i+size] + [instrucao_block] for i in range(0, len(images), size)]
+        size = max(1, _IMGS_POR_CHUNK)
+        chunks = [images[i:i+size] + [instrucao_block] for i in range(0, len(images), size)]
+        if len(chunks) > 1:
+            return chunks
+        # 1 só chunk (≤ _IMGS_POR_CHUNK imagens) → deixa cair no sequencial (return final)
 
     # Caso 2: só texto → divide por blocos de apostas
     if not images and texts:
