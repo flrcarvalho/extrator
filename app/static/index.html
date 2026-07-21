@@ -590,7 +590,11 @@ html.embedded .sidebar { display: none; }
    O ctxbar e a KPI bar passam a viver DENTRO da colmain (não cruzam mais o rail).
    Adaptação: o SPEC usa scroll de página + rail sticky/100vh; aqui mantemos o modelo
    de scroll INTERNO do app (colmain e rail rolam por dentro) para não tocar na casca. */
-.workfull { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) 372px; gap: 16px; align-items: stretch; padding-bottom: 18px; }
+/* grid-template-rows: minmax(0,1fr) → a ÚNICA linha do grid preenche a altura definida
+   do .workfull (flex:1). Sem isto a linha é auto (content-height) e a .colmain colapsa ao
+   conteúdo — partner-page/grade ficam sem altura definida, o scroll interno não se forma e
+   a grade é cortada em telas baixas (só ~3 linhas). No modo 1-coluna (≤1180) volta a auto. */
+.workfull { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) 372px; grid-template-rows: minmax(0, 1fr); gap: 16px; align-items: stretch; padding-bottom: 18px; }
 .colmain { min-width: 0; display: flex; flex-direction: column; min-height: 0; gap: 12px; }
 /* Rail = 2 cards separados: Raio-X (70%) sobre Histórico da conta (30%). */
 .rail { min-width: 0; min-height: 0; display: grid; grid-template-rows: 7fr 3fr; gap: 14px; }
@@ -600,7 +604,7 @@ html.embedded .sidebar { display: none; }
 .rail.rail--histonly { grid-template-rows: 1fr; }
 .rail.rail--histonly .rail-card--raiox { display: none; }
 .hist-empty { padding: 16px 12px; font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-mute); text-align: center; line-height: 1.5; }
-@media (max-width: 1180px) { .workfull { grid-template-columns: 1fr; } .rail { min-height: 46vh; } }
+@media (max-width: 1180px) { .workfull { grid-template-columns: 1fr; grid-template-rows: none; } .rail { min-height: 46vh; } }
 
 /* ── Partner body: coluna única dentro da colmain (o rail saiu daqui p/ o grid) ── */
 .partner-body {
@@ -689,6 +693,34 @@ html.embedded .sidebar { display: none; }
 .capbox__area { flex: 1; min-height: 78px !important; height: auto !important; resize: none; background: rgba(0,0,0,.15); }
 .cap__bar { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 2px; }
 .cap__sp { flex: 1; }
+
+/* ── Item 5: recolher a captura ──
+   Colapsa as duas caixas de intake (texto | imagem) para devolver altura à grade em
+   telas baixas. A barra de ação (#Processar, Limpar, SharpenUp, Captura) continua viva. */
+#upload-section.cap-recolhida .cap__inputs { display: none; }
+
+/* ── Item 4: compactação por altura ──
+   Em monitores baixos (ultrawide ~1080px, 23") o topo fixo espremia a grade a ~3 linhas.
+   Aqui só encolhemos padding/altura do intake e dos tiles — mesma linguagem visual, mais
+   linhas. Nada de cor/dinheiro; apenas dimensões (px, como o resto do arquivo). */
+@media (max-height: 860px) {
+  .arow { gap: 12px; }
+  .tile { min-height: 56px; padding: 11px 13px; }
+  .input-section { padding: 12px 14px; gap: 8px; }
+  .capbox { min-height: 118px; padding: 12px; gap: 9px; }
+  .capbox__body { min-height: 60px; }
+  .capbox__area { min-height: 60px !important; }
+}
+@media (max-height: 720px) {
+  .tile { min-height: 48px; padding: 9px 12px; }
+  .tile .val { padding-top: 6px; }
+  .input-section { padding: 10px 12px; gap: 7px; }
+  .capbox { min-height: 92px; padding: 10px; gap: 7px; }
+  .capbox__icon { width: 32px; height: 32px; }
+  .capbox__hd .h { display: none; }
+  .capbox__body { min-height: 46px; }
+  .capbox__area { min-height: 46px !important; }
+}
 .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .btn {
   padding: 10px 16px; border-radius: var(--r-sm);
@@ -1723,6 +1755,9 @@ td.c-res.res-HL { color: var(--warn); }
             <span id="img-count" style="display:none;font-size:11px;color:var(--ink-soft);font-family:var(--font-mono)"></span>
             <span id="ext-status" style="font-size:11px;color:var(--ink-soft)"></span>
             <span class="status-msg" id="status-msg"></span>
+            <!-- Item 5: recolher/expandir a área de captura (mais linhas na grade em telas baixas). -->
+            <span class="cap__sp"></span>
+            <button class="btn btn-ghost btn-sm" id="btn-recolher-cap" type="button" aria-expanded="true" title="Recolher a área de captura para dar mais espaço à lista de apostas">Recolher captura</button>
           </div>
         </div>
 
@@ -5665,6 +5700,32 @@ function setupColResize(table, storageKey) {
 setupBtblResize();
 carregarUsuario();
 carregarCasas();
+</script>
+<!-- Item 5: toggle "Recolher captura" — isolado, sem tocar em nenhum handler/id existente.
+     Preferência em localStorage; default recolhido quando a viewport é baixa (< 820px). -->
+<script>
+(function(){
+  var sec = document.getElementById('upload-section');
+  var btn = document.getElementById('btn-recolher-cap');
+  if (!sec || !btn) return;
+  var KEY = 'sharpen_cap_recolhida';
+  function pintar(recolhida){
+    btn.textContent = recolhida ? 'Expandir captura' : 'Recolher captura';
+    btn.setAttribute('aria-expanded', recolhida ? 'false' : 'true');
+  }
+  function aplicar(recolhida, persistir){
+    sec.classList.toggle('cap-recolhida', recolhida);
+    pintar(recolhida);
+    if (persistir) { try { localStorage.setItem(KEY, recolhida ? '1' : '0'); } catch(e){} }
+  }
+  var salvo = null;
+  try { salvo = localStorage.getItem(KEY); } catch(e){}
+  var inicial = (salvo === null) ? (window.innerHeight < 820) : (salvo === '1');
+  aplicar(inicial, false);
+  btn.addEventListener('click', function(){
+    aplicar(!sec.classList.contains('cap-recolhida'), true);
+  });
+})();
 </script>
 </body>
 </html>
