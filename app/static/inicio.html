@@ -71,6 +71,18 @@ h1 { font-size: 28px; font-weight: 800; letter-spacing: -.035em; margin: 8px 0 0
 .ph .tick { width: 3px; height: 15px; border-radius: 3px; background: var(--accent); flex: none; }
 .ph h3 { margin: 0; font-size: 13px; font-weight: 700; color: var(--accent-2); }
 .ph .meta { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); }
+/* Novidades: faixa larga de anúncios de release (dev-controlada, mesma p/ todos os donos).
+   Reusa a casca .panel/.ph; badge "novo" some depois que o dono vê (localStorage por dono). */
+.novidades { margin-bottom: 2px; }
+.novidades .ph .nv-new { font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); background: rgba(var(--accent-rgb), .14); border-radius: 999px; padding: 2px 8px; }
+.nvlist { display: flex; flex-direction: column; }
+.nvrow { display: flex; gap: 13px; padding: 13px 18px; border-bottom: 1px solid var(--line); }
+.nvrow:last-child { border-bottom: 0; }
+.nvrow .nv-date { font-family: var(--font-mono); font-size: 10px; color: var(--ink-mute); white-space: nowrap; min-width: 42px; padding-top: 3px; }
+.nvrow .nv-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.nvrow .nv-tag { align-self: flex-start; font-family: var(--font-mono); font-size: 10px; letter-spacing: .03em; color: var(--accent-2); background: rgba(var(--accent-rgb), .10); border: 1px solid rgba(var(--accent-rgb), .28); border-radius: var(--r-sm); padding: 1px 8px; }
+.nvrow .nv-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.nvrow .nv-text { font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
 .plist { display: flex; flex-direction: column; }
 /* Painel "Apostas em Aberto": lista cresce e rola por dentro para o rodapé
    (Capital em aberto) ficar fixo na base do box; excedente vira toggle. */
@@ -169,6 +181,11 @@ h1 { font-size: 28px; font-weight: 800; letter-spacing: -.035em; margin: 8px 0 0
     <div class="kpi"><div class="k">P/L do mês</div><div class="v" id="kpi-pl-mes">—</div><div class="d" id="kpi-pl-mes-d">—</div></div>
     <div class="kpi"><div class="k">Apostas em aberto</div><div class="v acc" id="kpi-aberto">—</div><div class="d" id="kpi-aberto-d">—</div></div>
     <div class="kpi"><div class="k">Contas ativas</div><div class="v plain" id="kpi-contas">—</div><div class="d" id="kpi-contas-d">—</div></div>
+  </div>
+
+  <div class="panel novidades" id="novidades" style="display:none">
+    <div class="ph"><span class="tick"></span><h3>Novidades</h3><span class="nv-new" id="nv-new" hidden>novo</span><span class="meta">atualizações do Sharpen</span></div>
+    <div class="nvlist" id="nv-list"></div>
   </div>
 
   <div class="body">
@@ -295,6 +312,38 @@ function destaques(map,noun,kind){
   return lbCol(up,true,kind,noun)+lbCol(down,false,kind,noun);
 }
 
+// ── Novidades ────────────────────────────────────────────────────────────────
+// Changelog dev-controlado (mesmo p/ todos os donos). Nova entrada no TOPO a cada
+// release. `data` = 'AAAA-MM-DD'. O painel some sozinho quando não há entrada recente
+// (janela NOV_DIAS); o badge "novo" some depois que o dono vê (localStorage por dono).
+const NOVIDADES=[
+  {id:'sharpenup-050-pinnacle', data:'2026-07-21', tag:'SharpenUp v0.5.0', titulo:'Extração da Pinnacle',
+   texto:'O SharpenUp agora puxa seus bilhetes da Pinnacle automaticamente — abertas e encerradas numa rodada só. Baixe a nova versão em Extração › Conectar SharpenUp.'},
+];
+const NOV_DIAS=45;   // janela de recência: a novidade some da home depois disso
+function novSeenLoad(dono){try{return new Set(JSON.parse(localStorage.getItem('sharpen_novidades_seen::'+(dono||'_'))||'[]'));}catch(e){return new Set();}}
+function novSeenSave(dono,set){try{localStorage.setItem('sharpen_novidades_seen::'+(dono||'_'),JSON.stringify([...set]));}catch(e){}}
+function renderNovidades(dono){
+  const lim=Date.now()-NOV_DIAS*24*3600*1000;
+  const vis=NOVIDADES.filter(n=>{const t=Date.parse(n.data);return isNaN(t)||t>=lim;});
+  if(!vis.length)return;   // nada recente → painel fica escondido
+  const seen=novSeenLoad(dono);
+  const temNovo=vis.some(n=>!seen.has(n.id));
+  el('nv-list').innerHTML=vis.map(n=>{
+    // Data pt-BR direto da string (fuso local, nunca UTC — senão 21/07 vira 20/07 à noite no BR).
+    const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(n.data||''); const dl=m?(m[3]+'/'+m[2]):'';
+    return '<div class="nvrow"><div class="nv-date">'+esc(dl)+'</div><div class="nv-body">'+
+      (n.tag?'<span class="nv-tag">'+esc(n.tag)+'</span>':'')+
+      (n.titulo?'<span class="nv-title">'+esc(n.titulo)+'</span>':'')+
+      (n.texto?'<span class="nv-text">'+esc(n.texto)+'</span>':'')+
+      '</div></div>';
+  }).join('');
+  const badge=el('nv-new'); if(badge)badge.hidden=!temNovo;
+  el('novidades').style.display='';
+  // Marca as visíveis como vistas → o badge some na PRÓXIMA visita (não nesta).
+  vis.forEach(n=>seen.add(n.id)); novSeenSave(dono,seen);
+}
+
 async function boot(){
   const now=new Date();
   el('eyebrow').textContent=(now.toLocaleDateString('pt-BR',{weekday:'long'})+' · '+now.getDate()+' de '+MESES[now.getMonth()]).toUpperCase();
@@ -302,6 +351,7 @@ async function boot(){
   const me=await jget('/me')||{};
   const dono=me.dono_efetivo||me.usuario||'';
   el('greet').textContent=saudacao(now.getHours())+', '+(dono||'operador')+'.';
+  renderNovidades(dono);
 
   const [feed,abertasResp,parcResp,incompletos]=await Promise.all([
     jget('/dashboard/data'),
