@@ -87,7 +87,11 @@ _ALLOWED_IMG_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 # página conta como 1 imagem no teto _MAX_IMGS.
 _MAX_PDF_BYTES = 25 * 1024 * 1024     # 25 MB por PDF
 _MAX_PDF_PAGES = _MAX_IMGS            # nº de páginas renderizadas por PDF = teto de imagens
-_PDF_RENDER_ZOOM = 2.0                # ~150 dpi: nítido para OCR do modelo sem estourar bytes
+_PDF_RENDER_ZOOM = 2.0                # zoom-alvo (~150 dpi) para página tamanho carta/A4
+_PDF_MAX_LONG_PX = 2400              # teto do lado maior do PNG: página gigante (pôster,
+                                     # export largo) NÃO é renderizada a 2.0x — o zoom cai
+                                     # para caber aqui. Evita bitmap gigante que trava/estoura
+                                     # memória e derrubava o request com 500.
 
 # Retry com backoff exponencial para picos da API Anthropic (overloaded 529 / rate-limit 429).
 _RETRY_MAX = 4          # tentativas extras além da primeira
@@ -1444,7 +1448,13 @@ def _pdf_para_blocos_imagem(raw: bytes, nome: str) -> list[dict]:
     """Renderiza cada página de um PDF em PNG e devolve blocos de imagem no formato
     do payload da Anthropic (base64). Reaproveita todo o pipeline de imagem: cada
     página vira um "screenshot" como se tivesse sido colado. Import de fitz (PyMuPDF)
-    é preguiçoso — se a lib faltar, o erro é claro em vez de derrubar o boot do app."""
+    é preguiçoso — se a lib faltar, o erro é claro em vez de derrubar o boot do app.
+
+    Blindagem (uma página ruim NÃO pode derrubar o request com 500):
+    - zoom adaptativo: página grande (pôster/export largo) cai de resolução para caber
+      em _PDF_MAX_LONG_PX — sem isso o bitmap explode e trava/estoura memória;
+    - cada página é renderizada em try/except: página que falha é pulada, não aborta;
+    - se NENHUMA página rende, devolve 400 limpo em vez de estourar."""
     try:
         import fitz  # PyMuPDF
     except ImportError:
@@ -1455,26 +1465,48 @@ def _pdf_para_blocos_imagem(raw: bytes, nome: str) -> list[dict]:
     except Exception:
         raise HTTPException(400, f"PDF ilegível ou corrompido: '{nome}'.")
 
-    if doc.page_count > _MAX_PDF_PAGES:
-        doc.close()
-        raise HTTPException(413, f"PDF '{nome}' tem {doc.page_count} páginas; máximo de {_MAX_PDF_PAGES} por envio.")
+    # PDF com senha: tenta abrir sem senha; se exigir, erro claro (não 500).
+    if getattr(doc, "needs_pass", False):
+        if not doc.authenticate(""):
+            doc.close()
+            raise HTTPException(400, f"PDF '{nome}' está protegido por senha — remova a proteção e reenvie.")
 
-    matriz = fitz.Matrix(_PDF_RENDER_ZOOM, _PDF_RENDER_ZOOM)
+    if doc.page_count > _MAX_PDF_PAGES:
+        n = doc.page_count
+        doc.close()
+        raise HTTPException(413, f"PDF '{nome}' tem {n} páginas; máximo de {_MAX_PDF_PAGES} por envio. Divida o extrato em partes menores.")
+
     blocos: list[dict] = []
+    falhas = 0
     try:
-        for pagina in doc:
-            pix = pagina.get_pixmap(matrix=matriz)
-            png = pix.tobytes("png")
-            blocos.append({
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/png",
-                    "data": base64.standard_b64encode(png).decode(),
-                },
-            })
+        for i in range(doc.page_count):
+            try:
+                pagina = doc[i]
+                rect = pagina.rect
+                lado_maior_pt = max(rect.width, rect.height) or 1.0
+                # zoom-alvo 2.0x, mas nunca a ponto de o lado maior passar de _PDF_MAX_LONG_PX.
+                zoom = min(_PDF_RENDER_ZOOM, _PDF_MAX_LONG_PX / lado_maior_pt)
+                zoom = max(zoom, 0.5)  # piso: página gigantesca ainda sai legível
+                pix = pagina.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+                png = pix.tobytes("png")
+                blocos.append({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": base64.standard_b64encode(png).decode(),
+                    },
+                })
+            except Exception:
+                falhas += 1
+                logger.exception("pdf '%s': falha ao renderizar página %d (pulada)", nome, i + 1)
     finally:
         doc.close()
+
+    if not blocos:
+        raise HTTPException(400, f"Não foi possível renderizar nenhuma página do PDF '{nome}'.")
+    if falhas:
+        logger.warning("pdf '%s': %d página(s) pulada(s) por erro de renderização", nome, falhas)
     return blocos
 
 
