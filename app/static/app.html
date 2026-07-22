@@ -292,17 +292,26 @@ body::before {
   // que mora o painel "Apostas em Aberto" da carteira de planilha ao vivo, o retrato
   // que mais envelhece (cache do Apps Script, 30 min). Com a Extração aberta, cai no
   // Dashboard (se já carregado) ou no Início, pra o botão nunca ficar morto.
-  function refreshTarget(){
-    var ordem = current.app === 'inicio' ? [frInicio, frDash]
-              : current.app === 'dash'   ? [frDash, frInicio]
-              :                            [frDash, frInicio];
-    for (var i = 0; i < ordem.length; i++){
-      var fr = ordem[i];
-      if (fr === frDash && !dashLoaded) continue;   // Dashboard ainda não abriu
-      try { if (fr.contentWindow && fr.contentWindow.loadData) return fr; } catch(e){}
-    }
-    return null;
+  function temLoadData(fr){
+    if (fr === frDash && !dashLoaded) return false;        // Dashboard ainda não abriu
+    try { return !!(fr.contentWindow && fr.contentWindow.loadData); } catch(e){ return false; }
   }
+  // Fila do ↻: o app VISÍVEL na frente, os demais carregados atrás. A ordem não é
+  // cosmética — só o 1º leva force=true (`?refresh=1`), que reconstrói a planilha
+  // no Apps Script E preenche o cache de 120s do backend; os outros vêm em seguida
+  // sem force e caem nesse cache recém-cheio (mesmo dado fresco, sem pagar de novo
+  // os ~10-20s da reconstrução). Invertida, a fila serviria cache velho aos demais
+  // e o clique pareceria ter funcionado sem ter atualizado nada além da tela ativa.
+  function refreshQueue(){
+    var vis = current.app === 'inicio' ? frInicio : current.app === 'dash' ? frDash : frPlan;
+    var fila = [];
+    if (temLoadData(vis)) fila.push(vis);
+    [frInicio, frPlan, frDash].forEach(function(fr){
+      if (fr !== vis && temLoadData(fr)) fila.push(fr);
+    });
+    return fila;
+  }
+  function refreshTarget(){ return refreshQueue()[0] || null; }
   function readBuilt(fr){ try { return (fr || frDash).contentWindow._dataBuiltMs || 0; } catch(e){ return 0; } }
   function paintSync(){
     if (!lastUpdateEl) return;
@@ -318,16 +327,23 @@ body::before {
   }
   if (refreshBtn) refreshBtn.addEventListener('click', function(){
     if (refreshBtn.disabled) return;
-    var alvo = refreshTarget();
-    if (!alvo) return;                                        // nenhum app com base carregado ainda
+    var fila = refreshQueue();
+    if (!fila.length) return;                                 // nenhum app com base carregado ainda
     setRefreshing(true);
     var t0 = Date.now();
     var finish = function(){                                  // duração mínima p/ não piscar
       var wait = 600 - (Date.now() - t0); if (wait < 0) wait = 0;
       setTimeout(function(){ setRefreshing(false); paintSync(); }, wait);
     };
-    var p; try { p = alvo.contentWindow.loadData(true); } catch(e){ finish(); return; }
-    Promise.resolve(p).then(finish, finish);                  // loadData resolve mesmo em erro (trata interno)
+    var chamar = function(fr, force){                         // erro de um app não derruba os outros
+      try { return Promise.resolve(fr.contentWindow.loadData(force)).catch(function(){}); }
+      catch(e){ return Promise.resolve(); }
+    };
+    // 1º com force (reconstrói + enche o cache) → depois os demais em paralelo, do cache.
+    chamar(fila[0], true).then(function(){
+      var resto = fila.slice(1).map(function(fr){ return chamar(fr, false); });
+      return resto.length ? Promise.all(resto) : null;
+    }).then(finish, finish);
   });
   // Mantém "último sync" vivo (1ª carga do Dashboard, refresh manual ou revalidação
   // em 2º plano). Barato: só lê um número do iframe a cada 3s.

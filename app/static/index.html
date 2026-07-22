@@ -3071,10 +3071,14 @@ function renderPainelContas() {
 // Dashboard). Só usada para stats de atividade por conta (duração/dias/nº) — NÃO
 // traz P/L, ROI, turnover nem win rate (aqui é informativo de contas, não financeiro).
 let painelDashRows = null, _painelDashPromise = null;
-function ensureDashRows() {
+function ensureDashRows(force) {
+  // `force` só vem do ↻ da casca (app.html): sem ele este cache dura a SESSÃO
+  // inteira e o painel de atividade envelhece até o F5. Descartar antes de
+  // buscar é o que faz o clique valer aqui também.
+  if (force) { painelDashRows = null; _painelDashPromise = null; }
   if (painelDashRows) return Promise.resolve(painelDashRows);
   if (_painelDashPromise) return _painelDashPromise;
-  _painelDashPromise = fetch('/dashboard/data')
+  _painelDashPromise = fetch('/dashboard/data' + (force ? '?refresh=1' : ''))
     .then(r => r.ok ? r.json() : { data: [] })
     .then(j => { painelDashRows = (j && j.data) || []; return painelDashRows; })
     .catch(() => { painelDashRows = []; return painelDashRows; });
@@ -3087,8 +3091,23 @@ function _diasEntre(minISO, maxISO) {
   return isFinite(d) && d > 0 ? d : 0;
 }
 
-async function renderPainelAtividade() {
-  const rows = await ensureDashRows();
+/* Contrato com a casca (app.html): mesmo nome/assinatura do loadData do Início e
+   do Dashboard, então o ↻ trata os três iframes igual. Aqui a base do feed serve
+   só ao painel de atividade das contas (informativo, sem P/L) — se o painel não
+   estiver na tela, basta invalidar o cache: a próxima abertura busca fresco.
+   Resolve SEMPRE (ensureDashRows já engole erro de rede), pra não prender o botão. */
+window.loadData = function (force) {
+  // Invalida SEMPRE, com ou sem force: aqui o cache é de sessão (não tem TTL), então
+  // um clique sem force que o preservasse devolveria o mesmo dado velho de sempre —
+  // o `force` só decide se o backend reconstrói a planilha (`?refresh=1`) ou serve o
+  // cache de 120s que o 1º da fila acabou de encher.
+  painelDashRows = null; _painelDashPromise = null;
+  if (!document.getElementById('painelAtividade')) return Promise.resolve();  // painel fechado
+  return renderPainelAtividade(force).catch(function () {});
+};
+
+async function renderPainelAtividade(force) {
+  const rows = await ensureDashRows(force);
   const host = document.getElementById('painelAtividade');
   if (!host) return;   // painel pode ter re-renderizado durante o fetch
   const map = {};   // casa||parceiro -> agregado por conta
