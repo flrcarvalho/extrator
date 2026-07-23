@@ -323,6 +323,10 @@ _ID_SUPERBET_RE = re.compile(r"\[Código:\s*([0-9A-Za-z]{3,6}-[0-9A-Za-z]{4,8})\
 # (ex.: 189070937). Também só valida por claim exato (o gate _ID_MINLEN=16 barra o snap
 # por edit-distance nesses ~9 dígitos → código errado vira "incerto", nunca é corrompido).
 _ID_BETESPORTE_RE = re.compile(r"\[Código:\s*(\d{6,12})\]")
+# Betfair (captura bf_inject): o marcador traz o ID de aposta no formato `O/conta/seq`
+# (ex.: O/25146258/0001775). Usado só como GABARITO de cobertura — ver nota em
+# `codigos_do_texto` sobre por que ele NÃO entra no snap de `corrigir_codigos_tsv`.
+_ID_BETFAIR_RE = re.compile(r"\[Código:\s*(O/\d{4,12}/\d{4,12})\]")
 _ID_MINLEN = 16    # ID muito curto = a IA truncou demais → irrecuperável, não arrisca
 _ID_MARGIN = 3     # o ID real mais próximo tem de ganhar do 2º por ≥3 (senão ambíguo)
 _ID_MAXDIST = 8    # acima disso a leitura destruiu o número → não confia no snap
@@ -356,7 +360,11 @@ def codigos_do_texto(texto: str | None) -> list[str]:
     if not texto:
         return []
     achados: list[tuple[int, str]] = []
-    for rx in (_ID_TEXTO_RE, _ID_SUPERBET_RE, _ID_BETESPORTE_RE):
+    # `_ID_BETFAIR_RE` entra AQUI e não no `corrigir_codigos_tsv`: aqui o código só é
+    # lido como gabarito (comparação exata); lá ele viraria alvo de snap por
+    # edit-distance — o `O/…` tem 18 chars, passaria do gate `_ID_MINLEN` e mudaria o
+    # comportamento do id-fix da Betfair, que é outro assunto.
+    for rx in (_ID_TEXTO_RE, _ID_SUPERBET_RE, _ID_BETESPORTE_RE, _ID_BETFAIR_RE):
         achados.extend((m.start(), m.group(1).strip()) for m in rx.finditer(texto))
     achados.sort(key=lambda p: p[0])
     vistos: set[str] = set()

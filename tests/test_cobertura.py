@@ -58,6 +58,25 @@ def test_codigos_do_texto_em_ordem_sem_repetir():
     assert codigos_do_texto(_texto()) == CODS
 
 
+def test_gabarito_cobre_os_formatos_reais_de_cada_casa():
+    """Formatos conferidos contra os códigos que estão no banco em produção.
+    Bet365 fica de fora de propósito (formato `JR8714690761I`, robô em obra na s178)."""
+    reais = {
+        "Superbet":   "891L-YJ3VAH",
+        "Betano":     "20675937607",
+        "Pinnacle":   "3089350167",
+        "BETesporte": "190989817",
+        "Betfair":    "O/25146258/0001775",
+    }
+    for casa, cod in reais.items():
+        assert codigos_do_texto(f"[Código: {cod}]\nData: 21/07/2026") == [cod], casa
+
+
+def test_gabarito_ignora_codigo_bet365():
+    # Sem gabarito → conferência vira no-op; não gera falso "faltante".
+    assert codigos_do_texto("[Código: JR8714690761I]") == []
+
+
 def test_codigos_do_texto_sem_marcador_e_vazio():
     # Bet365 / prints: sem [Código:] não há gabarito → a conferência vira no-op.
     assert codigos_do_texto("[Bilhete Bet365]\nalgo aqui") == []
