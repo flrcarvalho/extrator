@@ -156,6 +156,7 @@
   const b3ById = new Map();          // bsid(string) → bilhete mesclado (summary + confirmation)
   let b3FimReal = false;
   let b3HookVivo = false;
+  let b3Driver = null;               // {feitos,pulados,falhas} do driver de UI (autodiagnóstico)
   // Um inject POR FRAME responde (a área de membros da Bet365 é outra origem, em iframe).
   // Guardar por `href` em vez de uma variável única: com 2 frames, o último a falar
   // sobrescreveria o contador do outro — o top diria 0 e apagaria as respostas do iframe.
@@ -174,17 +175,46 @@
         for (const t of d.bets) { if (t && t.bsid) b3ById.set(String(t.bsid), t); }
       }
       if (d.fim) b3FimReal = true;
+      if (d.driver) b3Driver = d.driver;
     }
   });
   // Pede o acumulado + arranca o replay. Posta na própria window E em cada frame filho —
   // quem enxerga as chamadas da API é o inject dentro do iframe de `members.bet365.bet.br`,
   // e o postMessage do content só alcança a própria window. Cada inject repassa adiante.
-  function b3Pedir(dias) {
-    const msg = { __sharpenupB3Req: true, dias: dias, saltos: 0 };
+  // `acao:"detalhar"` manda o inject abrir "Detalhes da Aposta" bilhete a bilhete — é o único
+  // jeito de obter o código BR (só a página consegue chamar o /confirmation: o token
+  // x-net-sync-term é exigido e rotaciona; provado na s178). `jaTem` = bsids já detalhados em
+  // rodadas anteriores, p/ o driver pular e não pagar o clique de novo.
+  function b3Pedir(dias, acao, jaTem) {
+    const msg = { __sharpenupB3Req: true, dias: dias, acao: acao || "", jaTem: jaTem || [], saltos: 0 };
     try { window.postMessage(msg, "*"); } catch (e) {}
     for (let i = 0; i < window.frames.length && i < 24; i++) {
       try { window.frames[i].postMessage(msg, "*"); } catch (e) {}
     }
+  }
+  // Memória do DETALHE já obtido, por bsid: { code, da, legs }. Guarda o CONTEÚDO, não só a
+  // marca de "já visto" — pular o clique sem ter o código faria o bilhete sair com
+  // `[Código: ]` vazio e sem mercado/liga na 2ª rodada, e o UPSERT trocaria dado bom por pior.
+  // Só entra quem foi capturado RESOLVIDO: bilhete detalhado enquanto aberto pode virar
+  // cashout, e o bloco "Encerrar Aposta" só aparece no confirmation depois que ele resolve.
+  const B3_MEM = "b3Detalhes";
+  const B3_MEM_MAX = 3000;
+  async function b3Lembrados() {
+    try {
+      const c = await chrome.storage.local.get([B3_MEM]);
+      return (c[B3_MEM] && typeof c[B3_MEM] === "object") ? c[B3_MEM] : {};
+    } catch (e) { return {}; }
+  }
+  async function b3Lembrar(novos) {
+    try {
+      const mapa = await b3Lembrados();
+      for (const k in novos) mapa[k] = novos[k];
+      const chaves = Object.keys(mapa);
+      if (chaves.length > B3_MEM_MAX) {                       // poda os mais antigos
+        for (const k of chaves.slice(0, chaves.length - B3_MEM_MAX)) delete mapa[k];
+      }
+      await chrome.storage.local.set({ [B3_MEM]: mapa });
+    } catch (e) {}
   }
 
   function bladeSVG(w, h) {
@@ -1445,11 +1475,15 @@
     return L.join("\n");
   }
 
-  // Modo passivo + REPLAY ATIVO (dado vem do b3_inject: exato, com código BR). Não rola lista: o
-  // inject re-emite as duas listas (resolvidas na janela de dias + abertas todas) e busca o detalhe
-  // de cada bilhete. O robô só espera o fim (`b3FimReal`) e formata. Dedup/estado por código → o
-  // backend faz UPSERT (aberta→resolvida na mesma linha). Os detalhes chegam DEPOIS do summary, por
-  // isso os blocos são reconstruídos do estado final ao terminar.
+  // Modo passivo + DRIVER DE UI. O `b3_inject` (que roda DENTRO do iframe de membros, onde a
+  // lista existe) escuta as respostas que a página baixa e, a pedido, abre "Detalhes da Aposta"
+  // de cada bilhete — é o clique que faz a página pedir o `/confirmation`, de onde vêm o código
+  // BR, jogo, mercado, liga e kickoff. Não dá para chamar a API direto: o token
+  // `x-net-sync-term` é exigido e rotaciona por requisição (provado ao vivo na s178).
+  // O robô aqui só coordena: pede, acompanha o contador e formata o estado final.
+  // JANELA: use "Últimas 24/48 horas" na tela. Ao voltar de um detalhe a lista reinicia no topo
+  // e perde as páginas carregadas, então lista curta = captura rápida; lista longa = o driver
+  // para no fim da 1ª página e avisa (melhor que rolar n² vezes).
   async function roboBet365Passive(ctx) {
     let travado = false;
     const N = Math.max(1, Math.round((Date.now() - ctx.cutoff) / 86400000));
@@ -1462,26 +1496,56 @@
       }
       ctx.painel.contador.textContent = n + " bilhete" + (n === 1 ? "" : "s");
     };
+    // Progresso = bilhetes vistos + bilhetes que já ganharam código. Enquanto o driver abre os
+    // detalhes a QUANTIDADE não cresce (só o conteúdo) — medir só o tamanho faria o timeout de
+    // inatividade matar o robô no meio da varredura.
+    const progresso = () => {
+      let n = 0;
+      for (const t of b3ById.values()) if (t.code) n++;
+      return b3ById.size + n;
+    };
 
-    // Pede ao b3_inject o acumulado + arranca o replay (janela de dias das resolvidas).
-    b3Pedir(N);
-    await sleep(500);
+    b3Pedir(N);                                   // 1º: recolhe o que o inject já viu
+    await sleep(600);
     contar();
+    const lembrados = await b3Lembrados();         // { bsid: {code,da,legs} } de rodadas anteriores
+    b3Pedir(N, "detalhar", Object.keys(lembrados)); // 2º: manda abrir os detalhes que faltam
 
-    let voltas = 0, ultTotal = -1, ultCresceu = Date.now();
-    while (!ctx.parar() && !travado && !b3FimReal && voltas < 900) {
+    let voltas = 0, ultProg = -1, ultCresceu = Date.now();
+    while (!ctx.parar() && !travado && !b3FimReal && voltas < 3000) {
       voltas++;
       await sleep(500);
-      // Re-pede a cada ~5s enquanto nada chegou: o iframe de membros pode montar DEPOIS do
-      // clique em "Copiar bilhetes" (ou o usuário navegar para o Histórico com o robô já
-      // rodando) — um pedido único perderia esse frame para sempre.
-      if (voltas % 10 === 0 && !b3ById.size) b3Pedir(N);
+      // Re-pede enquanto nada chegou: o iframe de membros pode montar DEPOIS do clique em
+      // "Copiar bilhetes" (ou o usuário navegar para o Histórico com o robô já rodando).
+      if (voltas % 20 === 0 && !b3ById.size) b3Pedir(N, "detalhar", lembrados);
       contar();
       if (travado) break;
-      if (b3ById.size > ultTotal) { ultTotal = b3ById.size; ultCresceu = Date.now(); }
-      else if (Date.now() - ultCresceu > 20000) break;   // 20s parado, sem fim → desiste
+      const p = progresso();
+      if (p > ultProg) { ultProg = p; ultCresceu = Date.now(); }
+      else if (Date.now() - ultCresceu > 30000) break;   // 30s sem progresso → desiste
     }
     await sleep(400);
+
+    // Re-hidrata o que o driver pulou: o detalhe não voltou nesta rodada, mas está guardado.
+    // Sem isto o bilhete pulado sairia sem código e sem mercado/liga.
+    for (const t of b3ById.values()) {
+      if (t.code) continue;
+      const m = lembrados[String(t.bsid)];
+      if (m) { t.code = m.code; t.da = m.da; t.legs = m.legs; }
+    }
+
+    // Memória: só bilhete RESOLVIDO com código entra. Aberto fica de fora de propósito — se
+    // resolver por cashout, o bloco "Encerrar Aposta" só aparece no confirmation depois, e
+    // pular o detalhe dele na próxima rodada perderia a data exata do encerramento.
+    const paraLembrar = {};
+    let novos = 0;
+    for (const t of b3ById.values()) {
+      if (!t.code || t.aberta !== false) continue;
+      if (lembrados[String(t.bsid)]) continue;
+      paraLembrar[String(t.bsid)] = { code: t.code, da: t.da, legs: t.legs || [] };
+      novos++;
+    }
+    if (novos) await b3Lembrar(paraLembrar);
 
     // Monta os blocos do ESTADO FINAL (os detalhes que chegaram por último já entraram).
     const blocos = [];
@@ -1489,9 +1553,17 @@
       if (ctx.stopId && t.code && String(t.code).toUpperCase() === ctx.stopId) break;   // até o já-exportado
       blocos.push(formatTicketB3(t));
     }
-    console.log("[SharpenUp] Bet365 API: " + blocos.length + " bilhete(s) · b3ById=" + b3ById.size +
-                " · hook=" + b3HookVivo + " · frames=" + b3PorFrame.size +
-                " · respostas=" + b3Soma("respostas") + " · fimReal=" + b3FimReal);
+    let comCodigo = 0;
+    for (const t of b3ById.values()) if (t.code) comCodigo++;
+    console.log("[SharpenUp] Bet365 API: " + blocos.length + " bilhete(s) · com código=" + comCodigo +
+                "/" + b3ById.size + " · hook=" + b3HookVivo + " · frames=" + b3PorFrame.size +
+                " · respostas=" + b3Soma("respostas") + " · fimReal=" + b3FimReal +
+                " · driver=" + (b3Driver ? JSON.stringify(b3Driver) : "não rodou"));
+    if (comCodigo < b3ById.size) {
+      console.log("[SharpenUp] Bet365: " + (b3ById.size - comCodigo) + " bilhete(s) SEM código BR — " +
+                  "provável lista longa demais (ao voltar de um detalhe ela reinicia no topo). " +
+                  "Use 'Últimas 24 horas' ou 'Últimas 48 horas' e rode de novo.");
+    }
     for (const [href, f] of b3PorFrame) {
       console.log("[SharpenUp] Bet365 frame " + (f.topo ? "TOPO" : "iframe") +
                   " · respostas=" + f.respostas + " · history=" + f.history + " · " + href.slice(0, 120));

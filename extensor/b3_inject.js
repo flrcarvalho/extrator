@@ -130,10 +130,13 @@
   // o inject do iframe gritando para dentro do iframe, sem ninguém ouvindo (sintoma: "Hook
   // ATIVO · respostas 0"). Por isso emitimos na própria window E no topo (postMessage
   // cross-origin é permitido). `href`/`topo` identificam o frame no autodiagnóstico.
-  function enviar() {
+  // `fim` = o driver deste frame terminou de abrir os detalhes (fim autoritativo, evita o
+  // robô ficar esperando o timeout de inatividade). `driver` = contadores p/ o log do content.
+  function enviar(fim, driver) {
     const msg = { __sharpenupB3Data: true, hook: true, href: location.href,
                   topo: window.top === window, bets: Array.from(byBsid.values()),
-                  respostas: respostas, history: outrasHistory };
+                  respostas: respostas, history: outrasHistory,
+                  fim: !!fim, driver: driver || null };
     try { window.postMessage(msg, "*"); } catch (e) {}
     try { if (window.top && window.top !== window) window.top.postMessage(msg, "*"); } catch (e) {}
   }
@@ -191,6 +194,89 @@
     if (outrasHistory <= 5) LOG("URL com 'history' fora do padrão:", u.slice(0, 200));
   }
 
+  // ── driver de UI (abre "Detalhes da Aposta" de cada bilhete) ───────────────────
+  // POR QUE AQUI E NÃO NO content.js: a lista do Histórico é renderizada DENTRO do iframe
+  // `members.bet365.bet.br` — outra origem. O `content.js` roda só no frame de cima
+  // (`all_frames:false`) e não alcança esse DOM. Este inject já roda dentro do iframe, então
+  // é ele quem clica. Nos frames que não têm a lista, `acharFolhas` volta vazio e o driver
+  // não faz nada — não precisa saber em qual frame está.
+  //
+  // POR QUE UM CLIQUE POR BILHETE: só a página consegue chamar o `confirmation` (o token
+  // `x-net-sync-term` é exigido e rotaciona). Abrir o detalhe é o gesto que a faz chamar.
+  //
+  // LIMITE CONHECIDO: ao clicar "Voltar" a lista **volta ao topo** e perde as páginas já
+  // carregadas (confirmado pelo Feca na s178). Por isso o driver trabalha na janela que o
+  // usuário deixou na tela — com "Últimas 24/48 horas" a lista cabe em ~1 página e o custo
+  // de voltar é ~zero. Se a janela for longa, ele avisa em vez de rolar n² vezes.
+  const MAX_DET = 400;            // teto de detalhes por rodada (trava de tempo)
+  let driverRodando = false;
+
+  function acharFolhas(txt) {
+    const out = [];
+    for (const el of document.querySelectorAll("div,span,a,button,li,p")) {
+      if (el.children.length) continue;                       // só nós-folha
+      if ((el.textContent || "").trim() === txt) out.push(el);
+    }
+    return out;
+  }
+  function clicar(el) { try { el.click(); return true; } catch (e) { return false; } }
+  const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Espera o confirmation daquele clique chegar (o `forward` preenche o `code`), com teto.
+  async function esperarDetalhe(antes, limiteMs) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < limiteMs) {
+      let comCodigo = 0;
+      for (const b of byBsid.values()) if (b.code) comCodigo++;
+      if (comCodigo > antes) return true;
+      await espera(150);
+    }
+    return false;
+  }
+
+  async function detalhar(jaTem) {
+    if (driverRodando) return;
+    driverRodando = true;
+    const conhecidos = new Set(jaTem || []);
+    let i = 0, feitos = 0, pulados = 0, falhas = 0;
+    try {
+      while (i < MAX_DET) {
+        const bots = acharFolhas("Detalhes da Aposta");
+        if (!bots.length) break;                              // frame sem lista, ou lista vazia
+        if (i >= bots.length) break;                          // fim do que está carregado
+        // A ordem dos cards na tela é a ordem em que os bilhetes vieram no summary, e o Map
+        // preserva ordem de inserção → o i-ésimo card é o i-ésimo bsid. Se o mapa errar, o
+        // pior caso é abrir um detalhe já conhecido: o confirmation traz o bsid REAL na URL,
+        // então o dado é guardado no lugar certo de qualquer jeito.
+        const bsid = Array.from(byBsid.keys())[i];
+        const t = bsid ? byBsid.get(bsid) : null;
+        // Guarda do BS=1: bilhete detalhado enquanto ABERTO precisa ser reaberto — o bloco de
+        // cashout ("Encerrar Aposta") só aparece no confirmation depois que ele resolve.
+        const jaFechado = t && t.code && t.aberta === false;
+        if (jaFechado || (bsid && conhecidos.has(bsid) && t && t.aberta === false)) { i++; pulados++; continue; }
+
+        let comCodigo = 0;
+        for (const b of byBsid.values()) if (b.code) comCodigo++;
+        if (!clicar(bots[i])) { i++; falhas++; continue; }
+        const ok = await esperarDetalhe(comCodigo, 8000);
+        if (!ok) falhas++; else feitos++;
+        enviar();
+        // Volta para a lista. Sem isto o próximo clique não existe (estamos na tela de detalhe).
+        const volta = acharFolhas("Voltar");
+        if (volta.length) clicar(volta[volta.length - 1]);
+        else { history.back(); }
+        await espera(900);
+        i++;
+      }
+    } catch (e) {
+      LOG("driver erro:", e && e.message);
+    } finally {
+      driverRodando = false;
+      LOG("driver: " + feitos + " detalhe(s) · " + pulados + " pulado(s) · " + falhas + " falha(s)");
+      enviar(true, { feitos: feitos, pulados: pulados, falhas: falhas });
+    }
+  }
+
   // O content script pede o acumulado ao iniciar o robô → re-envia tudo (a 1ª resposta pode ter
   // vindo no load, antes de o content estar ouvindo). Repassa aos frames FILHOS: o content só
   // alcança a própria window, e quem vê as chamadas é o inject dentro do iframe de membros.
@@ -200,10 +286,12 @@
     const saltos = (typeof d.saltos === "number" ? d.saltos : 0) + 1;
     if (saltos <= 4) {
       for (let i = 0; i < window.frames.length && i < 24; i++) {
-        try { window.frames[i].postMessage({ __sharpenupB3Req: true, saltos: saltos }, "*"); } catch (e) {}
+        try { window.frames[i].postMessage({ __sharpenupB3Req: true, acao: d.acao,
+                                             jaTem: d.jaTem, saltos: saltos }, "*"); } catch (e) {}
       }
     }
     enviar();
+    if (d.acao === "detalhar") detalhar(d.jaTem);
   });
 
   // ── fetch ──
