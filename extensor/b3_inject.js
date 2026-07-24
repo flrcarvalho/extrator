@@ -159,6 +159,10 @@
       if (!c) { LOG("confirmation sem BR (resposta inválida) · bsid", bsid); return false; }
       respostas++;
       if (bsid) mergeConf(bsid, c);
+      // DIAGNÓSTICO (s180): descobrir se dá pra abrir a confirmação por ROTA/ID, pulando a lista
+      // e o "Mostrar Mais" quebrado. Loga a rota do frame + a URL da API no momento em que a
+      // confirmação abre. Se a rota carregar o bsid, o robô navega direto em cada bilhete.
+      LOG("CONFIRM abriu · bsid=" + bsid + " · code=" + (c.br || "") + " · rota=" + location.href + " · api=" + String(u).slice(0, 220));
       enviar();
       return true;
     }
@@ -216,6 +220,9 @@
   // completa a janela; para "Últimas 24/48h" (lista curta) é rápido.
   const MAX_DET = 600;            // teto de detalhes por rodada (trava de tempo)
   let driverRodando = false;
+  let jaVarri = false;            // este frame já fez uma varredura completa → ignora re-pedidos
+                                  // (o content re-pede "detalhar"; sem isso, a 2ª rodada clica
+                                  //  bilhetes já com código e gasta 8s por falha à toa)
 
   // Seletores reais da área de Histórico (mapeados via Inspecionar, s180).
   const SEL_DETALHE = ".h-BetSummary_BetDetails";       // botão "Detalhes da Aposta" de cada card
@@ -228,6 +235,31 @@
   const qsa = (s) => Array.from(document.querySelectorAll(s));
   function clicar(el) { try { if (el) { el.click(); return true; } } catch (e) {} return false; }
   const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Clique "forte": o "Mostrar Mais" da bet365 NÃO responde ao .click() sintético (os botões
+  // "Detalhes"/"Voltar" respondem, este não) — precisa da sequência real de eventos de
+  // ponteiro/mouse. Mira o elemento realmente no topo daquelas coordenadas (caso o alvo do
+  // handler seja um filho/overlay do container).
+  function clicarForte(el) {
+    if (!el) return false;
+    try {
+      try { el.scrollIntoView({ block: "center" }); } catch (e) {}
+      const r = el.getBoundingClientRect();
+      const cx = Math.floor(r.left + r.width / 2), cy = Math.floor(r.top + r.height / 2);
+      const alvo = document.elementFromPoint(cx, cy) || el;
+      const base = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 0, buttons: 1 };
+      const seq = [["pointerover", 1], ["pointerenter", 1], ["mouseover", 0], ["pointerdown", 1],
+                   ["mousedown", 0], ["pointerup", 1], ["mouseup", 0], ["click", 0]];
+      for (const [tipo, ptr] of seq) {
+        let ev = null;
+        try { ev = ptr ? new PointerEvent(tipo, base) : new MouseEvent(tipo, base); }
+        catch (e) { try { ev = new MouseEvent(tipo, base); } catch (e2) { ev = null; } }
+        if (ev) { try { alvo.dispatchEvent(ev); } catch (e) {} }
+      }
+      try { if (typeof alvo.click === "function") alvo.click(); } catch (e) {}
+      return true;
+    } catch (e) { try { el.click(); return true; } catch (e2) { return false; } }
+  }
 
   // Botões de detalhe: classe primeiro; se a classe mudar de skin, cai no texto (nó-folha).
   function botoesDetalhe() {
@@ -251,6 +283,33 @@
     return null;
   }
   function temLista() { return !!(qs(SEL_LISTA) || botoesDetalhe().length); }
+
+  // "Mostrar Mais": classe primeiro, texto como fallback (nó-folha).
+  function botaoMais() {
+    const c = qs(SEL_MAIS);
+    if (c) return c;
+    for (const el of document.querySelectorAll("div,span,a,button")) {
+      if (el.children.length) continue;
+      const t = (el.textContent || "").trim().toLowerCase();
+      if (t === "mostrar mais" || t === "show more" || t === "carregar mais") return el.closest(SEL_MAIS) || el;
+    }
+    return null;
+  }
+
+  // Rola a lista até o FUNDO para materializar o "Mostrar Mais" — depois do "Voltar" a lista
+  // reinicia no topo e o botão do rodapé pode nem estar no DOM (só renderiza quando se rola até
+  // lá). Rola o último card à vista + a página + os ancestrais roláveis.
+  function rolarFundo() {
+    const cards = botoesDetalhe();
+    const alvo = cards.length ? cards[cards.length - 1] : qs(SEL_LISTA);
+    if (alvo) { try { alvo.scrollIntoView({ block: "end" }); } catch (e) {} }
+    try { (document.scrollingElement || document.documentElement).scrollTop = 1e7; } catch (e) {}
+    let el = alvo;
+    for (let i = 0; el && i < 8; i++) {
+      try { if (el.scrollHeight - el.clientHeight > 20) el.scrollTop = el.scrollHeight; } catch (e) {}
+      el = el.parentElement;
+    }
+  }
 
   // Espera surgir um código NOVO (o confirmation daquele clique chegou), com teto. Retorna
   // assim que chega — clique que produz código sai em ~1s, não nos 8s.
@@ -281,30 +340,62 @@
     return !!(qs(SEL_LISTA) || botoesDetalhe().length);
   }
 
+  // O nó do TEXTO "Mostrar Mais" dentro do wrapper (o wrapper tem 500px, o texto/handler fica só
+  // à esquerda — clicar o wrapper/centro não aciona).
+  function acharTextoMais(mais) {
+    if (mais && !mais.children.length && /mostrar mais/i.test(mais.textContent || "")) return mais;
+    if (mais) for (const el of mais.querySelectorAll("*")) {
+      if (el.children.length) continue;
+      if (/mostrar mais/i.test(el.textContent || "")) return el;
+    }
+    return mais;
+  }
+
+  // O "Mostrar Mais" da bet365 é BUGADO: falha até no clique humano — o Feca precisa clicar
+  // dezenas/centenas de vezes até carregar. Então MARTELAMOS: cliques rápidos mirando o NÓ DO
+  // TEXTO (não o wrapper vazio) até a lista crescer, com teto de tempo. É o mesmo que o humano
+  // faz, na velocidade da máquina.
+  async function acionarMais(mais, n) {
+    const alvo = acharTextoMais(mais);
+    const t0 = Date.now();
+    let cliques = 0;
+    while (Date.now() - t0 < 30000) {            // até 30s martelando ESTA página
+      try { alvo.click(); } catch (e) {}
+      clicarForte(alvo);                          // clique por coordenada NO TEXTO (centro do texto, não do wrapper)
+      cliques += 2;
+      await espera(50);
+      if (botoesDetalhe().length > n) { LOG("Mostrar Mais: OK após " + cliques + " clique(s) — " + n + " → " + botoesDetalhe().length); return true; }
+      if (cliques % 40 === 0) { enviar(false, { expandindo: true }); try { alvo.scrollIntoView({ block: "center" }); } catch (e) {} }
+    }
+    LOG("Mostrar Mais: FALHOU após " + cliques + " clique(s) em 30s (botão bugado da bet365)");
+    return false;
+  }
+
   // Carrega páginas via "Mostrar Mais" até haver MAIS de `alvo` botões de detalhe, ou até o
-  // "Mostrar Mais" sumir / parar de crescer (fim). Cada clique manda um ping (`enviar`) para o
-  // content não achar que travou durante a expansão (a contagem de bilhetes não cresce aí).
+  // "Mostrar Mais" sumir / parar de crescer (fim).
   async function revelarAte(alvo) {
     let estagnou = 0;
-    for (let passo = 0; passo < 200; passo++) {
+    for (let passo = 0; passo < 300; passo++) {
       const n = botoesDetalhe().length;
       if (n > alvo) return n;
-      const mais = qs(SEL_MAIS);
-      if (!mais) return n;                       // não há mais o que carregar
-      clicar(mais);
-      await espera(1000);
-      enviar(false, { expandindo: true });
-      const depois = botoesDetalhe().length;
-      if (depois <= n) { estagnou++; if (estagnou >= 2) return depois; } else estagnou = 0;
+      rolarFundo();                              // materializa o "Mostrar Mais" no rodapé
+      await espera(300);
+      const mais = botaoMais();
+      if (!mais) { LOG("Mostrar Mais: não encontrado (cards=" + n + ") = fim da lista"); return n; }
+      try { mais.scrollIntoView({ block: "center" }); } catch (e) {}
+      await espera(200);
+      const cresceu = await acionarMais(mais, n);
+      if (!cresceu) { LOG("Mostrar Mais: nenhum método carregou (cards=" + n + ")"); estagnou++; if (estagnou >= 2) return botoesDetalhe().length; }
+      else estagnou = 0;
     }
     return botoesDetalhe().length;
   }
 
   async function detalhar(jaTem) {
-    if (driverRodando) return;
+    if (driverRodando || jaVarri) return;
     if (!temLista()) return;                     // frame sem a lista não dirige
     driverRodando = true;
-    let feitos = 0, pulados = 0, falhas = 0, proc = 0;
+    let feitos = 0, pulados = 0, falhas = 0, proc = 0, falhasSeguidas = 0;
     try {
       await garantirLista();
       while (proc < MAX_DET) {
@@ -317,16 +408,64 @@
         let comCodigo = 0; for (const b of byBsid.values()) if (b.code) comCodigo++;
         if (!clicar(btn)) { falhas++; proc++; await garantirLista(); continue; }
         const ok = await esperarCodigo(comCodigo, 8000);
-        if (ok) feitos++; else falhas++;
+        if (ok) { feitos++; falhasSeguidas = 0; } else { falhas++; falhasSeguidas++; }
         enviar();
         await garantirLista();                   // clica "Voltar" e espera a lista voltar
         proc++;
+        // Aborta se 5 cliques seguidos não tiraram NENHUM código sem nunca ter tirado um: é
+        // frame errado (hidden/stale) ou tudo já capturado. Num frame bom o 1º clique já sai
+        // com código → nunca chega aqui. Evita queimar 40s+ à toa.
+        if (falhasSeguidas >= 5 && feitos === 0) { LOG("driver: abortado (5 falhas sem código — frame errado?)"); break; }
       }
     } catch (e) {
       LOG("driver erro:", e && e.message);
     } finally {
       driverRodando = false;
+      if (feitos > 0) jaVarri = true;            // só marca varrido se realmente trabalhou
       LOG("driver: " + feitos + " detalhe(s) · " + pulados + " pulado(s) · " + falhas + " falha(s)");
+      enviar(true, { feitos: feitos, pulados: pulados, falhas: falhas });
+    }
+  }
+
+  // ── DETALHAMENTO POR ROTA (s180 — o método bom) ───────────────────────────────
+  // Em vez de clicar "Detalhes" → Voltar → "Mostrar Mais", navega DIRETO para a rota da
+  // confirmação de cada bilhete: `#/HICO/BSSB/C<bsid>/D1/`. Provado ao vivo: essa rota carrega a
+  // confirmation (a própria página faz a chamada, com o token dela) e o hook captura o código BR
+  // + jogo/mercado/liga. NÃO mexe na lista → sem Voltar, sem reset, sem o "Mostrar Mais" bugado.
+  // A rota vem do próprio summary (campo `PD=#HICO#BSSB#C<id>#D1#`), mas basta o ID (bsid).
+  // Só o frame de membros (que capturou os summaries → `byBsid` populado) tem a hash do app.
+  let rotaRodando = false;
+  const _volta = { hash: "" };
+  async function detalharPorRota(jaTem) {
+    if (rotaRodando || jaVarri) return;
+    if (!byBsid.size) return;                      // frame sem summaries não é o de membros
+    rotaRodando = true;
+    const conhecidos = new Set(jaTem || []);
+    _volta.hash = location.hash || "";             // p/ voltar à lista no fim
+    let feitos = 0, pulados = 0, falhas = 0;
+    try {
+      const alvos = [];
+      for (const [bsid, t] of byBsid) {
+        if (t.code) continue;                      // já tem detalhe (rodada anterior/re-hidratado)
+        if (conhecidos.has(String(bsid))) { pulados++; continue; }
+        alvos.push(bsid);
+      }
+      LOG("rota: detalhando " + alvos.length + " bilhete(s) por hash");
+      for (const bsid of alvos) {
+        let antes = 0; for (const b of byBsid.values()) if (b.code) antes++;
+        try { location.hash = "#/HICO/BSSB/C" + bsid + "/D1/"; } catch (e) {}
+        const ok = await esperarCodigo(antes, 8000);
+        if (ok) feitos++; else falhas++;
+        enviar();
+        await espera(300);
+      }
+    } catch (e) {
+      LOG("rota erro:", e && e.message);
+    } finally {
+      try { location.hash = _volta.hash || "#/HISU/"; } catch (e) {}  // volta p/ a lista
+      rotaRodando = false;
+      if (feitos > 0) jaVarri = true;
+      LOG("driver(rota): " + feitos + " detalhe(s) · " + pulados + " pulado(s) · " + falhas + " falha(s)");
       enviar(true, { feitos: feitos, pulados: pulados, falhas: falhas });
     }
   }
@@ -345,7 +484,7 @@
       }
     }
     enviar();
-    if (d.acao === "detalhar") detalhar(d.jaTem);
+    if (d.acao === "detalhar") detalharPorRota(d.jaTem);   // rota por hash (não clica na lista)
   });
 
   // ── fetch ──
